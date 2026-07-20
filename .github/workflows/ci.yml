@@ -1,0 +1,78 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  release-gate:
+    name: Web release gate (Node ${{ matrix.node }})
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        node: [22.x, 24.x]
+    env:
+      CI: true
+      NPM_CONFIG_AUDIT: "false"
+      NPM_CONFIG_FUND: "false"
+      WRANGLER_SEND_METRICS: "false"
+    steps:
+      - name: Check out exact source
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          persist-credentials: false
+
+      - name: Use Node.js ${{ matrix.node }}
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: ${{ matrix.node }}
+          cache: npm
+
+      - name: Install the locked dependency graph
+        run: npm ci
+
+      - name: Run the complete release gate
+        run: npm run release:verify
+
+  native-gate:
+    name: Native release gate (Xcode 26.3)
+    runs-on: macos-15
+    timeout-minutes: 45
+    env:
+      DEVELOPER_DIR: /Applications/Xcode_26.3.app/Contents/Developer
+    steps:
+      - name: Check out exact source
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          persist-credentials: false
+
+      - name: Report the Apple toolchain
+        run: |
+          swift --version
+          xcodebuild -version
+
+      - name: Test the shared learning core
+        run: swift test --package-path ios/PasAPasCore
+
+      - name: Compile and test the native application package
+        run: swift test --package-path ios/PasAPas
+
+      - name: Test on an iOS Simulator without signing
+        run: >-
+          xcodebuild
+          -project ios/PasAPas/PasAPas.xcodeproj
+          -scheme PasAPas
+          -destination 'platform=iOS Simulator,name=iPhone 16 Pro,OS=latest'
+          CODE_SIGNING_ALLOWED=NO
+          test

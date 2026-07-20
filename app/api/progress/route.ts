@@ -4,6 +4,8 @@ import {
   stateFromUnknown,
   STATE_VERSION,
 } from "@/app/learning-engine";
+import { resolveRequestIdentity } from "@/app/server-auth";
+import { reconcileProgressAliases } from "@/app/api/_lib/progress-reconciliation";
 
 export const dynamic = "force-dynamic";
 
@@ -41,9 +43,13 @@ export async function GET(request: Request) {
       parsed = null;
     }
 
+    const state = await reconcileProgressAliases(
+      database,
+      stateFromUnknown(parsed),
+    );
     return json(
       {
-        state: stateFromUnknown(parsed),
+        state,
         revision: stored.revision,
         savedAt: new Date(stored.updated_at).toISOString(),
       },
@@ -87,17 +93,18 @@ export async function PUT(request: Request) {
     return json({ error: "A compatible progress state is required." }, 400);
   }
 
-  const state = stateFromUnknown(body.state);
-  const payload = JSON.stringify(state);
-  if (payload.length > 250_000) {
-    return json({ error: "Progress payload is too large." }, 413);
-  }
+  const validatedState = stateFromUnknown(body.state);
 
   const revision = Number(body.revision);
   const updatedAt = Date.now();
 
   try {
     const database = await getDatabase();
+    const state = await reconcileProgressAliases(database, validatedState);
+    const payload = JSON.stringify(state);
+    if (payload.length > 250_000) {
+      return json({ error: "Progress payload is too large." }, 413);
+    }
 
     if (revision === 0) {
       const result = await database
@@ -161,63 +168,20 @@ async function authenticatedUserKey(
   request: Request,
 ): Promise<{ key: string } | { response: Response }> {
   try {
-    const key = await resolveUserKey(request);
-    return key ? { key } : { response: unauthorized() };
+    const identity = await resolveRequestIdentity(request);
+    if (identity.ok) return { key: identity.userKey };
+    return {
+      response:
+        identity.status === 401
+          ? unauthorized()
+          : json({ error: "Account storage is temporarily unavailable." }, 503),
+    };
   } catch (error) {
     logError("identity_configuration_failed", error);
     return {
       response: json({ error: "Account storage is temporarily unavailable." }, 503),
     };
   }
-}
-
-async function resolveUserKey(request: Request): Promise<string | null> {
-  const url = new URL(request.url);
-  const localRequest =
-    url.hostname === "localhost" || url.hostname === "127.0.0.1";
-  const email = request.headers.get("oai-authenticated-user-email");
-  if (email) {
-    const normalizedEmail = email.trim().toLowerCase();
-    const { env } = await import("cloudflare:workers");
-    const secret = (env as unknown as { USER_KEY_SECRET?: unknown })
-      .USER_KEY_SECRET;
-    if (typeof secret === "string" && secret.length >= 32) {
-      return hmacSha256(secret, normalizedEmail);
-    }
-    if (localRequest) return sha256(`pas-a-pas-local:${normalizedEmail}`);
-    throw new Error("USER_KEY_SECRET must be configured in production.");
-  }
-
-  if (localRequest) {
-    return "local-preview-user";
-  }
-
-  return null;
-}
-
-async function hmacSha256(secret: string, value: string): Promise<string> {
-  const encoder = new TextEncoder();
-  const key = await crypto.subtle.importKey(
-    "raw",
-    encoder.encode(secret),
-    { name: "HMAC", hash: "SHA-256" },
-    false,
-    ["sign"],
-  );
-  const signature = await crypto.subtle.sign("HMAC", key, encoder.encode(value));
-  return bytesToHex(signature);
-}
-
-async function sha256(value: string): Promise<string> {
-  const bytes = new TextEncoder().encode(value);
-  const digest = await crypto.subtle.digest("SHA-256", bytes);
-  return bytesToHex(digest);
-}
-
-function bytesToHex(value: ArrayBuffer): string {
-  return Array.from(new Uint8Array(value))
-    .map((byte) => byte.toString(16).padStart(2, "0"))
-    .join("");
 }
 
 function conflict() {

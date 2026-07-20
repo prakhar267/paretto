@@ -38,6 +38,9 @@ test("server-renders the Pas à Pas app shell and product metadata", async () =>
   const response = await render();
   assert.equal(response.status, 200);
   assert.match(response.headers.get("content-type") ?? "", /^text\/html\b/i);
+  assert.equal(response.headers.get("x-content-type-options"), "nosniff");
+  assert.equal(response.headers.get("x-frame-options"), "DENY");
+  assert.match(response.headers.get("x-request-id") ?? "", /^[0-9a-f-]{36}$/i);
 
   const html = await response.text();
   assert.match(html, /<title>Pas à Pas — Learn French, one region at a time<\/title>/i);
@@ -49,6 +52,23 @@ test("server-renders the Pas à Pas app shell and product metadata", async () =>
   assert.doesNotMatch(html, /codex-preview|Your site is taking shape|react-loading-skeleton/i);
 });
 
+test("renders every public legal, attribution, and support route", async () => {
+  const routes = [
+    ["/privacy", /A useful learning record/i],
+    ["/terms", /A fair agreement/i],
+    ["/cookies", /No advertising trackers/i],
+    ["/accessibility", /French practice should work/i],
+    ["/attributions", /tools and open materials/i],
+    ["/support", /Tell us what is getting in the way/i],
+  ];
+
+  for (const [pathname, title] of routes) {
+    const response = await render(pathname);
+    assert.equal(response.status, 200, pathname);
+    assert.match(await response.text(), title);
+  }
+});
+
 test("removes the disposable starter surface and keeps production metadata", async () => {
   const [page, layout, packageJson, hosting] = await Promise.all([
     readFile(new URL("../app/page.tsx", import.meta.url), "utf8"),
@@ -57,7 +77,7 @@ test("removes the disposable starter surface and keeps production metadata", asy
     readFile(new URL("../.openai/hosting.json", import.meta.url), "utf8"),
   ]);
 
-  assert.match(page, /<PasAPasApp storageKey=/);
+  assert.match(page, /<PasAPasApp\s+[\s\S]*storageKey=/);
   assert.doesNotMatch(page, /SkeletonPreview|codex-preview/);
   assert.match(layout, /Pas à Pas/);
   assert.match(layout, /themeColor:\s*"#17233b"/);
@@ -66,6 +86,10 @@ test("removes the disposable starter surface and keeps production metadata", asy
 
   await Promise.all([
     access(new URL("../public/og.png", import.meta.url)),
+    access(new URL("../public/manifest.webmanifest", import.meta.url)),
+    access(new URL("../public/apple-touch-icon.png", import.meta.url)),
+    access(new URL("../public/audio/fr/manifest.json", import.meta.url)),
+    access(new URL("../drizzle/0002_living_cassandra_nova.sql", import.meta.url)),
     assert.rejects(access(new URL("../app/_sites-preview", templateRoot))),
   ]);
 });

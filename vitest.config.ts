@@ -1,7 +1,9 @@
 import { fileURLToPath } from "node:url";
 import { defineConfig } from "vitest/config";
+import { frenchAudioManifest } from "./build/french-audio-manifest-plugin";
 
 export default defineConfig({
+  plugins: [frenchAudioManifest()],
   resolve: {
     alias: {
       "@": fileURLToPath(new URL("./", import.meta.url)),

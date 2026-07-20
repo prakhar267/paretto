@@ -1,0 +1,34 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="theme-color" content="#17233b" />
+    <title>Reconnect to Pas à Pas</title>
+    <style>
+      :root { color-scheme: light; font-family: Manrope, ui-sans-serif, system-ui, sans-serif; }
+      * { box-sizing: border-box; }
+      body { min-height: 100vh; margin: 0; display: grid; place-items: center; background: #fff8ee; color: #17233b; padding: 24px; }
+      main { width: min(100%, 560px); border: 1px solid #ddd6ca; border-radius: 28px; background: #fff; padding: clamp(28px, 8vw, 56px); box-shadow: 0 24px 70px rgb(23 35 59 / 12%); }
+      .mark { display: grid; width: 54px; height: 54px; place-items: center; border-radius: 16px; background: #315c8c; color: #fff; font-family: Georgia, serif; font-size: 36px; font-weight: 700; }
+      p { color: #566174; line-height: 1.65; }
+      h1 { margin: 24px 0 10px; font-family: Georgia, serif; font-size: clamp(36px, 10vw, 58px); line-height: 1; letter-spacing: -0.035em; }
+      a { display: inline-flex; min-height: 48px; align-items: center; justify-content: center; margin-top: 14px; border-radius: 13px; background: #315c8c; color: #fff; padding: 0 20px; font-weight: 800; text-decoration: none; }
+      a:focus-visible { outline: 3px solid #f0a84b; outline-offset: 4px; }
+      small { display: block; margin-top: 22px; color: #667085; line-height: 1.5; }
+    </style>
+  </head>
+  <body>
+    <main>
+      <span class="mark" aria-hidden="true">p</span>
+      <h1>You’re offline.</h1>
+      <p>
+        Pas à Pas cannot securely reopen your signed-in learning journal without
+        a connection. Progress already saved by the app remains on this device
+        and will sync when you reconnect.
+      </p>
+      <a href="/">Try again</a>
+      <small>This offline page contains no account or lesson data.</small>
+    </main>
+  </body>
+</html>

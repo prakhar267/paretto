@@ -1,0 +1,27 @@
+{
+  "name": "Pas à Pas — Learn French",
+  "short_name": "Pas à Pas",
+  "description": "Recall-first French lessons through all 18 regions of France.",
+  "lang": "en",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#fff8ee",
+  "theme_color": "#17233b",
+  "categories": ["education", "lifestyle"],
+  "icons": [
+    {
+      "src": "/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}

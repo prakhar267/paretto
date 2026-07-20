@@ -15,7 +15,12 @@ export type PartOfSpeech =
   | "noun"
   | "verb"
   | "pronominal verb"
-  | "adjective";
+  | "adjective"
+  | "adverb"
+  | "phrase";
+
+export type CefrLevel = "A1" | "A2";
+export type CurriculumLessonNumber = 1 | 2 | 3;
 
 export type Word = {
   id: string;
@@ -29,7 +34,12 @@ export type Word = {
   emoji: string;
   exampleFr: string;
   exampleEn: string;
+  cefr: CefrLevel;
+  topic: string;
+  lesson: CurriculumLessonNumber;
 };
+
+type FoundationWord = Omit<Word, "cefr" | "topic" | "lesson">;
 
 export const REGIONS = [
   {
@@ -51,7 +61,7 @@ export const REGIONS = [
     emoji: "🔔",
     theme: "Markets and warm welcomes",
     cultureNote:
-      "The region is known for its beffries, festive street markets and a strong tradition of hospitality.",
+      "The region is known for its belfries, festive street markets and a strong tradition of hospitality.",
     accentColor: "#2E7180",
   },
   {
@@ -232,7 +242,115 @@ export const REGIONS = [
   },
 ] as const satisfies readonly Region[];
 
-export const WORDS = [
+export type RegionId = (typeof REGIONS)[number]["id"];
+
+export type CurriculumLessonPlan = {
+  lesson: CurriculumLessonNumber;
+  title: string;
+  topic: string;
+  cefr: CefrLevel;
+};
+
+export type RegionCurriculumPlan = readonly [
+  CurriculumLessonPlan,
+  CurriculumLessonPlan,
+  CurriculumLessonPlan,
+];
+
+export const CURRICULUM_PLAN = {
+  "ile-de-france": [
+    { lesson: 1, title: "Capital landmarks", topic: "city landmarks", cefr: "A1" },
+    { lesson: 2, title: "Getting around", topic: "public transport", cefr: "A1" },
+    { lesson: 3, title: "Everyday city life", topic: "neighbourhood life", cefr: "A2" },
+  ],
+  "hauts-de-france": [
+    { lesson: 1, title: "A northern welcome", topic: "local welcome", cefr: "A1" },
+    { lesson: 2, title: "At the market", topic: "market food", cefr: "A1" },
+    { lesson: 3, title: "Town and weather", topic: "town weather", cefr: "A2" },
+  ],
+  normandie: [
+    { lesson: 1, title: "Coast and countryside", topic: "coastal landscape", cefr: "A1" },
+    { lesson: 2, title: "Orchard and dairy", topic: "farm food", cefr: "A1" },
+    { lesson: 3, title: "A day by the sea", topic: "seaside weather", cefr: "A2" },
+  ],
+  bretagne: [
+    { lesson: 1, title: "Life by the sea", topic: "maritime life", cefr: "A1" },
+    { lesson: 2, title: "Around the harbour", topic: "harbour travel", cefr: "A1" },
+    { lesson: 3, title: "The Breton table", topic: "regional food", cefr: "A2" },
+  ],
+  "pays-de-la-loire": [
+    { lesson: 1, title: "Where river meets ocean", topic: "waterways", cefr: "A1" },
+    { lesson: 2, title: "Coast and city", topic: "local transport", cefr: "A1" },
+    { lesson: 3, title: "A local outing", topic: "outdoor leisure", cefr: "A2" },
+  ],
+  "centre-val-de-loire": [
+    { lesson: 1, title: "Royal valley", topic: "heritage", cefr: "A1" },
+    { lesson: 2, title: "Visiting a château", topic: "visitor essentials", cefr: "A1" },
+    { lesson: 3, title: "Along the Loire", topic: "river countryside", cefr: "A2" },
+  ],
+  "grand-est": [
+    { lesson: 1, title: "Winter traditions", topic: "seasonal traditions", cefr: "A1" },
+    { lesson: 2, title: "Across the city", topic: "border city travel", cefr: "A1" },
+    { lesson: 3, title: "Food and craft", topic: "regional craft", cefr: "A2" },
+  ],
+  "bourgogne-franche-comte": [
+    { lesson: 1, title: "Vineyard country", topic: "vineyard landscape", cefr: "A1" },
+    { lesson: 2, title: "At the table", topic: "food and drink", cefr: "A1" },
+    { lesson: 3, title: "Rural heritage", topic: "village craft", cefr: "A2" },
+  ],
+  "nouvelle-aquitaine": [
+    { lesson: 1, title: "Ocean horizons", topic: "Atlantic coast", cefr: "A1" },
+    { lesson: 2, title: "Market and vineyard", topic: "market produce", cefr: "A1" },
+    { lesson: 3, title: "Exploring the southwest", topic: "cycling and nature", cefr: "A2" },
+  ],
+  "auvergne-rhone-alpes": [
+    { lesson: 1, title: "Mountain landscapes", topic: "mountain nature", cefr: "A1" },
+    { lesson: 2, title: "Cold-weather kit", topic: "winter clothing", cefr: "A1" },
+    { lesson: 3, title: "High-altitude outings", topic: "mountain activities", cefr: "A2" },
+  ],
+  occitanie: [
+    { lesson: 1, title: "Southern city life", topic: "city squares", cefr: "A1" },
+    { lesson: 2, title: "Along the canal", topic: "canal travel", cefr: "A1" },
+    { lesson: 3, title: "Market and countryside", topic: "southern produce", cefr: "A2" },
+  ],
+  "provence-alpes-cote-d-azur": [
+    { lesson: 1, title: "Mediterranean landscapes", topic: "Mediterranean nature", cefr: "A1" },
+    { lesson: 2, title: "Scents of the market", topic: "market flavours", cefr: "A1" },
+    { lesson: 3, title: "A summer on the coast", topic: "coastal leisure", cefr: "A2" },
+  ],
+  corse: [
+    { lesson: 1, title: "Island landscape", topic: "island nature", cefr: "A1" },
+    { lesson: 2, title: "Village and food", topic: "village food", cefr: "A1" },
+    { lesson: 3, title: "On the trail", topic: "island hiking", cefr: "A2" },
+  ],
+  guadeloupe: [
+    { lesson: 1, title: "The butterfly islands", topic: "island ecology", cefr: "A1" },
+    { lesson: 2, title: "Market and beach", topic: "tropical food", cefr: "A1" },
+    { lesson: 3, title: "Tropical weather", topic: "rainforest weather", cefr: "A2" },
+  ],
+  martinique: [
+    { lesson: 1, title: "Island traditions", topic: "island traditions", cefr: "A1" },
+    { lesson: 2, title: "Garden and kitchen", topic: "tropical cooking", cefr: "A1" },
+    { lesson: 3, title: "Coast and volcano", topic: "volcanic coast", cefr: "A2" },
+  ],
+  guyane: [
+    { lesson: 1, title: "Forest and space", topic: "forest and space", cefr: "A1" },
+    { lesson: 2, title: "River journey", topic: "river travel", cefr: "A1" },
+    { lesson: 3, title: "Wildlife and climate", topic: "rainforest wildlife", cefr: "A2" },
+  ],
+  "la-reunion": [
+    { lesson: 1, title: "Volcanic island", topic: "volcanic landscape", cefr: "A1" },
+    { lesson: 2, title: "Trail and viewpoint", topic: "mountain trails", cefr: "A1" },
+    { lesson: 3, title: "Creole table and trade winds", topic: "island food and weather", cefr: "A2" },
+  ],
+  mayotte: [
+    { lesson: 1, title: "Life in the lagoon", topic: "lagoon ecology", cefr: "A1" },
+    { lesson: 2, title: "Island community", topic: "community life", cefr: "A1" },
+    { lesson: 3, title: "Protecting the coast", topic: "coastal conservation", cefr: "A2" },
+  ],
+} as const satisfies Record<RegionId, RegionCurriculumPlan>;
+
+const FOUNDATION_WORDS = [
   // Île-de-France
   {
     id: "idf-metro",
@@ -1438,6 +1556,256 @@ export const WORDS = [
     exampleFr: "Cet espace naturel est fragile et préservé.",
     exampleEn: "This natural area is fragile and protected.",
   },
+] as const satisfies readonly FoundationWord[];
+
+type CurriculumEntry = readonly [
+  id: string,
+  regionId: RegionId,
+  lesson: 2 | 3,
+  french: string,
+  search: string,
+  english: string,
+  ipa: string,
+  partOfSpeech: PartOfSpeech,
+  gender: GrammaticalGender | null,
+  emoji: string,
+  exampleFr: string,
+  exampleEn: string,
+];
+
+const CURRICULUM_EXPANSION = [
+  // Île-de-France — lessons 2 and 3
+  ["idf-station", "ile-de-france", 2, "une station", "station", "a station", "/yn stasjɔ̃/", "noun", "feminine", "🚉", "Cette station a deux sorties.", "This station has two exits."],
+  ["idf-billet", "ile-de-france", 2, "un billet", "billet", "a ticket", "/œ̃ bijɛ/", "noun", "masculine", "🎫", "J'achète un billet au guichet.", "I am buying a ticket at the ticket window."],
+  ["idf-correspondance", "ile-de-france", 2, "une correspondance", "correspondance", "a transfer / connection", "/yn kɔʁɛspɔ̃dɑ̃s/", "noun", "feminine", "🔁", "Nous avons une correspondance à Châtelet.", "We have a transfer at Châtelet."],
+  ["idf-valider", "ile-de-france", 2, "valider", "valider", "to validate", "/valide/", "verb", null, "✅", "Validez votre billet avant de monter.", "Validate your ticket before boarding."],
+  ["idf-prochain", "ile-de-france", 2, "prochain", "prochain", "next", "/pʁɔʃɛ̃/", "adjective", null, "➡️", "Le prochain train arrive dans cinq minutes.", "The next train arrives in five minutes."],
+  ["idf-quartier", "ile-de-france", 3, "un quartier", "quartier", "a neighbourhood", "/œ̃ kaʁtje/", "noun", "masculine", "🏘️", "Ce quartier est calme le matin.", "This neighbourhood is quiet in the morning."],
+  ["idf-boulangerie", "ile-de-france", 3, "une boulangerie", "boulangerie", "a bakery", "/yn bulɑ̃ʒʁi/", "noun", "feminine", "🥖", "La boulangerie ouvre à sept heures.", "The bakery opens at seven o'clock."],
+  ["idf-terrasse", "ile-de-france", 3, "une terrasse", "terrasse", "a café terrace", "/yn tɛʁas/", "noun", "feminine", "☕", "On boit un café en terrasse.", "We have a coffee outside on the terrace."],
+  ["idf-louer", "ile-de-france", 3, "louer", "louer", "to rent", "/lwe/", "verb", null, "🔑", "Ils veulent louer un petit appartement.", "They want to rent a small apartment."],
+  ["idf-bonde", "ile-de-france", 3, "bondé", "bonde", "crowded", "/bɔ̃de/", "adjective", null, "👥", "Le bus est bondé aux heures de pointe.", "The bus is crowded during rush hour."],
+
+  // Hauts-de-France — lessons 2 and 3
+  ["hdf-etal", "hauts-de-france", 2, "un étal", "etal", "a market stall", "/œ̃n etal/", "noun", "masculine", "🥬", "Le marchand range ses légumes sur l'étal.", "The vendor arranges his vegetables on the stall."],
+  ["hdf-moules", "hauts-de-france", 2, "les moules", "moules", "mussels", "/le mul/", "noun", "feminine", "🦪", "Nous partageons des moules au déjeuner.", "We share mussels at lunch."],
+  ["hdf-frites", "hauts-de-france", 2, "les frites", "frites", "fries", "/le fʁit/", "noun", "feminine", "🍟", "Les frites sont dorées et croustillantes.", "The fries are golden and crisp."],
+  ["hdf-gouter", "hauts-de-france", 2, "goûter", "gouter", "to taste / try", "/ɡute/", "verb", null, "🥄", "Voulez-vous goûter cette spécialité ?", "Would you like to try this speciality?"],
+  ["hdf-bon-marche", "hauts-de-france", 2, "bon marché", "bon marche", "inexpensive", "/bɔ̃ maʁʃe/", "adjective", null, "🏷️", "Ce sac est joli et bon marché.", "This bag is pretty and inexpensive."],
+  ["hdf-mairie", "hauts-de-france", 3, "une mairie", "mairie", "a town hall", "/yn mɛʁi/", "noun", "feminine", "🏛️", "La mairie se trouve près du parc.", "The town hall is near the park."],
+  ["hdf-grand-place", "hauts-de-france", 3, "la Grand-Place", "grand place", "the main square", "/la ɡʁɑ̃ plas/", "noun", "feminine", "⛲", "La Grand-Place est pleine de monde.", "The main square is full of people."],
+  ["hdf-pluie", "hauts-de-france", 3, "la pluie", "pluie", "the rain", "/la plɥi/", "noun", "feminine", "🌧️", "La pluie commence après midi.", "The rain starts in the afternoon."],
+  ["hdf-se-promener", "hauts-de-france", 3, "se promener", "se promener", "to take a walk", "/sə pʁɔmne/", "pronominal verb", null, "🚶", "Nous aimons nous promener dans les vieilles rues.", "We like taking a walk through the old streets."],
+  ["hdf-venteux", "hauts-de-france", 3, "venteux", "venteux", "windy", "/vɑ̃tø/", "adjective", null, "💨", "Le bord de mer est venteux aujourd'hui.", "The seafront is windy today."],
+
+  // Normandie — lessons 2 and 3
+  ["nor-verger", "normandie", 2, "un verger", "verger", "an orchard", "/œ̃ vɛʁʒe/", "noun", "masculine", "🌳", "Le verger produit beaucoup de pommes.", "The orchard produces many apples."],
+  ["nor-pomme", "normandie", 2, "une pomme", "pomme", "an apple", "/yn pɔm/", "noun", "feminine", "🍎", "Cette pomme est douce et croquante.", "This apple is sweet and crisp."],
+  ["nor-beurre", "normandie", 2, "le beurre", "beurre", "butter", "/lə bœʁ/", "noun", "masculine", "🧈", "Elle met du beurre sur son pain.", "She puts butter on her bread."],
+  ["nor-camembert", "normandie", 2, "le camembert", "camembert", "Camembert cheese", "/lə kamɑ̃bɛʁ/", "noun", "masculine", "🧀", "Le camembert est servi à température ambiante.", "Camembert is served at room temperature."],
+  ["nor-fabriquer", "normandie", 2, "fabriquer", "fabriquer", "to make / manufacture", "/fabʁike/", "verb", null, "🧑‍🍳", "Cette ferme fabrique du fromage.", "This farm makes cheese."],
+  ["nor-port", "normandie", 3, "un port", "port", "a harbour", "/œ̃ pɔʁ/", "noun", "masculine", "⚓", "Les bateaux rentrent au port avant la nuit.", "The boats return to the harbour before nightfall."],
+  ["nor-plage", "normandie", 3, "une plage", "plage", "a beach", "/yn plaʒ/", "noun", "feminine", "🏖️", "Nous marchons sur la plage à marée basse.", "We walk on the beach at low tide."],
+  ["nor-parapluie", "normandie", 3, "un parapluie", "parapluie", "an umbrella", "/œ̃ paʁaplɥi/", "noun", "masculine", "☂️", "N'oublie pas ton parapluie ce matin.", "Do not forget your umbrella this morning."],
+  ["nor-pleuvoir", "normandie", 3, "pleuvoir", "pleuvoir", "to rain", "/pløvwaʁ/", "verb", null, "🌦️", "Il va pleuvoir près de la côte.", "It is going to rain near the coast."],
+  ["nor-humide", "normandie", 3, "humide", "humide", "damp / humid", "/ymid/", "adjective", null, "💧", "L'air est frais et humide.", "The air is cool and damp."],
+
+  // Bretagne — lessons 2 and 3
+  ["bre-port-de-peche", "bretagne", 2, "un port de pêche", "port de peche", "a fishing harbour", "/œ̃ pɔʁ də pɛʃ/", "noun", "masculine", "⚓", "Le port de pêche s'anime tôt le matin.", "The fishing harbour comes alive early in the morning."],
+  ["bre-bateau", "bretagne", 2, "un bateau", "bateau", "a boat", "/œ̃ bato/", "noun", "masculine", "⛵", "Ce bateau quitte le quai à neuf heures.", "This boat leaves the quay at nine o'clock."],
+  ["bre-vague", "bretagne", 2, "une vague", "vague", "a wave", "/yn vaɡ/", "noun", "feminine", "🌊", "Une grande vague frappe les rochers.", "A large wave hits the rocks."],
+  ["bre-embarquer", "bretagne", 2, "embarquer", "embarquer", "to board", "/ɑ̃baʁke/", "verb", null, "🛳️", "Les passagers vont embarquer dans quelques minutes.", "The passengers are going to board in a few minutes."],
+  ["bre-marin", "bretagne", 2, "marin", "marin", "maritime / sea", "/maʁɛ̃/", "adjective", null, "🌬️", "L'air marin ouvre l'appétit.", "The sea air makes you hungry."],
+  ["bre-galette", "bretagne", 3, "une galette", "galette", "a buckwheat pancake", "/yn ɡalɛt/", "noun", "feminine", "🥞", "Je choisis une galette au fromage.", "I choose a buckwheat pancake with cheese."],
+  ["bre-beurre-sale", "bretagne", 3, "le beurre salé", "beurre sale", "salted butter", "/lə bœʁ sale/", "noun", "masculine", "🧈", "Le beurre salé fond sur la crêpe chaude.", "The salted butter melts on the warm crêpe."],
+  ["bre-bolee-cidre", "bretagne", 3, "une bolée de cidre", "bolee de cidre", "a small bowl of cider", "/yn bɔle də sidʁ/", "noun", "feminine", "🍎", "Il commande une bolée de cidre.", "He orders a small bowl of cider."],
+  ["bre-commander", "bretagne", 3, "commander", "commander", "to order", "/kɔmɑ̃de/", "verb", null, "📝", "Nous allons commander le plat du jour.", "We are going to order the dish of the day."],
+  ["bre-delicieux", "bretagne", 3, "délicieux", "delicieux", "delicious", "/delisjø/", "adjective", null, "😋", "Ce caramel est vraiment délicieux.", "This caramel is truly delicious."],
+
+  // Pays de la Loire — lessons 2 and 3
+  ["pdl-quai", "pays-de-la-loire", 2, "un quai", "quai", "a quay / platform", "/œ̃ kɛ/", "noun", "masculine", "🛟", "Nous attendons le bateau sur le quai.", "We wait for the boat on the quay."],
+  ["pdl-tramway", "pays-de-la-loire", 2, "le tramway", "tramway", "the tram", "/lə tʁamwɛ/", "noun", "masculine", "🚊", "Le tramway traverse le centre de Nantes.", "The tram crosses the centre of Nantes."],
+  ["pdl-plage-sable", "pays-de-la-loire", 2, "une plage de sable", "plage de sable", "a sandy beach", "/yn plaʒ də sabl/", "noun", "feminine", "🏖️", "Les enfants jouent sur la plage de sable.", "The children play on the sandy beach."],
+  ["pdl-prendre", "pays-de-la-loire", 2, "prendre", "prendre", "to take", "/pʁɑ̃dʁ/", "verb", null, "🚌", "Nous prenons le tram pour aller au centre.", "We take the tram to go downtown."],
+  ["pdl-dynamique", "pays-de-la-loire", 2, "dynamique", "dynamique", "lively / dynamic", "/dinamik/", "adjective", null, "⚡", "Nantes est une ville jeune et dynamique.", "Nantes is a young and dynamic city."],
+  ["pdl-velo", "pays-de-la-loire", 3, "un vélo", "velo", "a bicycle", "/œ̃ velo/", "noun", "masculine", "🚲", "Je loue un vélo pour la journée.", "I rent a bicycle for the day."],
+  ["pdl-pique-nique", "pays-de-la-loire", 3, "un pique-nique", "pique nique", "a picnic", "/œ̃ piknik/", "noun", "masculine", "🧺", "Nous préparons un pique-nique au bord de l'eau.", "We prepare a picnic by the water."],
+  ["pdl-oiseau", "pays-de-la-loire", 3, "un oiseau", "oiseau", "a bird", "/œ̃n wazo/", "noun", "masculine", "🐦", "Un oiseau se pose dans les roseaux.", "A bird lands among the reeds."],
+  ["pdl-observer", "pays-de-la-loire", 3, "observer", "observer", "to observe / watch", "/ɔpsɛʁve/", "verb", null, "🔭", "On peut observer les oiseaux du marais.", "You can watch the birds in the marsh."],
+  ["pdl-local", "pays-de-la-loire", 3, "local", "local", "local", "/lɔkal/", "adjective", null, "📍", "Nous achetons des produits locaux.", "We buy local products."],
+
+  // Centre-Val de Loire — lessons 2 and 3
+  ["cvl-entree", "centre-val-de-loire", 2, "une entrée", "entree", "an entrance / admission", "/yn ɑ̃tʁe/", "noun", "feminine", "🎟️", "L'entrée du château ferme à dix-sept heures.", "The castle entrance closes at five p.m."],
+  ["cvl-visite-guidee", "centre-val-de-loire", 2, "une visite guidée", "visite guidee", "a guided tour", "/yn vizit ɡide/", "noun", "feminine", "🗣️", "La visite guidée dure une heure.", "The guided tour lasts one hour."],
+  ["cvl-escalier", "centre-val-de-loire", 2, "un escalier", "escalier", "a staircase", "/œ̃n ɛskalje/", "noun", "masculine", "🪜", "Cet escalier mène à la grande salle.", "This staircase leads to the great hall."],
+  ["cvl-reserver", "centre-val-de-loire", 2, "réserver", "reserver", "to book / reserve", "/ʁezeʁve/", "verb", null, "📅", "Il vaut mieux réserver les billets en ligne.", "It is better to book the tickets online."],
+  ["cvl-ancien", "centre-val-de-loire", 2, "ancien", "ancien", "old / ancient", "/ɑ̃sjɛ̃/", "adjective", null, "🏺", "Nous visitons une ancienne demeure royale.", "We are visiting an old royal residence."],
+  ["cvl-riviere", "centre-val-de-loire", 3, "une rivière", "riviere", "a river", "/yn ʁivjɛʁ/", "noun", "feminine", "🏞️", "Une petite rivière traverse le village.", "A small river runs through the village."],
+  ["cvl-pont", "centre-val-de-loire", 3, "un pont", "pont", "a bridge", "/œ̃ pɔ̃/", "noun", "masculine", "🌉", "Le pont offre une belle vue sur la Loire.", "The bridge offers a beautiful view of the Loire."],
+  ["cvl-foret", "centre-val-de-loire", 3, "une forêt", "foret", "a forest", "/yn fɔʁɛ/", "noun", "feminine", "🌲", "Nous traversons une forêt de chênes.", "We cross an oak forest."],
+  ["cvl-longer", "centre-val-de-loire", 3, "longer", "longer", "to follow / run alongside", "/lɔ̃ʒe/", "verb", null, "🚶", "Le chemin longe la rivière.", "The path follows the river."],
+  ["cvl-tranquille", "centre-val-de-loire", 3, "tranquille", "tranquille", "quiet / peaceful", "/tʁɑ̃kil/", "adjective", null, "🍃", "La campagne est tranquille au printemps.", "The countryside is peaceful in spring."],
+
+  // Grand Est — lessons 2 and 3
+  ["ges-frontiere", "grand-est", 2, "une frontière", "frontiere", "a border", "/yn fʁɔ̃tjɛʁ/", "noun", "feminine", "🗺️", "La frontière est à quelques kilomètres.", "The border is a few kilometres away."],
+  ["ges-gare", "grand-est", 2, "une gare", "gare", "a train station", "/yn ɡaʁ/", "noun", "feminine", "🚆", "La gare se trouve derrière la cathédrale.", "The train station is behind the cathedral."],
+  ["ges-tram", "grand-est", 2, "le tram", "tram", "the tram", "/lə tʁam/", "noun", "masculine", "🚋", "Le tram arrive toutes les dix minutes.", "The tram arrives every ten minutes."],
+  ["ges-changer", "grand-est", 2, "changer", "changer", "to change", "/ʃɑ̃ʒe/", "verb", null, "🔄", "Vous devez changer de train à Strasbourg.", "You must change trains in Strasbourg."],
+  ["ges-voisin", "grand-est", 2, "voisin", "voisin", "neighbouring", "/vwazɛ̃/", "adjective", null, "🤝", "Nous visitons une ville voisine demain.", "We are visiting a neighbouring town tomorrow."],
+  ["ges-pain-epices", "grand-est", 3, "le pain d'épices", "pain d epices", "gingerbread", "/lə pɛ̃ depis/", "noun", "masculine", "🍞", "Le pain d'épices sent la cannelle.", "The gingerbread smells of cinnamon."],
+  ["ges-choucroute", "grand-est", 3, "la choucroute", "choucroute", "sauerkraut / choucroute", "/la ʃukʁut/", "noun", "feminine", "🥘", "La choucroute est un plat généreux.", "Choucroute is a hearty dish."],
+  ["ges-poterie", "grand-est", 3, "une poterie", "poterie", "a piece of pottery", "/yn pɔtʁi/", "noun", "feminine", "🏺", "Cette poterie est peinte à la main.", "This piece of pottery is painted by hand."],
+  ["ges-decorer", "grand-est", 3, "décorer", "decorer", "to decorate", "/dekɔʁe/", "verb", null, "🎨", "Les habitants décorent les fenêtres pour Noël.", "The residents decorate the windows for Christmas."],
+  ["ges-traditionnel", "grand-est", 3, "traditionnel", "traditionnel", "traditional", "/tʁadisjɔnɛl/", "adjective", null, "🧵", "Nous découvrons un savoir-faire traditionnel.", "We discover a traditional craft."],
+
+  // Bourgogne-Franche-Comté — lessons 2 and 3
+  ["bfc-cave", "bourgogne-franche-comte", 2, "une cave", "cave", "a cellar", "/yn kav/", "noun", "feminine", "🪨", "La cave reste fraîche toute l'année.", "The cellar stays cool all year."],
+  ["bfc-bouteille", "bourgogne-franche-comte", 2, "une bouteille", "bouteille", "a bottle", "/yn butɛj/", "noun", "feminine", "🍾", "Cette bouteille vient d'un domaine voisin.", "This bottle comes from a nearby estate."],
+  ["bfc-recette", "bourgogne-franche-comte", 2, "une recette", "recette", "a recipe", "/yn ʁəsɛt/", "noun", "feminine", "📖", "Ma grand-mère garde sa recette dans un carnet.", "My grandmother keeps her recipe in a notebook."],
+  ["bfc-servir", "bourgogne-franche-comte", 2, "servir", "servir", "to serve", "/sɛʁviʁ/", "verb", null, "🍽️", "On sert le fromage après le plat principal.", "Cheese is served after the main course."],
+  ["bfc-savoureux", "bourgogne-franche-comte", 2, "savoureux", "savoureux", "flavourful", "/savuʁø/", "adjective", null, "😋", "Ce plat simple est très savoureux.", "This simple dish is very flavourful."],
+  ["bfc-clocher", "bourgogne-franche-comte", 3, "un clocher", "clocher", "a church tower", "/œ̃ klɔʃe/", "noun", "masculine", "⛪", "Le clocher est visible depuis les vignes.", "The church tower is visible from the vineyards."],
+  ["bfc-foret-sapins", "bourgogne-franche-comte", 3, "une forêt de sapins", "foret de sapins", "a fir forest", "/yn fɔʁɛ də sapɛ̃/", "noun", "feminine", "🌲", "Le sentier entre dans une forêt de sapins.", "The path enters a fir forest."],
+  ["bfc-atelier", "bourgogne-franche-comte", 3, "un atelier", "atelier", "a workshop", "/œ̃n atəlje/", "noun", "masculine", "🛠️", "L'artisan nous accueille dans son atelier.", "The craftsperson welcomes us into the workshop."],
+  ["bfc-faconner", "bourgogne-franche-comte", 3, "façonner", "faconner", "to shape / craft", "/fasɔne/", "verb", null, "👐", "Elle façonne un bol en argile.", "She shapes a bowl from clay."],
+  ["bfc-medieval", "bourgogne-franche-comte", 3, "médiéval", "medieval", "medieval", "/medjeval/", "adjective", null, "🏰", "Le village conserve un pont médiéval.", "The village has preserved a medieval bridge."],
+
+  // Nouvelle-Aquitaine — lessons 2 and 3
+  ["naq-marche-couvert", "nouvelle-aquitaine", 2, "un marché couvert", "marche couvert", "an indoor market", "/œ̃ maʁʃe kuvɛʁ/", "noun", "masculine", "🧺", "Le marché couvert ouvre tôt le samedi.", "The indoor market opens early on Saturday."],
+  ["naq-raisin", "nouvelle-aquitaine", 2, "le raisin", "raisin", "grapes", "/lə ʁɛzɛ̃/", "noun", "masculine", "🍇", "Le raisin est prêt pour la récolte.", "The grapes are ready for harvest."],
+  ["naq-panier", "nouvelle-aquitaine", 2, "un panier", "panier", "a basket", "/œ̃ pɑnje/", "noun", "masculine", "🧺", "Elle remplit son panier de fruits frais.", "She fills her basket with fresh fruit."],
+  ["naq-acheter", "nouvelle-aquitaine", 2, "acheter", "acheter", "to buy", "/aʃte/", "verb", null, "🛍️", "Je vais acheter des tomates au marché.", "I am going to buy tomatoes at the market."],
+  ["naq-mur", "nouvelle-aquitaine", 2, "mûr", "mur", "ripe", "/myʁ/", "adjective", null, "🍑", "Ce melon est enfin mûr.", "This melon is finally ripe."],
+  ["naq-piste-cyclable", "nouvelle-aquitaine", 3, "une piste cyclable", "piste cyclable", "a cycle path", "/yn pist siklabl/", "noun", "feminine", "🚲", "La piste cyclable longe l'océan.", "The cycle path runs along the ocean."],
+  ["naq-pinede", "nouvelle-aquitaine", 3, "une pinède", "pinede", "a pine grove", "/yn pinɛd/", "noun", "feminine", "🌲", "Nous faisons une pause dans la pinède.", "We take a break in the pine grove."],
+  ["naq-lac", "nouvelle-aquitaine", 3, "un lac", "lac", "a lake", "/œ̃ lak/", "noun", "masculine", "🏞️", "Le lac est calme avant le coucher du soleil.", "The lake is calm before sunset."],
+  ["naq-pedaler", "nouvelle-aquitaine", 3, "pédaler", "pedaler", "to pedal / cycle", "/pedale/", "verb", null, "🚴", "Nous pédalons sous les pins.", "We cycle beneath the pine trees."],
+  ["naq-ombrage", "nouvelle-aquitaine", 3, "ombragé", "ombrage", "shaded", "/ɔ̃bʁaʒe/", "adjective", null, "🌳", "Le chemin est ombragé et agréable.", "The path is shaded and pleasant."],
+
+  // Auvergne-Rhône-Alpes — lessons 2 and 3
+  ["ara-chalet", "auvergne-rhone-alpes", 2, "un chalet", "chalet", "a chalet", "/œ̃ ʃalɛ/", "noun", "masculine", "🏡", "Notre chalet donne sur la montagne.", "Our chalet overlooks the mountain."],
+  ["ara-echarpe", "auvergne-rhone-alpes", 2, "une écharpe", "echarpe", "a scarf", "/yn eʃaʁp/", "noun", "feminine", "🧣", "Mets une écharpe avant de sortir.", "Put on a scarf before going outside."],
+  ["ara-chaussures-randonnee", "auvergne-rhone-alpes", 2, "les chaussures de randonnée", "chaussures de randonnee", "hiking boots", "/le ʃosyʁ də ʁɑ̃dɔne/", "noun", "feminine", "🥾", "Mes chaussures de randonnée sont imperméables.", "My hiking boots are waterproof."],
+  ["ara-neiger", "auvergne-rhone-alpes", 2, "neiger", "neiger", "to snow", "/nɛʒe/", "verb", null, "🌨️", "Il commence à neiger au-dessus du village.", "It is starting to snow above the village."],
+  ["ara-chaud", "auvergne-rhone-alpes", 2, "chaud", "chaud", "warm / hot", "/ʃo/", "adjective", null, "🔥", "Prenez une boisson chaude après la marche.", "Have a warm drink after the walk."],
+  ["ara-telepherique", "auvergne-rhone-alpes", 3, "le téléphérique", "telepherique", "the cable car", "/lə telefeʁik/", "noun", "masculine", "🚠", "Le téléphérique monte jusqu'au sommet.", "The cable car goes up to the summit."],
+  ["ara-lac-montagne", "auvergne-rhone-alpes", 3, "un lac de montagne", "lac de montagne", "a mountain lake", "/œ̃ lak də mɔ̃taɲ/", "noun", "masculine", "🏞️", "Un lac de montagne apparaît derrière le col.", "A mountain lake appears beyond the pass."],
+  ["ara-refuge", "auvergne-rhone-alpes", 3, "un refuge", "refuge", "a mountain hut", "/œ̃ ʁəfyʒ/", "noun", "masculine", "🛖", "Le refuge sert un repas chaud le soir.", "The mountain hut serves a hot meal in the evening."],
+  ["ara-skier", "auvergne-rhone-alpes", 3, "skier", "skier", "to ski", "/skije/", "verb", null, "⛷️", "Elle apprend à skier sur une piste facile.", "She is learning to ski on an easy slope."],
+  ["ara-prudent", "auvergne-rhone-alpes", 3, "prudent", "prudent", "careful", "/pʁydɑ̃/", "adjective", null, "⚠️", "Soyez prudent quand le sentier est gelé.", "Be careful when the path is icy."],
+
+  // Occitanie — lessons 2 and 3
+  ["occ-peniche", "occitanie", 2, "une péniche", "peniche", "a canal boat", "/yn peniʃ/", "noun", "feminine", "🛥️", "Une péniche avance lentement sur le canal.", "A canal boat moves slowly along the canal."],
+  ["occ-ecluse", "occitanie", 2, "une écluse", "ecluse", "a lock", "/yn eklyz/", "noun", "feminine", "🚧", "La péniche entre dans l'écluse.", "The canal boat enters the lock."],
+  ["occ-chemin-halage", "occitanie", 2, "un chemin de halage", "chemin de halage", "a towpath", "/œ̃ ʃəmɛ̃ də alaʒ/", "noun", "masculine", "🚶", "Le chemin de halage suit le canal.", "The towpath follows the canal."],
+  ["occ-suivre", "occitanie", 2, "suivre", "suivre", "to follow", "/sɥivʁ/", "verb", null, "➡️", "Suivez le canal jusqu'au prochain pont.", "Follow the canal to the next bridge."],
+  ["occ-lent", "occitanie", 2, "lent", "lent", "slow", "/lɑ̃/", "adjective", null, "🐢", "Le rythme est lent et reposant.", "The pace is slow and relaxing."],
+  ["occ-marche-plein-air", "occitanie", 3, "un marché en plein air", "marche en plein air", "an open-air market", "/œ̃ maʁʃe ɑ̃ plɛ̃n ɛʁ/", "noun", "masculine", "🧺", "Le marché en plein air occupe toute la place.", "The open-air market fills the whole square."],
+  ["occ-abricot", "occitanie", 3, "un abricot", "abricot", "an apricot", "/œ̃n abʁiko/", "noun", "masculine", "🍑", "Cet abricot est doux et juteux.", "This apricot is sweet and juicy."],
+  ["occ-olive", "occitanie", 3, "une olive", "olive", "an olive", "/yn ɔliv/", "noun", "feminine", "🫒", "Nous goûtons une olive verte.", "We taste a green olive."],
+  ["occ-partager", "occitanie", 3, "partager", "partager", "to share", "/paʁtaʒe/", "verb", null, "🤲", "Ils aiment partager un repas sur la terrasse.", "They like sharing a meal on the terrace."],
+  ["occ-convivial", "occitanie", 3, "convivial", "convivial", "friendly / sociable", "/kɔ̃vivjal/", "adjective", null, "😊", "L'ambiance du café est conviviale.", "The café atmosphere is friendly."],
+
+  // Provence-Alpes-Côte d'Azur — lessons 2 and 3
+  ["paca-marche-provencal", "provence-alpes-cote-d-azur", 2, "un marché provençal", "marche provencal", "a Provençal market", "/œ̃ maʁʃe pʁɔvɑ̃sal/", "noun", "masculine", "🧺", "Le marché provençal ouvre sur la place.", "The Provençal market opens on the square."],
+  ["paca-huile-olive", "provence-alpes-cote-d-azur", 2, "l'huile d'olive", "huile d olive", "olive oil", "/lɥil dɔliv/", "noun", "feminine", "🫒", "Cette huile d'olive a un goût fruité.", "This olive oil has a fruity taste."],
+  ["paca-tomate", "provence-alpes-cote-d-azur", 2, "une tomate", "tomate", "a tomato", "/yn tɔmat/", "noun", "feminine", "🍅", "Je choisis une tomate bien mûre.", "I choose a nicely ripe tomato."],
+  ["paca-sentir", "provence-alpes-cote-d-azur", 2, "sentir", "sentir", "to smell / feel", "/sɑ̃tiʁ/", "verb", null, "👃", "On peut sentir la lavande dans l'air.", "You can smell lavender in the air."],
+  ["paca-parfume", "provence-alpes-cote-d-azur", 2, "parfumé", "parfume", "fragrant / flavoured", "/paʁfyme/", "adjective", null, "🌿", "Le miel est parfumé aux herbes de Provence.", "The honey is fragrant with Provençal herbs."],
+  ["paca-port-plaisance", "provence-alpes-cote-d-azur", 3, "un port de plaisance", "port de plaisance", "a marina", "/œ̃ pɔʁ də plɛzɑ̃s/", "noun", "masculine", "⛵", "Le port de plaisance accueille de petits voiliers.", "The marina welcomes small sailing boats."],
+  ["paca-parasol", "provence-alpes-cote-d-azur", 3, "un parasol", "parasol", "a sun umbrella", "/œ̃ paʁasɔl/", "noun", "masculine", "⛱️", "Nous installons le parasol près de l'eau.", "We put up the sun umbrella near the water."],
+  ["paca-rocher", "provence-alpes-cote-d-azur", 3, "un rocher", "rocher", "a rock", "/œ̃ ʁɔʃe/", "noun", "masculine", "🪨", "Un sentier descend entre les rochers.", "A path descends between the rocks."],
+  ["paca-plonger", "provence-alpes-cote-d-azur", 3, "plonger", "plonger", "to dive", "/plɔ̃ʒe/", "verb", null, "🤿", "Ils vont plonger dans une eau claire.", "They are going to dive into clear water."],
+  ["paca-turquoise", "provence-alpes-cote-d-azur", 3, "turquoise", "turquoise", "turquoise", "/tyʁkwaz/", "adjective", null, "🩵", "La mer est turquoise au fond de la calanque.", "The sea is turquoise at the end of the cove."],
+
+  // Corse — lessons 2 and 3
+  ["cor-charcuterie", "corse", 2, "la charcuterie", "charcuterie", "cured meats", "/la ʃaʁkytʁi/", "noun", "feminine", "🥓", "La charcuterie est servie avec du pain.", "The cured meats are served with bread."],
+  ["cor-chataigne", "corse", 2, "une châtaigne", "chataigne", "a chestnut", "/yn ʃatɛɲ/", "noun", "feminine", "🌰", "Les châtaignes tombent au début de l'automne.", "Chestnuts fall at the beginning of autumn."],
+  ["cor-fontaine", "corse", 2, "une fontaine", "fontaine", "a fountain", "/yn fɔ̃tɛn/", "noun", "feminine", "⛲", "Une fontaine coule au centre du village.", "A fountain flows in the centre of the village."],
+  ["cor-preparer", "corse", 2, "préparer", "preparer", "to prepare", "/pʁepaʁe/", "verb", null, "👩‍🍳", "Nous préparons un repas avec des produits corses.", "We prepare a meal with Corsican products."],
+  ["cor-typique", "corse", 2, "typique", "typique", "typical", "/tipik/", "adjective", null, "🏡", "Cette maison en pierre est typique du village.", "This stone house is typical of the village."],
+  ["cor-crique", "corse", 3, "une crique", "crique", "a small cove", "/yn kʁik/", "noun", "feminine", "🏝️", "Le sentier descend vers une crique tranquille.", "The path descends towards a quiet cove."],
+  ["cor-col", "corse", 3, "un col", "col", "a mountain pass", "/œ̃ kɔl/", "noun", "masculine", "⛰️", "Le col offre une vue sur les deux côtes.", "The mountain pass offers a view of both coasts."],
+  ["cor-sac-dos", "corse", 3, "un sac à dos", "sac a dos", "a backpack", "/œ̃ sak a do/", "noun", "masculine", "🎒", "Mon sac à dos contient de l'eau et une carte.", "My backpack contains water and a map."],
+  ["cor-monter", "corse", 3, "monter", "monter", "to climb / go up", "/mɔ̃te/", "verb", null, "⬆️", "Nous montons jusqu'au village à pied.", "We walk up to the village."],
+  ["cor-isole", "corse", 3, "isolé", "isole", "remote / isolated", "/izɔle/", "adjective", null, "🗺️", "La plage est belle mais isolée.", "The beach is beautiful but remote."],
+
+  // Guadeloupe — lessons 2 and 3
+  ["gua-marche-epices", "guadeloupe", 2, "un marché aux épices", "marche aux epices", "a spice market", "/œ̃ maʁʃe oz epis/", "noun", "masculine", "🌶️", "Le marché aux épices est plein de couleurs.", "The spice market is full of colours."],
+  ["gua-banane", "guadeloupe", 2, "une banane", "banane", "a banana", "/yn banan/", "noun", "feminine", "🍌", "Elle coupe une banane pour le dessert.", "She slices a banana for dessert."],
+  ["gua-plage-sable-noir", "guadeloupe", 2, "une plage de sable noir", "plage de sable noir", "a black-sand beach", "/yn plaʒ də sabl nwaʁ/", "noun", "feminine", "🏖️", "Nous découvrons une plage de sable noir.", "We discover a black-sand beach."],
+  ["gua-nager", "guadeloupe", 2, "nager", "nager", "to swim", "/naʒe/", "verb", null, "🏊", "Les enfants aiment nager dans l'eau calme.", "The children like swimming in the calm water."],
+  ["gua-sucre", "guadeloupe", 2, "sucré", "sucre", "sweet", "/sykʁe/", "adjective", null, "🍬", "Ce fruit est parfumé et sucré.", "This fruit is fragrant and sweet."],
+  ["gua-averse-tropicale", "guadeloupe", 3, "une averse tropicale", "averse tropicale", "a tropical shower", "/yn avɛʁs tʁɔpikal/", "noun", "feminine", "🌧️", "Une averse tropicale passe rapidement.", "A tropical shower passes quickly."],
+  ["gua-foret-humide", "guadeloupe", 3, "une forêt humide", "foret humide", "a rainforest", "/yn fɔʁɛ ymid/", "noun", "feminine", "🌴", "La forêt humide abrite de nombreuses plantes.", "The rainforest is home to many plants."],
+  ["gua-source", "guadeloupe", 3, "une source", "source", "a spring", "/yn suʁs/", "noun", "feminine", "💦", "Une source claire traverse les rochers.", "A clear spring runs through the rocks."],
+  ["gua-se-proteger", "guadeloupe", 3, "se protéger", "se proteger", "to protect oneself", "/sə pʁɔteʒe/", "pronominal verb", null, "☔", "Il faut se protéger du soleil à midi.", "You must protect yourself from the midday sun."],
+  ["gua-rafraichissant", "guadeloupe", 3, "rafraîchissant", "rafraichissant", "refreshing", "/ʁafʁɛʃisɑ̃/", "adjective", null, "🧊", "L'eau de la cascade est rafraîchissante.", "The waterfall water is refreshing."],
+
+  // Martinique — lessons 2 and 3
+  ["mar-ananas", "martinique", 2, "un ananas", "ananas", "a pineapple", "/œ̃n anana/", "noun", "masculine", "🍍", "Cet ananas vient du marché local.", "This pineapple comes from the local market."],
+  ["mar-epice", "martinique", 2, "une épice", "epice", "a spice", "/yn epis/", "noun", "feminine", "🌶️", "Cette épice donne du parfum au plat.", "This spice adds flavour to the dish."],
+  ["mar-marche-local", "martinique", 2, "un marché local", "marche local", "a local market", "/œ̃ maʁʃe lɔkal/", "noun", "masculine", "🧺", "Nous achetons des fruits au marché local.", "We buy fruit at the local market."],
+  ["mar-cuisiner", "martinique", 2, "cuisiner", "cuisiner", "to cook", "/kɥizine/", "verb", null, "🍳", "Elle aime cuisiner avec des herbes fraîches.", "She likes cooking with fresh herbs."],
+  ["mar-doux", "martinique", 2, "doux", "doux", "sweet / mild", "/du/", "adjective", null, "🍯", "La chair de ce fruit est douce.", "The flesh of this fruit is sweet."],
+  ["mar-montagne-pelee", "martinique", 3, "la montagne Pelée", "montagne pelee", "Mount Pelée", "/la mɔ̃taɲ pəle/", "noun", "feminine", "🌋", "La montagne Pelée domine le nord de l'île.", "Mount Pelée overlooks the north of the island."],
+  ["mar-baie", "martinique", 3, "une baie", "baie", "a bay", "/yn bɛ/", "noun", "feminine", "🌊", "La yole traverse la baie au lever du jour.", "The yole crosses the bay at sunrise."],
+  ["mar-sable-noir", "martinique", 3, "le sable noir", "sable noir", "black sand", "/lə sabl nwaʁ/", "noun", "masculine", "⬛", "Le sable noir chauffe vite au soleil.", "The black sand heats up quickly in the sun."],
+  ["mar-explorer", "martinique", 3, "explorer", "explorer", "to explore", "/ɛksplɔʁe/", "verb", null, "🧭", "Nous partons explorer la côte nord.", "We are setting out to explore the north coast."],
+  ["mar-calme", "martinique", 3, "calme", "calme", "calm", "/kalm/", "adjective", null, "😌", "La mer est calme dans la baie.", "The sea is calm in the bay."],
+
+  // Guyane — lessons 2 and 3
+  ["guy-pirogue", "guyane", 2, "une pirogue", "pirogue", "a dugout canoe", "/yn piʁɔɡ/", "noun", "feminine", "🛶", "La pirogue avance au milieu du fleuve.", "The dugout canoe moves along the middle of the river."],
+  ["guy-rive", "guyane", 2, "une rive", "rive", "a riverbank", "/yn ʁiv/", "noun", "feminine", "🏞️", "De grands arbres poussent sur chaque rive.", "Tall trees grow on each riverbank."],
+  ["guy-village-riverain", "guyane", 2, "un village riverain", "village riverain", "a riverside village", "/œ̃ vilaʒ ʁivʁɛ̃/", "noun", "masculine", "🏘️", "Nous faisons halte dans un village riverain.", "We stop in a riverside village."],
+  ["guy-remonter", "guyane", 2, "remonter", "remonter", "to travel upstream", "/ʁəmɔ̃te/", "verb", null, "⬆️", "Ils vont remonter le fleuve en pirogue.", "They are going to travel upstream by canoe."],
+  ["guy-lointain", "guyane", 2, "lointain", "lointain", "distant / remote", "/lwɛ̃tɛ̃/", "adjective", null, "🌅", "Le village paraît encore lointain.", "The village still seems far away."],
+  ["guy-paresseux", "guyane", 3, "un paresseux", "paresseux", "a sloth", "/œ̃ paʁɛsø/", "noun", "masculine", "🦥", "Un paresseux dort dans les branches.", "A sloth sleeps in the branches."],
+  ["guy-toucan", "guyane", 3, "un toucan", "toucan", "a toucan", "/œ̃ tukɑ̃/", "noun", "masculine", "🦜", "Nous apercevons un toucan au-dessus du sentier.", "We spot a toucan above the path."],
+  ["guy-saison-pluies", "guyane", 3, "la saison des pluies", "saison des pluies", "the rainy season", "/la sɛzɔ̃ de plɥi/", "noun", "feminine", "🌧️", "La saison des pluies commence bientôt.", "The rainy season begins soon."],
+  ["guy-apercevoir", "guyane", 3, "apercevoir", "apercevoir", "to catch sight of", "/apɛʁsəvwaʁ/", "verb", null, "👀", "On peut apercevoir des singes au matin.", "You can catch sight of monkeys in the morning."],
+  ["guy-tropical", "guyane", 3, "tropical", "tropical", "tropical", "/tʁɔpikal/", "adjective", null, "🌴", "Le climat tropical est chaud et humide.", "The tropical climate is hot and humid."],
+
+  // La Réunion — lessons 2 and 3
+  ["reu-belvedere", "la-reunion", 2, "un belvédère", "belvedere", "a viewpoint", "/œ̃ bɛlvedɛʁ/", "noun", "masculine", "🔭", "Le belvédère donne sur tout le cirque.", "The viewpoint overlooks the entire cirque."],
+  ["reu-ravine", "la-reunion", 2, "une ravine", "ravine", "a ravine", "/yn ʁavin/", "noun", "feminine", "⛰️", "Une passerelle franchit la ravine.", "A footbridge crosses the ravine."],
+  ["reu-sentier", "la-reunion", 2, "un sentier", "sentier", "a trail", "/œ̃ sɑ̃tje/", "noun", "masculine", "🥾", "Le sentier monte entre les fougères.", "The trail climbs between the ferns."],
+  ["reu-descendre", "la-reunion", 2, "descendre", "descendre", "to go down / descend", "/desɑ̃dʁ/", "verb", null, "⬇️", "Nous descendons vers le village avant la pluie.", "We go down towards the village before the rain."],
+  ["reu-vertigineux", "la-reunion", 2, "vertigineux", "vertigineux", "dizzyingly steep", "/vɛʁtiʒinø/", "adjective", null, "😮", "Le panorama depuis la crête est vertigineux.", "The view from the ridge is dizzying."],
+  ["reu-cari", "la-reunion", 3, "le cari", "cari", "Réunion-style curry", "/lə kaʁi/", "noun", "masculine", "🍛", "Le cari mijote doucement dans la marmite.", "The cari simmers gently in the cooking pot."],
+  ["reu-vanille", "la-reunion", 3, "la vanille", "vanille", "vanilla", "/la vanij/", "noun", "feminine", "🌱", "La vanille parfume le dessert.", "The vanilla flavours the dessert."],
+  ["reu-alize", "la-reunion", 3, "un alizé", "alize", "a trade wind", "/œ̃n alize/", "noun", "masculine", "💨", "Un alizé rafraîchit la côte est.", "A trade wind cools the east coast."],
+  ["reu-mijoter", "la-reunion", 3, "mijoter", "mijoter", "to simmer", "/miʒɔte/", "verb", null, "🥘", "Il faut laisser mijoter la sauce.", "You need to let the sauce simmer."],
+  ["reu-intense", "la-reunion", 3, "intense", "intense", "intense", "/ɛ̃tɑ̃s/", "adjective", null, "🌋", "La chaleur près du volcan est intense.", "The heat near the volcano is intense."],
+
+  // Mayotte — lessons 2 and 3
+  ["may-village-cotier", "mayotte", 2, "un village côtier", "village cotier", "a coastal village", "/œ̃ vilaʒ kotje/", "noun", "masculine", "🏘️", "Le village côtier s'éveille tôt le matin.", "The coastal village wakes early in the morning."],
+  ["may-pirogue-balancier", "mayotte", 2, "une pirogue à balancier", "pirogue a balancier", "an outrigger canoe", "/yn piʁɔɡ a balɑ̃sje/", "noun", "feminine", "🛶", "La pirogue à balancier glisse sur le lagon.", "The outrigger canoe glides across the lagoon."],
+  ["may-fruit-tropical", "mayotte", 2, "un fruit tropical", "fruit tropical", "a tropical fruit", "/œ̃ fʁɥi tʁɔpikal/", "noun", "masculine", "🥭", "Le vendeur coupe un fruit tropical bien mûr.", "The vendor slices a ripe tropical fruit."],
+  ["may-discuter", "mayotte", 2, "discuter", "discuter", "to chat / discuss", "/diskyte/", "verb", null, "💬", "Les voisins discutent devant la maison.", "The neighbours chat in front of the house."],
+  ["may-multilingue", "mayotte", 2, "multilingue", "multilingue", "multilingual", "/myltilɛ̃ɡ/", "adjective", null, "🗣️", "La vie quotidienne est profondément multilingue.", "Daily life is deeply multilingual."],
+  ["may-recif", "mayotte", 3, "un récif", "recif", "a reef", "/œ̃ ʁesif/", "noun", "masculine", "🪸", "Le récif abrite de petits poissons colorés.", "The reef shelters small colourful fish."],
+  ["may-maree-basse", "mayotte", 3, "la marée basse", "maree basse", "low tide", "/la maʁe bas/", "noun", "feminine", "🌊", "À marée basse, le récif devient visible.", "At low tide, the reef becomes visible."],
+  ["may-dechets", "mayotte", 3, "les déchets", "dechets", "waste / litter", "/le deʃɛ/", "noun", "masculine", "♻️", "Nous ramassons les déchets sur la plage.", "We pick up litter on the beach."],
+  ["may-proteger", "mayotte", 3, "protéger", "proteger", "to protect", "/pʁɔteʒe/", "verb", null, "🛡️", "Il faut protéger les tortues et leurs nids.", "We must protect the turtles and their nests."],
+  ["may-fragile", "mayotte", 3, "fragile", "fragile", "fragile", "/fʁaʒil/", "adjective", null, "🤲", "Cet écosystème marin est très fragile.", "This marine ecosystem is very fragile."],
+] as const satisfies readonly CurriculumEntry[];
+
+const foundationWordsWithMetadata: Word[] = FOUNDATION_WORDS.map((word) => {
+  const plan = CURRICULUM_PLAN[word.regionId][0];
+  return { ...word, lesson: 1, cefr: plan.cefr, topic: plan.topic };
+});
+
+const expansionWordsWithMetadata: Word[] = CURRICULUM_EXPANSION.map(
+  ([id, regionId, lesson, french, search, english, ipa, partOfSpeech, gender, emoji, exampleFr, exampleEn]) => {
+    const plan = CURRICULUM_PLAN[regionId][lesson - 1];
+    return { id, regionId, lesson, french, search, english, ipa, partOfSpeech, gender, emoji, exampleFr, exampleEn, cefr: plan.cefr, topic: plan.topic };
+  },
+);
+
+export const WORDS = [
+  ...foundationWordsWithMetadata,
+  ...expansionWordsWithMetadata,
 ] as const satisfies readonly Word[];
 
 export const MASTERY_STAGE_LABELS = [
@@ -1449,22 +1817,6 @@ export const MASTERY_STAGE_LABELS = [
   "Maîtrisé",
   "Acquis",
 ] as const;
-
-export type LeaderboardEntry = {
-  rank: number;
-  name: string;
-  xp: number;
-  streak: number;
-  avatar: string;
-};
-
-export const SEED_LEADERBOARD = [
-  { rank: 1, name: "Maya", xp: 2840, streak: 18, avatar: "🦊" },
-  { rank: 2, name: "Théo", xp: 2510, streak: 12, avatar: "🐻" },
-  { rank: 3, name: "Amira", xp: 2290, streak: 21, avatar: "🐦" },
-  { rank: 4, name: "Louis", xp: 1980, streak: 9, avatar: "🐢" },
-  { rank: 5, name: "You", xp: 1640, streak: 7, avatar: "🌟" },
-] as const satisfies readonly LeaderboardEntry[];
 
 export type CollectibleRarity =
   | "common"

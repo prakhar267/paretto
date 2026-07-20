@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { headers } from "next/headers";
 import { Fraunces, Manrope } from "next/font/google";
+import PwaRegistration from "./PwaRegistration";
 import "./globals.css";
 
 const manrope = Manrope({
@@ -34,7 +35,16 @@ export async function generateMetadata(): Promise<Metadata> {
     description:
       "Build lasting French vocabulary with five-minute lessons, adaptive reviews, pronunciation, and a cultural journey through all 18 regions of France.",
     applicationName: "Pas à Pas",
-    icons: { icon: "/favicon.svg" },
+    manifest: "/manifest.webmanifest",
+    icons: {
+      icon: "/favicon.svg",
+      apple: "/apple-touch-icon.png",
+    },
+    appleWebApp: {
+      capable: true,
+      statusBarStyle: "black-translucent",
+      title: "Pas à Pas",
+    },
     keywords: [
       "learn French",
       "French vocabulary",
@@ -78,7 +88,10 @@ export const viewport: Viewport = {
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return (
     <html lang="en">
-      <body className={`${manrope.variable} ${fraunces.variable}`}>{children}</body>
+      <body className={`${manrope.variable} ${fraunces.variable}`}>
+        {children}
+        <PwaRegistration />
+      </body>
     </html>
   );
 }

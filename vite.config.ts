@@ -1,6 +1,7 @@
 import vinext from "vinext";
 import { defineConfig } from "vite";
 import hostingConfig from "./.openai/hosting.json";
+import { frenchAudioManifest } from "./build/french-audio-manifest-plugin";
 import { sites } from "./build/sites-vite-plugin";
 
 const SITE_CREATOR_PLACEHOLDER_DATABASE_ID =
@@ -31,6 +32,10 @@ const localBindingConfig = {
         },
       ]
     : [],
+  triggers: {
+    // Daily at 03:17 UTC; the odd minute avoids common top-of-hour load spikes.
+    crons: ["17 3 * * *"],
+  },
 };
 
 export default defineConfig(async () => {
@@ -48,6 +53,7 @@ export default defineConfig(async () => {
       ? { watch: { useFsEvents: false, usePolling: true } }
       : undefined,
     plugins: [
+      frenchAudioManifest(),
       vinext(),
       sites(),
       cloudflare({

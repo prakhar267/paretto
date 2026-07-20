@@ -55,6 +55,7 @@ export type LearningState = {
     phonetics: boolean;
     reducedMotion: boolean;
     sessionReminders: boolean;
+    analytics: boolean;
   };
   challenge: {
     lastPlayedDate: string | null;
@@ -88,6 +89,7 @@ export function createInitialState(now = new Date()): LearningState {
       phonetics: true,
       reducedMotion: false,
       sessionReminders: false,
+      analytics: false,
     },
     challenge: {
       lastPlayedDate: null,
@@ -344,6 +346,10 @@ export function stateFromUnknown(
         typeof settings.sessionReminders === "boolean"
           ? settings.sessionReminders
           : fallback.settings.sessionReminders,
+      analytics:
+        typeof settings.analytics === "boolean"
+          ? settings.analytics
+          : fallback.settings.analytics,
     },
     challenge: {
       lastPlayedDate: dateKeyFromUnknown(challenge.lastPlayedDate),
@@ -375,7 +381,11 @@ export function mergeLearningStates(
     localUpdatedAt >= serverUpdatedAt ? localState : serverState;
 
   const wordProgress: Record<string, WordProgress> = {};
-  for (const { id } of WORDS) {
+  const mergedWordIds = new Set([
+    ...Object.keys(serverState.wordProgress),
+    ...Object.keys(localState.wordProgress),
+  ]);
+  for (const id of mergedWordIds) {
     const serverWord = serverState.wordProgress[id];
     const localWord = localState.wordProgress[id];
     if (!serverWord && !localWord) continue;
@@ -537,7 +547,8 @@ function wordProgressFromUnknown(value: unknown): Record<string, WordProgress> {
   if (!isRecord(value)) return {};
   const result: Record<string, WordProgress> = {};
 
-  for (const wordId of WORD_IDS) {
+  for (const wordId of Object.keys(value).slice(0, 2_000)) {
+    if (!WORD_IDS.has(wordId) && !isCmsWordId(wordId)) continue;
     const rawProgress = value[wordId];
     if (!isRecord(rawProgress)) continue;
     if (
@@ -568,6 +579,10 @@ function wordProgressFromUnknown(value: unknown): Record<string, WordProgress> {
   }
 
   return result;
+}
+
+function isCmsWordId(value: string): boolean {
+  return value.length <= 84 && /^cms-[a-z0-9]+(?:-[a-z0-9]+)*$/.test(value);
 }
 
 function sessionsFromUnknown(value: unknown): SessionSummary[] {

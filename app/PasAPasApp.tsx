@@ -47,11 +47,11 @@ import {
 } from "react";
 import {
   MASTERY_STAGE_LABELS,
+  CURRICULUM_PLAN,
   REGIONS,
   SEED_COLLECTIBLES,
-  SEED_LEADERBOARD,
-  WORDS,
   type Region,
+  type RegionId,
   type Word,
 } from "./learning-data";
 import {
@@ -68,6 +68,14 @@ import {
   type Rating,
 } from "./learning-engine";
 import { useProgress, type SyncStatus } from "./use-progress";
+import { trackProductEvent } from "./product-analytics";
+import { FrenchAudioButton } from "./audio/FrenchAudioButton";
+import {
+  buildRuntimeCurriculum,
+  lessonVocabulary,
+  type PublishedLesson,
+  type PublishedRecordInput,
+} from "./runtime-curriculum";
 
 type Screen = "today" | "journey" | "review" | "wordbook" | "profile";
 
@@ -75,7 +83,80 @@ type LessonState = {
   mode: "learn" | "review";
   words: Word[];
   regionId: string;
+  editorialTitle?: string;
+  editorialIntro?: string;
 };
+
+const REGION_UNLOCK_WORDS = 5;
+
+export function activeCurriculumLesson(
+  state: Pick<LearningState, "wordProgress">,
+  regionId: string,
+  words: readonly Word[],
+): Word["lesson"] {
+  const regionWords = words.filter((word) => word.regionId === regionId);
+  for (const lessonNumber of [1, 2, 3] as const) {
+    if (
+      regionWords.some(
+        (word) =>
+          word.lesson === lessonNumber && !state.wordProgress[word.id],
+      )
+    ) {
+      return lessonNumber;
+    }
+  }
+
+  return regionWords.reduce<Word["lesson"]>(
+    (latest, word) => Math.max(latest, word.lesson) as Word["lesson"],
+    1,
+  );
+}
+
+export function selectLearningLesson(
+  state: Pick<LearningState, "wordProgress">,
+  regionId: string,
+  words: readonly Word[],
+  publishedLessons: readonly PublishedLesson[] = [],
+): {
+  words: Word[];
+  editorialLesson?: PublishedLesson;
+} {
+  const regionWords = words.filter((word) => word.regionId === regionId);
+  const lessonNumber = activeCurriculumLesson(state, regionId, words);
+  const activeWords = regionWords.filter(
+    (word) => word.lesson === lessonNumber,
+  );
+  const editorialCandidates = publishedLessons
+    .filter((lesson) => lesson.regionId === regionId)
+    .map((lesson) => ({
+      lesson,
+      words: lessonVocabulary(lesson, words).filter(
+        (word) =>
+          word.regionId === regionId && word.lesson === lessonNumber,
+      ),
+    }))
+    .filter((candidate) => candidate.words.length > 0);
+  const editorial =
+    editorialCandidates.find((candidate) =>
+      candidate.words.some((word) => !state.wordProgress[word.id]),
+    ) ?? editorialCandidates[0];
+  const orderedWords = editorial
+    ? [
+        ...editorial.words,
+        ...activeWords.filter(
+          (word) => !editorial.words.some((item) => item.id === word.id),
+        ),
+      ]
+    : activeWords;
+  const sessionPool = orderedWords.length ? orderedWords : regionWords;
+  const unseen = sessionPool.filter((word) => !state.wordProgress[word.id]);
+  const familiar = sessionPool.filter((word) => state.wordProgress[word.id]);
+
+  return {
+    words: [...unseen, ...familiar].slice(0, 5),
+    editorialLesson: editorial?.lesson,
+  };
+}
 
 const NAV_ITEMS: Array<{
   id: Exclude<Screen, "profile">;
@@ -88,15 +169,32 @@ const NAV_ITEMS: Array<{
   { id: "wordbook", label: "Wordbook", icon: Library },
 ];
 
-export default function PasAPasApp({ storageKey }: { storageKey?: string } = {}) {
+const EMPTY_PUBLISHED_RECORDS: readonly PublishedRecordInput[] = [];
+
+export default function PasAPasApp({
+  storageKey,
+  publishedRecords = EMPTY_PUBLISHED_RECORDS,
+  curriculumRevision = "compiled-v1",
+}: {
+  storageKey?: string;
+  publishedRecords?: readonly PublishedRecordInput[];
+  curriculumRevision?: string;
+} = {}) {
   const { state, setState, status, ready, savedAt, retry, deleteProgress } =
     useProgress(storageKey);
+  const runtimeCurriculum = useMemo(
+    () => buildRuntimeCurriculum(publishedRecords),
+    [publishedRecords],
+  );
+  const words = runtimeCurriculum.words;
+  const publishedLessons = runtimeCurriculum.lessons;
   const [screen, setScreen] = useState<Screen>("today");
   const [lesson, setLesson] = useState<LessonState | null>(null);
   const [selectedWord, setSelectedWord] = useState<Word | null>(null);
   const [selectedRegion, setSelectedRegion] = useState<Region | null>(null);
   const [showDice, setShowDice] = useState(false);
   const [showChallenge, setShowChallenge] = useState(false);
+  const appOpenTracked = useRef(false);
 
   useEffect(() => {
     document.documentElement.dataset.reduceMotion = state.settings.reducedMotion
@@ -112,47 +210,88 @@ export default function PasAPasApp({ storageKey }: { storageKey?: string } = {})
   const reviewsDue = dueCount(state);
   const level = levelFromXp(state.xp);
 
+  useEffect(() => {
+    if (!ready || !state.onboarded || !state.settings.analytics || appOpenTracked.current) {
+      return;
+    }
+    appOpenTracked.current = true;
+    trackProductEvent(true, "app_opened", {
+      currentRegionId: state.currentRegionId,
+      learnedWords: learnedCount(state),
+    });
+  }, [ready, state]);
+
+  useEffect(() => {
+    if (!ready || !state.onboarded) return;
+    trackProductEvent(state.settings.analytics, "navigation_changed", { screen });
+  }, [ready, screen, state.onboarded, state.settings.analytics]);
+
   function startLesson(mode: "learn" | "review", regionId = state.currentRegionId) {
-    const regionWords = WORDS.filter((word) => word.regionId === regionId);
+    const regionWords = words.filter((word) => word.regionId === regionId);
+    const learningLesson = selectLearningLesson(
+      state,
+      regionId,
+      words,
+      publishedLessons,
+    );
     let lessonWords: Word[];
 
     if (mode === "review") {
-      const due = WORDS.filter((word) => {
+      const due = words.filter((word) => {
         const progress = state.wordProgress[word.id];
         return progress && isDue(progress);
       });
-      const learned = WORDS.filter((word) => state.wordProgress[word.id]);
+      const learned = words.filter((word) => state.wordProgress[word.id]);
       lessonWords = (due.length ? due : learned).slice(0, 5);
+      if (!lessonWords.length) return;
     } else {
-      const unseen = regionWords.filter((word) => !state.wordProgress[word.id]);
-      const familiar = regionWords.filter((word) => state.wordProgress[word.id]);
-      lessonWords = [...unseen, ...familiar].slice(0, 5);
+      lessonWords = learningLesson.words;
+      if (!lessonWords.length) lessonWords = regionWords.slice(0, 5);
     }
-
-    if (!lessonWords.length) lessonWords = regionWords.slice(0, 5);
-    setLesson({ mode, words: lessonWords, regionId });
+    trackProductEvent(state.settings.analytics, "lesson_started", {
+      mode,
+      regionId,
+      wordCount: lessonWords.length,
+    });
+    setLesson({
+      mode,
+      words: lessonWords,
+      regionId,
+      ...(mode === "learn" && learningLesson.editorialLesson
+        ? {
+            editorialTitle: learningLesson.editorialLesson.title,
+            editorialIntro: learningLesson.editorialLesson.introduction,
+          }
+        : {}),
+    });
   }
 
   function finishLesson(
     mode: "learn" | "review",
     regionId: string,
     correct: number,
-    words: number,
+    wordCount: number,
   ) {
+    trackProductEvent(state.settings.analytics, "lesson_completed", {
+      mode,
+      regionId,
+      correct,
+      wordCount,
+    });
     setState((current) => {
       const completed = completeSession(
         current,
         {
           id: createId("session"),
           mode,
-          words,
+          words: wordCount,
           correct,
           xpEarned: 18,
         },
         new Date(),
         localDateKey(),
       );
-      return applyUnlocksAndCollectibles(completed, regionId);
+      return applyUnlocksAndCollectibles(completed, regionId, words);
     });
   }
 
@@ -163,12 +302,18 @@ export default function PasAPasApp({ storageKey }: { storageKey?: string } = {})
     return (
       <Onboarding
         onComplete={(details) => {
+          const { analyticsEnabled, ...profile } = details;
           setState((current) => ({
             ...current,
-            ...details,
+            ...profile,
+            settings: { ...current.settings, analytics: analyticsEnabled },
             onboarded: true,
             updatedAt: new Date().toISOString(),
           }));
+          trackProductEvent(analyticsEnabled, "onboarding_completed", {
+            level: profile.level,
+            dailyGoal: profile.dailyGoal,
+          });
         }}
       />
     );
@@ -226,9 +371,9 @@ export default function PasAPasApp({ storageKey }: { storageKey?: string } = {})
 
         <header className="stats-bar" aria-label="Learning status">
           <div className="stats-cluster">
-            <StatPill icon={Flame} value={state.streak} label="day streak" tone="coral" />
+            <StatPill icon={Flame} value={state.streak} label={wordForCount(state.streak, "consecutive day")} tone="coral" />
             <StatPill icon={Zap} value={state.xp} label="total XP" tone="blue" />
-            <StatPill icon={Coins} value={state.coins} label="travel coins" tone="gold" />
+            <StatPill icon={Coins} value={state.coins} label={wordForCount(state.coins, "travel coin")} tone="gold" />
           </div>
           <SyncPill status={status} savedAt={savedAt} onRetry={retry} />
         </header>
@@ -237,6 +382,7 @@ export default function PasAPasApp({ storageKey }: { storageKey?: string } = {})
           {screen === "today" && (
             <TodayScreen
               state={state}
+              words={words}
               currentRegion={currentRegion}
               reviewsDue={reviewsDue}
               status={status}
@@ -249,6 +395,8 @@ export default function PasAPasApp({ storageKey }: { storageKey?: string } = {})
           {screen === "journey" && (
             <JourneyScreen
               state={state}
+              words={words}
+              curriculumRevision={curriculumRevision}
               onOpenRegion={(region) => setSelectedRegion(region)}
               onSelectRegion={(region) => {
                 setState((current) => ({
@@ -265,7 +413,13 @@ export default function PasAPasApp({ storageKey }: { storageKey?: string } = {})
               state={state}
               reviewsDue={reviewsDue}
               onReview={() => startLesson("review")}
-              onChallenge={() => setShowChallenge(true)}
+              onStart={() => startLesson("learn")}
+              onChallenge={() => {
+                trackProductEvent(state.settings.analytics, "challenge_started", {
+                  wordCount: Math.min(5, learnedCount(state)),
+                });
+                setShowChallenge(true);
+              }}
               onDice={() => setShowDice(true)}
               onProfile={() => setScreen("profile")}
             />
@@ -273,6 +427,7 @@ export default function PasAPasApp({ storageKey }: { storageKey?: string } = {})
           {screen === "wordbook" && (
             <WordbookScreen
               state={state}
+              words={words}
               onOpenWord={(word) => setSelectedWord(word)}
               onStart={() => startLesson("learn")}
             />
@@ -340,6 +495,8 @@ export default function PasAPasApp({ storageKey }: { storageKey?: string } = {})
         <RegionModal
           region={selectedRegion}
           state={state}
+          words={words}
+          publishedLessons={publishedLessons.filter((item) => item.regionId === selectedRegion.id)}
           onClose={() => setSelectedRegion(null)}
           onStart={() => {
             setSelectedRegion(null);
@@ -361,6 +518,7 @@ export default function PasAPasApp({ storageKey }: { storageKey?: string } = {})
       {showChallenge && (
         <ChallengeModal
           state={state}
+          words={words}
           setState={setState}
           onClose={() => setShowChallenge(false)}
         />
@@ -514,12 +672,17 @@ function SyncPill({
 function Onboarding({
   onComplete,
 }: {
-  onComplete: (details: Pick<LearningState, "displayName" | "level" | "dailyGoal">) => void;
+  onComplete: (
+    details: Pick<LearningState, "displayName" | "level" | "dailyGoal"> & {
+      analyticsEnabled: boolean;
+    },
+  ) => void;
 }) {
   const [step, setStep] = useState(0);
   const [name, setName] = useState("");
   const [level, setLevel] = useState<LearningState["level"]>("new");
   const [dailyGoal, setDailyGoal] = useState<LearningState["dailyGoal"]>(5);
+  const [analyticsEnabled, setAnalyticsEnabled] = useState(false);
 
   return (
     <main className="onboarding-shell">
@@ -534,8 +697,8 @@ function Onboarding({
                 <br /> one region at a time.
               </h1>
               <p className="onboarding-lede">
-                Remember useful words, hear real pronunciation, and fill a travel
-                journal across all 18 regions of France.
+                Build a 270-word French foundation, hear French pronunciation, and
+                fill a travel journal across all 18 regions of France.
               </p>
               <div className="onboarding-points">
                 <OnboardingPoint icon={Headphones} text="French audio on every card" />
@@ -559,6 +722,7 @@ function Onboarding({
                   displayName: name.trim().slice(0, 40) || "Traveler",
                   level,
                   dailyGoal,
+                  analyticsEnabled,
                 });
               }}
             >
@@ -611,6 +775,22 @@ function Onboarding({
                   ))}
                 </div>
               </fieldset>
+
+              <label className="analytics-consent">
+                <input
+                  type="checkbox"
+                  checked={analyticsEnabled}
+                  onChange={(event) => setAnalyticsEnabled(event.target.checked)}
+                />
+                <span>
+                  <strong>Help improve Pas à Pas</strong>
+                  <small>
+                    Share privacy-safe product events. No lesson answers, email,
+                    advertising ID, or cross-site tracking. Optional and changeable
+                    in Profile. <a href="/privacy">Learn more</a>.
+                  </small>
+                </span>
+              </label>
 
               <button className="primary-button large" type="submit">
                 Start in Paris <MapPin aria-hidden="true" />
@@ -684,6 +864,7 @@ function ChoiceCard({
 
 function TodayScreen({
   state,
+  words,
   currentRegion,
   reviewsDue,
   status,
@@ -693,6 +874,7 @@ function TodayScreen({
   onOpenWord,
 }: {
   state: LearningState;
+  words: readonly Word[];
   currentRegion: Region;
   reviewsDue: number;
   status: SyncStatus;
@@ -701,13 +883,23 @@ function TodayScreen({
   onJourney: () => void;
   onOpenWord: (word: Word) => void;
 }) {
-  const regionWords = WORDS.filter((word) => word.regionId === currentRegion.id);
+  const regionWords = words.filter((word) => word.regionId === currentRegion.id);
   const learnedHere = regionWords.filter((word) => state.wordProgress[word.id]).length;
+  const nextLessonNumber = activeCurriculumLesson(
+    state,
+    currentRegion.id,
+    words,
+  );
+  const nextLesson = CURRICULUM_PLAN[currentRegion.id as RegionId][nextLessonNumber - 1];
+  const remainingInNextLesson = regionWords.filter(
+    (word) => word.lesson === nextLessonNumber && !state.wordProgress[word.id],
+  ).length;
   const todayWords = state.sessions
     .filter((session) => localDateKey(new Date(session.completedAt)) === localDateKey())
     .reduce((total, session) => total + session.words, 0);
   const goalProgress = Math.min(100, Math.round((todayWords / state.dailyGoal) * 100));
-  const recentWord = WORDS.find((word) => state.wordProgress[word.id]);
+  const learned = learnedCount(state);
+  const recentWord = words.find((word) => state.wordProgress[word.id]);
 
   return (
     <div className="screen-page page-enter">
@@ -742,14 +934,22 @@ function TodayScreen({
               </div>
               <h2 id="today-session-title">{currentRegion.name}</h2>
               <p>{currentRegion.theme}</p>
+              <div className="lesson-kicker">
+                <span>{nextLesson.cefr}</span>
+                Lesson {nextLesson.lesson} of 3 · {nextLesson.title}
+              </div>
               <div className="hero-progress-label">
                 <span>{learnedHere} of {regionWords.length} words collected</span>
                 <strong>{Math.round((learnedHere / regionWords.length) * 100)}%</strong>
               </div>
-              <ProgressBar value={(learnedHere / regionWords.length) * 100} light />
+              <ProgressBar value={(learnedHere / regionWords.length) * 100} label={`${currentRegion.name} vocabulary progress`} light />
               <button className="cream-button" type="button" onClick={onStart}>
                 <BookOpen size={19} aria-hidden="true" />
-                {learnedHere ? "Continue today’s lesson" : "Learn your first 5 words"}
+                {learnedHere
+                  ? learnedHere === regionWords.length
+                    ? "Practice this completed chapter"
+                    : `Continue lesson ${nextLesson.lesson} · ${formatCount(remainingInNextLesson, "card")} left`
+                  : `Start lesson 1 · ${nextLesson.title}`}
                 <ChevronRight size={18} aria-hidden="true" />
               </button>
             </div>
@@ -782,10 +982,10 @@ function TodayScreen({
                 icon={RefreshCw}
                 tone="coral"
                 kicker="Memory"
-                title={reviewsDue ? `${reviewsDue} reviews are ready` : "Your memory is clear"}
-                copy={reviewsDue ? "A short recovery set, never an endless backlog." : "Practice any learned words whenever you like."}
-                action={reviewsDue ? "Review now" : "Practice anyway"}
-                onClick={onReview}
+                title={reviewsDue ? `${formatCount(reviewsDue, "review")} ${reviewsDue === 1 ? "is" : "are"} ready` : learned ? "Your memory is clear" : "Build your first memory set"}
+                copy={reviewsDue ? "A short recovery set, never an endless backlog." : learned ? "Practice any learned words whenever you like." : "Complete your first discovery lesson before starting a review."}
+                action={reviewsDue ? "Review now" : learned ? "Practice anyway" : "Start first lesson"}
+                onClick={learned ? onReview : onStart}
               />
               <MissionCard
                 icon={Compass}
@@ -830,12 +1030,12 @@ function TodayScreen({
             <div>
               <p className="eyebrow">Daily rhythm</p>
               <h2>{todayWords ? "Nicely done." : "One small step."}</h2>
-              <p>{Math.max(0, state.dailyGoal - todayWords)} words remain in today’s goal.</p>
+              <p>{formatRemainingWords(Math.max(0, state.dailyGoal - todayWords))} in today’s goal.</p>
             </div>
           </section>
 
           <section className="mini-stats-card">
-            <MiniStat icon={Library} value={learnedCount(state)} label="words seen" />
+            <MiniStat icon={Library} value={learned} label={`${wordLabel(learned)} seen`} />
             <MiniStat icon={Star} value={masteredCount(state)} label="mastered" />
             <MiniStat icon={Trophy} value={state.longestStreak} label="best streak" />
           </section>
@@ -906,10 +1106,14 @@ function MiniStat({ icon: Icon, value, label }: { icon: LucideIcon; value: numbe
 
 function JourneyScreen({
   state,
+  words,
+  curriculumRevision,
   onOpenRegion,
   onSelectRegion,
 }: {
   state: LearningState;
+  words: readonly Word[];
+  curriculumRevision: string;
   onOpenRegion: (region: Region) => void;
   onSelectRegion: (region: Region) => void;
 }) {
@@ -934,16 +1138,21 @@ function JourneyScreen({
         <span><i className="legend-dot completed" /> Completed</span>
         <span><i className="legend-dot current" /> Current</span>
         <span><i className="legend-dot locked" /> Locked</span>
-        <p><Info size={15} aria-hidden="true" /> Collect 4 of 5 words to open the next stop.</p>
+        <p><Info size={15} aria-hidden="true" /> Complete the first five-card lesson to open the next stop; each region has three lessons. <span className="curriculum-revision" title={`Published revision ${curriculumRevision}`}>Live curriculum synced</span></p>
       </div>
 
       <ol className="region-route" aria-label="French regional learning journey">
         {REGIONS.map((region, index) => {
-          const regionWords = WORDS.filter((word) => word.regionId === region.id);
+          const regionWords = words.filter((word) => word.regionId === region.id);
           const progress = regionWords.filter((word) => state.wordProgress[word.id]).length;
           const unlocked = state.unlockedRegionIds.includes(region.id);
           const current = state.currentRegionId === region.id;
           const completed = progress === regionWords.length;
+          const activeLesson = activeCurriculumLesson(
+            state,
+            region.id,
+            words,
+          );
           return (
             <li key={region.id} className={index % 2 ? "route-right" : "route-left"}>
               <span className="route-number" aria-hidden="true">{String(region.number).padStart(2, "0")}</span>
@@ -961,7 +1170,7 @@ function JourneyScreen({
                 <span className="region-card-color" style={{ background: region.accentColor }} />
                 <span className="region-card-emoji" aria-hidden="true">{unlocked ? region.emoji : <LockKeyhole />}</span>
                 <span className="region-card-copy">
-                  <small>{completed ? "Chapter complete" : current ? "Current chapter" : unlocked ? "Ready to explore" : "Keep traveling"}</small>
+                  <small>{completed ? "Chapter complete" : unlocked ? `Lesson ${activeLesson} of 3` : "Keep traveling"}</small>
                   <strong>{region.name}</strong>
                   <span>{region.theme}</span>
                 </span>
@@ -988,6 +1197,7 @@ function ReviewScreen({
   state,
   reviewsDue,
   onReview,
+  onStart,
   onChallenge,
   onDice,
   onProfile,
@@ -995,6 +1205,7 @@ function ReviewScreen({
   state: LearningState;
   reviewsDue: number;
   onReview: () => void;
+  onStart: () => void;
   onChallenge: () => void;
   onDice: () => void;
   onProfile: () => void;
@@ -1005,6 +1216,7 @@ function ReviewScreen({
   const accuracy = totalSeen ? Math.round((totalCorrect / totalSeen) * 100) : 0;
   const challengeDone = state.challenge.lastPlayedDate === localDateKey();
   const diceDone = state.dice.lastPlayedDate === localDateKey();
+  const reviewRoundSize = Math.min(5, reviewsDue || learned);
 
   return (
     <div className="screen-page page-enter">
@@ -1021,11 +1233,11 @@ function ReviewScreen({
         <div className="review-hero-icon"><RefreshCw aria-hidden="true" /></div>
         <div>
           <p className="eyebrow">Adaptive review</p>
-          <h2 id="review-title">{reviewsDue ? `${reviewsDue} words are ready` : learned ? "Choose a practice round" : "Your first words will appear here"}</h2>
+          <h2 id="review-title">{reviewsDue ? `${formatCount(reviewsDue, "word")} ${reviewsDue === 1 ? "is" : "are"} ready` : learned ? "Choose a practice round" : "Your first words will appear here"}</h2>
           <p>{reviewsDue ? "We’ll serve at most five now and keep the remaining queue visible." : learned ? "Nothing is overdue. A mixed practice round is still available." : "Complete one regional lesson to build your first review set."}</p>
         </div>
-        <button className="primary-button" type="button" onClick={onReview} disabled={!learned}>
-          <RefreshCw size={18} aria-hidden="true" /> {reviewsDue ? "Review 5 words" : "Practice 5 words"}
+        <button className="primary-button" type="button" onClick={learned ? onReview : onStart}>
+          {learned ? <RefreshCw size={18} aria-hidden="true" /> : <BookOpen size={18} aria-hidden="true" />} {reviewsDue ? `Review ${formatCount(reviewRoundSize, "word")}` : learned ? `Practice ${formatCount(reviewRoundSize, "word")}` : "Start first lesson"}
         </button>
       </section>
 
@@ -1035,8 +1247,8 @@ function ReviewScreen({
           tone="night"
           eyebrow="Dialogue mission"
           title="The Château Challenge"
-          copy="Answer five vocabulary prompts to open the château gate. No timer, and every question can be read aloud."
-          meta={challengeDone ? "Completed today · practice is reward-free" : learned >= 3 ? "Ready · up to 85 XP" : "Learn 3 words to unlock"}
+          copy="Answer up to five prompts from words you have learned to open the château gate. No timer, and every question can be read aloud."
+          meta={challengeDone ? "Completed today · practice is reward-free" : learned >= 3 ? `Ready · ${formatCount(Math.min(5, learned), "learned word")}` : "Learn 3 words to unlock"}
           action={challengeDone ? "Play again for practice" : "Begin challenge"}
           disabled={learned < 3}
           onClick={onChallenge}
@@ -1047,7 +1259,7 @@ function ReviewScreen({
           eyebrow="Travel dice"
           title="Roll for a route boost"
           copy="Use earned travel coins for a transparent one-in-six XP boost. No purchases, no hidden odds."
-          meta={diceDone ? "Today’s reward collected" : `${state.coins} coins available`}
+          meta={diceDone ? "Today’s reward collected" : `${formatCount(state.coins, "coin")} available`}
           action={diceDone ? "See today’s result" : "Open the dice"}
           disabled={!learned}
           onClick={onDice}
@@ -1057,12 +1269,12 @@ function ReviewScreen({
       <section className="mastery-section" aria-labelledby="mastery-title">
         <div className="section-heading-row">
           <div><p className="eyebrow">Seven-stage memory</p><h2 id="mastery-title">A schedule you can understand</h2></div>
-          <span>{masteredCount(state)} words solid</span>
+          <span>{formatCount(masteredCount(state), "word")} solid</span>
         </div>
         <div className="mastery-ladder">
           {MASTERY_STAGE_LABELS.map((label, index) => {
             const count = Object.values(state.wordProgress).filter((word) => word.stage === index).length;
-            return <div key={label}><span>{index + 1}</span><strong>{label}</strong><small>{count} words</small></div>;
+            return <div key={label}><span>{index + 1}</span><strong>{label}</strong><small>{formatCount(count, "word")}</small></div>;
           })}
         </div>
       </section>
@@ -1115,10 +1327,12 @@ function PracticeCard({
 
 function WordbookScreen({
   state,
+  words,
   onOpenWord,
   onStart,
 }: {
   state: LearningState;
+  words: readonly Word[];
   onOpenWord: (word: Word) => void;
   onStart: () => void;
 }) {
@@ -1129,13 +1343,13 @@ function WordbookScreen({
 
   const visibleWords = useMemo(
     () =>
-      WORDS.filter((word) => showAll || state.wordProgress[word.id])
+      words.filter((word) => showAll || state.wordProgress[word.id])
         .filter((word) => filter === "all" || word.partOfSpeech === filter)
         .filter((word) => {
           if (!normalizedQuery) return true;
           return normalizeText(`${word.french} ${word.search} ${word.english}`).includes(normalizedQuery);
         }),
-    [filter, normalizedQuery, showAll, state.wordProgress],
+    [filter, normalizedQuery, showAll, state.wordProgress, words],
   );
 
   return (
@@ -1158,7 +1372,7 @@ function WordbookScreen({
       </div>
 
       <div className="filter-row" role="group" aria-label="Filter by part of speech">
-        {(["all", "noun", "verb", "pronominal verb", "adjective"] as const).map((value) => (
+        {(["all", "noun", "verb", "pronominal verb", "adjective", "adverb", "phrase"] as const).map((value) => (
           <button key={value} type="button" className={filter === value ? "is-active" : ""} onClick={() => setFilter(value)} aria-pressed={filter === value}>
             {value === "all" ? "All" : titleCase(value)}
           </button>
@@ -1173,7 +1387,7 @@ function WordbookScreen({
             return (
               <button className="word-row" type="button" key={word.id} onClick={() => onOpenWord(word)}>
                 <span className="word-emoji" aria-hidden="true">{word.emoji}</span>
-                <span className="word-main"><strong lang="fr">{word.french}</strong>{state.settings.phonetics && <small>{word.ipa}</small>}</span>
+                <span className="word-main"><strong lang="fr">{word.french}</strong>{state.settings.phonetics && <small>{word.ipa}</small>}<small className="curriculum-meta">{word.cefr} · Lesson {word.lesson} · {titleCase(word.topic)}</small></span>
                 <span className="word-meaning">{word.english}</span>
                 <span className="word-meta"><small>{region?.shortLabel}</small><MasteryDots stage={progress?.stage ?? 0} learned={Boolean(progress)} /></span>
                 <ChevronRight size={19} aria-hidden="true" />
@@ -1213,13 +1427,30 @@ function ProfileScreen({
 }) {
   const [confirmReset, setConfirmReset] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const deleteTriggerRef = useRef<HTMLButtonElement>(null);
+  const deleteCancelRef = useRef<HTMLButtonElement>(null);
+  const restoreDeleteFocusRef = useRef(false);
   const level = levelFromXp(state.xp);
-  const board = useMemo(() => {
-    const seeded = SEED_LEADERBOARD.filter((entry) => entry.name !== "You").map((entry) => ({ ...entry, id: `seed-${entry.rank}`, isCurrentUser: false }));
-    return [...seeded, { id: "current-user", isCurrentUser: true, rank: 0, name: state.displayName, xp: state.xp, streak: state.streak, avatar: "🧭" }]
-      .sort((a, b) => b.xp - a.xp)
-      .map((entry, index) => ({ ...entry, rank: index + 1 }));
-  }, [state.displayName, state.streak, state.xp]);
+
+  useEffect(() => {
+    if (confirmReset) {
+      deleteCancelRef.current?.focus({ preventScroll: true });
+      return;
+    }
+    if (restoreDeleteFocusRef.current) {
+      restoreDeleteFocusRef.current = false;
+      deleteTriggerRef.current?.focus({ preventScroll: true });
+    }
+  }, [confirmReset]);
+
+  function openDeleteConfirmation() {
+    restoreDeleteFocusRef.current = true;
+    setConfirmReset(true);
+  }
+
+  function cancelDeleteConfirmation() {
+    setConfirmReset(false);
+  }
 
   function updateSetting(key: keyof LearningState["settings"], value: boolean) {
     setState((current) => ({ ...current, settings: { ...current.settings, [key]: value }, updatedAt: new Date().toISOString() }));
@@ -1239,7 +1470,7 @@ function ProfileScreen({
     <div className="screen-page page-enter">
       <header className="profile-hero">
         <div className="avatar avatar-large">{initials(state.displayName)}</div>
-        <div><p className="eyebrow">Travel profile</p><h1>{state.displayName}</h1><p>Level {level} · {learnedCount(state)} words · {state.unlockedRegionIds.length} regions</p></div>
+        <div><p className="eyebrow">Travel profile</p><h1>{state.displayName}</h1><p>Level {level} · {formatCount(learnedCount(state), "word")} · {formatCount(state.unlockedRegionIds.length, "region")}</p></div>
         <SyncPill status={status} savedAt={savedAt} onRetry={onRetry} />
       </header>
 
@@ -1247,24 +1478,9 @@ function ProfileScreen({
         <div className="profile-main-column">
           <section className="profile-stats" aria-label="Progress statistics">
             <ProfileStat icon={Zap} value={state.xp} label="Total XP" />
-            <ProfileStat icon={Flame} value={state.streak} label="Day streak" />
-            <ProfileStat icon={Library} value={learnedCount(state)} label="Words" />
-            <ProfileStat icon={Medal} value={masteredCount(state)} label="Mastered" />
-          </section>
-
-          <section className="league-card" aria-labelledby="league-title">
-            <div className="section-heading-row"><div><p className="eyebrow">Weekly travel league</p><h2 id="league-title">Your learning companions</h2></div><Trophy aria-hidden="true" /></div>
-            <p className="league-note"><ShieldCheck size={16} aria-hidden="true" /> Friendly sample cohort. No account details are shared with other learners.</p>
-            <div className="leaderboard-list">
-              {board.map((entry) => (
-                <div key={entry.id} className={entry.isCurrentUser ? "is-you" : ""}>
-                  <strong className="rank">{entry.rank}</strong>
-                  <span className="leader-avatar">{entry.avatar}</span>
-                  <span><strong>{entry.name}</strong><small>{entry.streak} day streak</small></span>
-                  <strong>{formatNumber(entry.xp)} XP</strong>
-                </div>
-              ))}
-            </div>
+            <ProfileStat icon={Flame} value={state.streak} label={wordForCount(state.streak, "consecutive day")} />
+            <ProfileStat icon={Library} value={learnedCount(state)} label={wordForCount(learnedCount(state), "word")} />
+            <ProfileStat icon={Medal} value={masteredCount(state)} label={wordForCount(masteredCount(state), "word mastered", "words mastered")} />
           </section>
 
           <section className="collection-card" aria-labelledby="profile-collection-title">
@@ -1284,15 +1500,22 @@ function ProfileScreen({
           <SettingToggle label="French audio" copy="Enable pronunciation buttons" checked={state.settings.sound} onChange={(value) => updateSetting("sound", value)} />
           <SettingToggle label="Show IPA" copy="Keep pronunciation guides visible" checked={state.settings.phonetics} onChange={(value) => updateSetting("phonetics", value)} />
           <SettingToggle label="Reduced motion" copy="Remove movement and celebration effects" checked={state.settings.reducedMotion} onChange={(value) => updateSetting("reducedMotion", value)} />
-          <SettingToggle label="Session reminders" copy="Coming soon" checked={false} onChange={() => undefined} disabled />
-
-          <div className="beta-pass"><Sparkles aria-hidden="true" /><div><strong>Founding traveler</strong><span>All lessons and practice modes are unlocked during beta.</span></div></div>
-          <div className="privacy-summary"><ShieldCheck size={18} aria-hidden="true" /><div><strong>Your learning data stays private</strong><span>Progress is tied to a protected account key, cached on this device for offline safety, and never used for ads.</span><a href="/privacy">Read privacy &amp; retention details</a></div></div>
+          <SettingToggle
+            label="Optional product analytics"
+            copy="Share coarse usage events without answers or personal text"
+            checked={state.settings.analytics}
+            onChange={(value) => {
+              updateSetting("analytics", value);
+              trackProductEvent(value, "analytics_consent_updated", { enabled: value });
+            }}
+          />
+          <div className="beta-pass"><Sparkles aria-hidden="true" /><div><strong>Complete curriculum included</strong><span>All 54 lessons and practice modes are included. Each new region opens after you complete the previous region’s first lesson.</span></div></div>
+          <div className="privacy-summary"><ShieldCheck size={18} aria-hidden="true" /><div><strong>Your learning data stays private</strong><span>Progress is tied to a protected account key, cached on this device for offline safety, and never used for ads.</span><a href="/privacy">Privacy</a><a href="/terms">Terms</a><a href="/accessibility">Accessibility</a><a href="/attributions">Attributions</a><a href="/support">Support</a></div></div>
           <button className="secondary-button full" type="button" onClick={exportProgress}><Download size={17} aria-hidden="true" /> Export my progress</button>
           {!confirmReset ? (
-            <button className="danger-text-button" type="button" onClick={() => setConfirmReset(true)}>Delete my learning data</button>
+            <button ref={deleteTriggerRef} className="danger-text-button" type="button" onClick={openDeleteConfirmation}>Delete my learning data</button>
           ) : (
-            <div className="reset-confirm" role="alert"><strong>Delete all learning data?</strong><p>This permanently removes the server record and this device’s offline copy.</p><div><button type="button" onClick={() => setConfirmReset(false)} disabled={deleting}>Cancel</button><button type="button" disabled={deleting} onClick={async () => { setDeleting(true); const deleted = await onDelete(); if (!deleted) setDeleting(false); }}>{deleting ? "Deleting…" : "Delete permanently"}</button></div></div>
+            <div className="reset-confirm" role="alert"><strong>Delete all learning data?</strong><p>This permanently removes the server record and this device’s offline copy.</p><div><button ref={deleteCancelRef} type="button" onClick={cancelDeleteConfirmation} disabled={deleting}>Cancel</button><button type="button" disabled={deleting} onClick={async () => { setDeleting(true); const deleted = await onDelete(); if (!deleted) setDeleting(false); }}>{deleting ? "Deleting…" : "Delete permanently"}</button></div></div>
           )}
         </aside>
       </div>
@@ -1474,7 +1697,22 @@ function LessonOverlay({
   const [sessionCoins, setSessionCoins] = useState(0);
   const word = lesson.words[index];
   const region = REGIONS.find((item) => item.id === lesson.regionId) ?? REGIONS[0];
+  const completionCoins = sessionCoins + Math.max(1, Math.floor(correct / 2));
+  const preloadWords = useMemo(
+    () =>
+      lesson.words
+        .slice(index + 1)
+        .map((item) => ({ wordId: item.id, text: item.french })),
+    [index, lesson.words],
+  );
   const dialogRef = useDialogLifecycle(onClose);
+  const completionHeadingRef = useRef<HTMLHeadingElement>(null);
+
+  useEffect(() => {
+    if (complete) {
+      completionHeadingRef.current?.focus({ preventScroll: true });
+    }
+  }, [complete]);
 
   function advance(rating: Rating) {
     onRate(word.id, rating);
@@ -1513,13 +1751,23 @@ function LessonOverlay({
               <span className="lesson-xp"><Zap size={15} aria-hidden="true" /> +{sessionXp}</span>
             </header>
             <section className="lesson-content" aria-labelledby="lesson-title">
-              <div className="lesson-meta"><span>{lesson.mode === "learn" ? "Discover" : "Recall"}</span><span>{region.shortLabel}</span></div>
+              <div className="lesson-meta"><span>{lesson.mode === "learn" ? `Lesson ${word.lesson} · ${word.cefr}` : "Mixed recall"}</span><span>{lesson.mode === "learn" ? lesson.editorialTitle ?? CURRICULUM_PLAN[word.regionId as RegionId][word.lesson - 1].title : region.shortLabel}</span></div>
+              {index === 0 && lesson.editorialIntro && <p className="lesson-editorial-intro">{lesson.editorialIntro}</p>}
               <article className={`flash-card ${revealed ? "is-revealed" : ""}`}>
                 <span className="flash-emoji" aria-hidden="true">{word.emoji}</span>
                 <span className="pos-chip">{word.partOfSpeech}</span>
                 <h1 id="lesson-title" lang="fr">{word.french}</h1>
                 {state.settings.phonetics && <p className="ipa">{word.ipa}</p>}
-                <button className="audio-button" type="button" onClick={() => speakFrench(word.french)} disabled={!state.settings.sound}><Volume2 size={19} aria-hidden="true" /> Hear it in French</button>
+                <FrenchAudioButton
+                  wordId={word.id}
+                  text={word.french}
+                  enabled={state.settings.sound}
+                  onPlay={() => trackProductEvent(state.settings.analytics, "audio_played", { wordId: word.id })}
+                  preloadWords={preloadWords}
+                  className="audio-button"
+                >
+                  {({ isPlaying }) => <><Volume2 size={19} aria-hidden="true" /> {isPlaying ? "Pause French audio" : "Hear it in French"}</>}
+                </FrenchAudioButton>
                 {!revealed ? (
                   <div className="recall-prompt"><p>{lesson.mode === "review" ? "Say the meaning—and the article for nouns—before revealing it." : "Notice the sound and article. What do you think it means?"}</p><button className="primary-button large" type="button" onClick={() => setRevealed(true)}>Reveal the card</button>{lesson.mode === "learn" && !state.wordProgress[word.id] && <button className="text-button" type="button" onClick={markKnownAndAdvance}><Check size={16} aria-hidden="true" /> I already know this</button>}</div>
                 ) : (
@@ -1532,9 +1780,9 @@ function LessonOverlay({
           <div className="lesson-complete" role="status">
             <div className="completion-seal"><Check aria-hidden="true" /></div>
             <p className="eyebrow">Session complete</p>
-            <h1 id="lesson-title">Très bien, {state.displayName}.</h1>
+            <h1 ref={completionHeadingRef} id="lesson-title" tabIndex={-1}>Très bien, {state.displayName}.</h1>
             <p>You showed up, recalled {correct} of {lesson.words.length}, and moved your regional route forward.</p>
-            <div className="completion-stats"><div><Zap aria-hidden="true" /><strong>+{sessionXp + 18}</strong><span>XP</span></div><div><Coins aria-hidden="true" /><strong>+{sessionCoins + Math.max(1, Math.floor(correct / 2))}</strong><span>coins</span></div><div><Flame aria-hidden="true" /><strong>{Math.max(1, state.streak)}</strong><span>day streak</span></div></div>
+            <div className="completion-stats"><div><Zap aria-hidden="true" /><strong>+{sessionXp + 18}</strong><span>XP</span></div><div><Coins aria-hidden="true" /><strong>+{completionCoins}</strong><span>{wordForCount(completionCoins, "coin")}</span></div><div><Flame aria-hidden="true" /><strong>{Math.max(1, state.streak)}</strong><span>{wordForCount(Math.max(1, state.streak), "consecutive day")}</span></div></div>
             <div className="completion-note"><Sparkles aria-hidden="true" /><span>Your progress is safe on this device and queued for cloud sync.</span></div>
             <button className="primary-button large" type="button" onClick={onClose}>Back to today <ChevronRight aria-hidden="true" /></button>
           </div>
@@ -1551,7 +1799,7 @@ function WordModal({ word, state, onClose }: { word: Word; state: LearningState;
     <ModalFrame labelId="word-modal-title" onClose={onClose} className="word-modal">
       <div className="word-modal-top" style={{ background: region?.accentColor }}><span aria-hidden="true">{word.emoji}</span><small>{region?.name}</small></div>
       <div className="word-modal-body">
-        <div className="modal-title-row"><div><span className="pos-chip">{word.partOfSpeech}</span><h2 id="word-modal-title" lang="fr">{word.french}</h2>{state.settings.phonetics && <p>{word.ipa}</p>}</div><button className="audio-circle" type="button" aria-label={`Hear ${word.french}`} onClick={() => speakFrench(word.french)} disabled={!state.settings.sound}><Volume2 /></button></div>
+        <div className="modal-title-row"><div><span className="pos-chip">{word.partOfSpeech}</span><span className="cefr-chip">{word.cefr} · Lesson {word.lesson}</span><h2 id="word-modal-title" lang="fr">{word.french}</h2>{state.settings.phonetics && <p>{word.ipa}</p>}</div><FrenchAudioButton wordId={word.id} text={word.french} enabled={state.settings.sound} onPlay={() => trackProductEvent(state.settings.analytics, "audio_played", { wordId: word.id })} className="audio-circle"><Volume2 aria-hidden="true" /></FrenchAudioButton></div>
         <div className="meaning-row"><strong>{word.english}</strong>{word.gender && <span>{word.gender}</span>}</div>
         <blockquote className="example-card"><MessageCircle size={18} aria-hidden="true" /><p lang="fr">{word.exampleFr}</p><footer>{word.exampleEn}</footer></blockquote>
         <div className="mastery-detail"><div><span>Memory stage</span><strong>{progress ? MASTERY_STAGE_LABELS[progress.stage] : "Not learned yet"}</strong></div><MasteryDots stage={progress?.stage ?? 0} learned={Boolean(progress)} /></div>
@@ -1561,13 +1809,14 @@ function WordModal({ word, state, onClose }: { word: Word; state: LearningState;
   );
 }
 
-function RegionModal({ region, state, onClose, onStart, onOpenWord }: { region: Region; state: LearningState; onClose: () => void; onStart: () => void; onOpenWord: (word: Word) => void }) {
-  const regionWords = WORDS.filter((word) => word.regionId === region.id);
+function RegionModal({ region, state, words, publishedLessons, onClose, onStart, onOpenWord }: { region: Region; state: LearningState; words: readonly Word[]; publishedLessons: readonly PublishedLesson[]; onClose: () => void; onStart: () => void; onOpenWord: (word: Word) => void }) {
+  const regionWords = words.filter((word) => word.regionId === region.id);
   const count = regionWords.filter((word) => state.wordProgress[word.id]).length;
+  const plans = CURRICULUM_PLAN[region.id as RegionId];
   return (
     <ModalFrame labelId="region-modal-title" onClose={onClose} className="region-modal">
       <div className="region-modal-hero" style={{ background: region.accentColor }}><span className="region-number">Stop {String(region.number).padStart(2, "0")}</span><span className="region-big-emoji" aria-hidden="true">{region.emoji}</span><h2 id="region-modal-title">{region.name}</h2><p>{region.theme}</p></div>
-      <div className="region-modal-body"><p className="culture-note">{region.cultureNote}</p><div className="hero-progress-label"><span>{count} of {regionWords.length} words collected</span><strong>{Math.round((count / regionWords.length) * 100)}%</strong></div><ProgressBar value={(count / regionWords.length) * 100} /><div className="region-word-preview">{regionWords.map((word) => <button type="button" key={word.id} onClick={() => onOpenWord(word)}><span>{word.emoji}</span><span><strong lang="fr">{word.french}</strong><small>{state.wordProgress[word.id] ? word.english : "Ready to discover"}</small></span><ChevronRight size={17} /></button>)}</div><button className="primary-button large full" type="button" onClick={onStart}><BookOpen size={18} /> {count ? "Continue this chapter" : "Start this chapter"}</button></div>
+      <div className="region-modal-body"><p className="culture-note">{region.cultureNote}</p>{publishedLessons.map((lesson) => <article className="published-lesson-note" key={lesson.id}><div><span>Published field lesson · {lesson.estimatedMinutes} min</span><h3>{lesson.title}</h3></div><p>{lesson.summary}</p><details><summary>Read the lesson introduction</summary><p>{lesson.introduction}</p>{lesson.blocks.map((block, index) => <div className={`published-block published-block-${block.type}`} key={`${lesson.id}-${index}`}><strong>{block.type === "tip" ? "Language tip" : block.type === "exercise" ? "Try it" : "Field note"}</strong><p>{block.content}</p></div>)}</details></article>)}<div className="hero-progress-label"><span>{count} of {regionWords.length} words collected</span><strong>{Math.round((count / regionWords.length) * 100)}%</strong></div><ProgressBar value={(count / regionWords.length) * 100} label={`${region.name} vocabulary progress`} /><div className="region-lessons">{plans.map((plan) => { const lessonWords = regionWords.filter((word) => word.lesson === plan.lesson); const learned = lessonWords.filter((word) => state.wordProgress[word.id]).length; return <section key={plan.lesson} aria-labelledby={`region-lesson-${region.id}-${plan.lesson}`}><header><div><span>{plan.cefr}</span><h3 id={`region-lesson-${region.id}-${plan.lesson}`}>Lesson {plan.lesson}: {plan.title}</h3><p>{titleCase(plan.topic)}</p></div><strong>{learned}/{lessonWords.length}</strong></header><div className="region-word-preview">{lessonWords.map((word) => <button type="button" key={word.id} onClick={() => onOpenWord(word)}><span>{word.emoji}</span><span><strong lang="fr">{word.french}</strong><small>{state.wordProgress[word.id] ? word.english : "Ready to discover"}</small></span><ChevronRight size={17} /></button>)}</div></section>; })}</div><button className="primary-button large full" type="button" onClick={onStart}><BookOpen size={18} /> {count === regionWords.length ? "Practice this chapter" : count ? "Continue this chapter" : "Start lesson 1"}</button></div>
     </ModalFrame>
   );
 }
@@ -1589,33 +1838,67 @@ function DiceModal({ state, setState, onClose }: { state: LearningState; setStat
   return (
     <ModalFrame labelId="dice-title" onClose={onClose} className="dice-modal">
       <div className="dice-heading"><span><Dices aria-hidden="true" /></span><div><p className="eyebrow">Travel dice</p><h2 id="dice-title">A little route boost</h2><p>Six equal outcomes: ×0.5, ×1, ×1.25, ×1.5, ×2 or ×3 XP. Only earned coins are used.</p></div></div>
-      {doneToday && !result ? <div className="done-panel"><Check aria-hidden="true" /><strong>Today’s roll is complete</strong><p>Come back tomorrow after another small French step.</p></div> : result ? <div className="dice-result" role="status"><div className="rolling-die">{result.multiplier}×</div><p className="eyebrow">Route boost</p><h3>+{result.xp} XP</h3><p>Your {stake} travel coin{stake > 1 ? "s" : ""} turned into a memory boost.</p><button className="primary-button full" type="button" onClick={onClose}>Collect reward</button></div> : <><div className="coin-balance"><Coins aria-hidden="true" /><span>Available</span><strong>{state.coins} coins</strong></div><div className="stake-grid">{([1, 3, 5] as const).map((value) => <button type="button" key={value} className={stake === value ? "is-active" : ""} onClick={() => setStake(value)} disabled={state.coins < value}><Coins size={18} /><strong>{value}</strong><span>coin{value > 1 ? "s" : ""}</span></button>)}</div><p className="odds-note"><Info size={15} /> Every face is equally likely. Base learning XP is never at risk.</p><button className="primary-button large full" type="button" onClick={roll} disabled={state.coins < stake}><Dices size={19} /> Roll the dice</button></>}
+      {doneToday && !result ? <div className="done-panel"><Check aria-hidden="true" /><strong>Today’s roll is complete</strong><p>Come back tomorrow after another small French step.</p></div> : result ? <div className="dice-result" role="status"><div className="rolling-die">{result.multiplier}×</div><p className="eyebrow">Route boost</p><h3>+{result.xp} XP</h3><p>Your {formatCount(stake, "travel coin")} turned into a memory boost.</p><button className="primary-button full" type="button" onClick={onClose}>Collect reward</button></div> : <><div className="coin-balance"><Coins aria-hidden="true" /><span>Available</span><strong>{formatCount(state.coins, "coin")}</strong></div><div className="stake-grid">{([1, 3, 5] as const).map((value) => <button type="button" key={value} className={stake === value ? "is-active" : ""} onClick={() => setStake(value)} disabled={state.coins < value}><Coins size={18} aria-hidden="true" /><strong>{value}</strong><span>{wordForCount(value, "coin")}</span></button>)}</div><p className="odds-note"><Info size={15} aria-hidden="true" /> Every face is equally likely. Base learning XP is never at risk.</p><button className="primary-button large full" type="button" onClick={roll} disabled={state.coins < stake}><Dices size={19} aria-hidden="true" /> Roll the dice</button></>}
     </ModalFrame>
   );
 }
 
-function ChallengeModal({ state, setState, onClose }: { state: LearningState; setState: React.Dispatch<React.SetStateAction<LearningState>>; onClose: () => void }) {
-  const learnedWords = WORDS.filter((word) => state.wordProgress[word.id]);
-  const questions = [...learnedWords, ...WORDS.filter((word) => !state.wordProgress[word.id])].slice(0, 5);
-  const rewardEligible = state.challenge.lastPlayedDate !== localDateKey();
+function ChallengeModal({ state, words, setState, onClose }: { state: LearningState; words: readonly Word[]; setState: React.Dispatch<React.SetStateAction<LearningState>>; onClose: () => void }) {
+  const [todayKey] = useState(() => localDateKey());
+  const [questions] = useState(() =>
+    words.filter((word) => state.wordProgress[word.id]).slice(0, 5),
+  );
+  const [rewardEligible] = useState(
+    () => state.challenge.lastPlayedDate !== todayKey,
+  );
   const [index, setIndex] = useState(0);
   const [selected, setSelected] = useState<string | null>(null);
   const [score, setScore] = useState(0);
   const [answerXp, setAnswerXp] = useState(0);
   const [complete, setComplete] = useState(false);
+  const answerLocked = useRef(false);
   const current = questions[index];
-  const options = useMemo(() => buildOptions(current, WORDS), [current]);
+  const preloadWords = useMemo(
+    () =>
+      questions
+        .slice(index + 1)
+        .map((item) => ({ wordId: item.id, text: item.french })),
+    [index, questions],
+  );
+  const options = useMemo(
+    () => buildOptions(current, questions),
+    [current, questions],
+  );
   const isCorrect = selected === current.id;
   const dialogRef = useDialogLifecycle(onClose);
+  const completionHeadingRef = useRef<HTMLHeadingElement>(null);
+  const challengeCoins = score + Math.max(1, Math.floor(score / 2));
+
+  useEffect(() => {
+    if (complete) {
+      completionHeadingRef.current?.focus({ preventScroll: true });
+    }
+  }, [complete]);
 
   function choose(id: string) {
-    if (selected) return;
+    if (selected || answerLocked.current) return;
+    answerLocked.current = true;
     setSelected(id);
     const correct = id === current.id;
     if (correct) setScore((value) => value + 1);
     if (rewardEligible) {
       setAnswerXp((value) => value + (correct ? 10 : 2));
-      setState((progress) => applyCollectibles(rateWord(progress, current.id, correct ? "good" : "again")));
+      setState((progress) => {
+        const rated = rateWord(progress, current.id, correct ? "good" : "again");
+        return applyCollectibles({
+          ...rated,
+          challenge: {
+            ...rated.challenge,
+            lastPlayedDate: todayKey,
+          },
+          updatedAt: new Date().toISOString(),
+        });
+      });
     }
   }
 
@@ -1623,24 +1906,29 @@ function ChallengeModal({ state, setState, onClose }: { state: LearningState; se
     if (index === questions.length - 1) {
       const finalScore = score;
       const bonusXp = finalScore >= 3 ? 35 : 12;
+      trackProductEvent(state.settings.analytics, "challenge_completed", {
+        correct: finalScore,
+        wordCount: questions.length,
+      });
       setState((progress) => {
         if (!rewardEligible) {
           return { ...progress, challenge: { ...progress.challenge, bestScore: Math.max(progress.challenge.bestScore, finalScore) }, updatedAt: new Date().toISOString() };
         }
-        return applyCollectibles(completeSession({ ...progress, challenge: { lastPlayedDate: localDateKey(), bestScore: Math.max(progress.challenge.bestScore, finalScore) } }, { id: createId("challenge"), mode: "challenge", words: questions.length, correct: finalScore, xpEarned: bonusXp }));
+        return applyCollectibles(completeSession({ ...progress, challenge: { lastPlayedDate: todayKey, bestScore: Math.max(progress.challenge.bestScore, finalScore) } }, { id: createId("challenge"), mode: "challenge", words: questions.length, correct: finalScore, xpEarned: bonusXp }));
       });
       setComplete(true);
       return;
     }
     setIndex((value) => value + 1);
     setSelected(null);
+    answerLocked.current = false;
   }
 
   return (
     <div ref={dialogRef} className="modal-backdrop challenge-backdrop" role="dialog" aria-modal="true" aria-labelledby="challenge-title" tabIndex={-1}>
       <div className="challenge-shell">
         <header><button className="icon-button inverted" type="button" onClick={onClose} aria-label="Close challenge" data-dialog-initial-focus><X /></button><div><span>Château gate</span><div><i style={{ width: `${(score / questions.length) * 100}%` }} /></div></div><span>{score}/{questions.length}</span></header>
-        {!complete ? <section className="challenge-content" aria-labelledby="challenge-title"><div className="chateau-scene" aria-hidden="true"><div className="moon" /><div className="castle"><span /><span /><span /></div><div className="gate-progress" style={{ "--gate-open": `${Math.min(100, score * 20)}%` } as CSSProperties} /></div><p className="eyebrow">Question {index + 1} of {questions.length}</p><h2 id="challenge-title">What does <span lang="fr">“{current.french}”</span> mean?</h2><button className="challenge-audio" type="button" onClick={() => speakFrench(current.french)} disabled={!state.settings.sound}><Volume2 size={18} /> Hear the prompt</button><div className="answer-options">{options.map((option) => { const chosen = selected === option.id; const correctOption = selected && option.id === current.id; return <button type="button" key={option.id} onClick={() => choose(option.id)} className={correctOption ? "is-correct" : chosen ? "is-wrong" : ""} disabled={Boolean(selected)}><span>{option.english}</span>{correctOption && <Check />}{chosen && !correctOption && <X />}</button>; })}</div>{selected && <div className={`answer-feedback ${isCorrect ? "correct" : "wrong"}`} role="status"><strong>{isCorrect ? "Bien joué!" : `The answer is “${current.english}.”`}</strong><p>{rewardEligible ? (isCorrect ? "The gate opens a little farther." : "This card will return sooner so it can stick.") : "Practice mode leaves XP and review schedules unchanged."}</p><button className="primary-button" type="button" onClick={next}>{index === questions.length - 1 ? "See result" : "Next question"}<ChevronRight /></button></div>}</section> : <div className="challenge-complete"><div className="completion-seal"><Trophy /></div><p className="eyebrow">Gate opened</p><h2 id="challenge-title">{score >= 3 ? "Mission complete." : "A brave first attempt."}</h2><p>{rewardEligible ? `You recalled ${score} of ${questions.length} words. Their review schedules are updated.` : `You recalled ${score} of ${questions.length} words in reward-free practice.`}</p><div><Zap /><strong>{rewardEligible ? `+${answerXp + (score >= 3 ? 35 : 12)} XP · +${score + Math.max(1, Math.floor(score / 2))} coins` : "+0 XP · practice only"}</strong></div><button className="primary-button large" type="button" onClick={onClose}>Return to practice</button></div>}
+        {!complete ? <section className="challenge-content" aria-labelledby="challenge-title"><div className="chateau-scene" aria-hidden="true"><div className="moon" /><div className="castle"><span /><span /><span /></div><div className="gate-progress" style={{ "--gate-open": `${Math.min(100, (score / questions.length) * 100)}%` } as CSSProperties} /></div><p className="eyebrow">Question {index + 1} of {questions.length}</p><h2 id="challenge-title">What does <span lang="fr">“{current.french}”</span> mean?</h2><FrenchAudioButton wordId={current.id} text={current.french} enabled={state.settings.sound} onPlay={() => trackProductEvent(state.settings.analytics, "audio_played", { wordId: current.id })} preloadWords={preloadWords} className="challenge-audio"><Volume2 size={18} aria-hidden="true" /> Hear the prompt</FrenchAudioButton><div className="answer-options">{options.map((option) => { const chosen = selected === option.id; const correctOption = selected && option.id === current.id; return <button type="button" key={option.id} onClick={() => choose(option.id)} className={correctOption ? "is-correct" : chosen ? "is-wrong" : ""} disabled={Boolean(selected)}><span>{option.english}</span>{correctOption && <Check aria-hidden="true" />}{chosen && !correctOption && <X aria-hidden="true" />}</button>; })}</div>{selected && <div className={`answer-feedback ${isCorrect ? "correct" : "wrong"}`} role="status"><strong>{isCorrect ? "Bien joué!" : `The answer is “${current.english}.”`}</strong><p>{rewardEligible ? (isCorrect ? "The gate opens a little farther." : "This card will return sooner so it can stick.") : "Practice mode leaves XP and review schedules unchanged."}</p><button className="primary-button" type="button" onClick={next}>{index === questions.length - 1 ? "See result" : "Next question"}<ChevronRight aria-hidden="true" /></button></div>}</section> : <div className="challenge-complete" role="status"><div className="completion-seal"><Trophy aria-hidden="true" /></div><p className="eyebrow">Gate opened</p><h2 ref={completionHeadingRef} id="challenge-title" tabIndex={-1}>{score >= 3 ? "Mission complete." : "A brave first attempt."}</h2><p>{rewardEligible ? `You recalled ${score} of ${questions.length} words. Their review schedules are updated.` : `You recalled ${score} of ${questions.length} words in reward-free practice.`}</p><div><Zap aria-hidden="true" /><strong>{rewardEligible ? `+${answerXp + (score >= 3 ? 35 : 12)} XP · +${formatCount(challengeCoins, "coin")}` : "+0 XP · practice only"}</strong></div><button className="primary-button large" type="button" onClick={onClose}>Return to practice</button></div>}
       </div>
     </div>
   );
@@ -1651,20 +1939,26 @@ function ModalFrame({ labelId, onClose, className, children }: { labelId: string
   return <div ref={dialogRef} className="modal-backdrop" role="dialog" aria-modal="true" aria-labelledby={labelId} tabIndex={-1}><div className={`modal-card ${className ?? ""}`}><button className="modal-close icon-button" type="button" onClick={onClose} aria-label="Close" data-dialog-initial-focus><X /></button>{children}</div></div>;
 }
 
-function ProgressBar({ value, light = false }: { value: number; light?: boolean }) {
-  return <div className={`progress-bar ${light ? "is-light" : ""}`} role="progressbar" aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(value)}><i style={{ width: `${Math.max(0, Math.min(100, value))}%` }} /></div>;
+function ProgressBar({ value, label, light = false }: { value: number; label: string; light?: boolean }) {
+  return <div className={`progress-bar ${light ? "is-light" : ""}`} role="progressbar" aria-label={label} aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(value)}><i style={{ width: `${Math.max(0, Math.min(100, value))}%` }} /></div>;
 }
 
 function EmptyState({ icon: Icon, title, copy, action, onAction }: { icon: LucideIcon; title: string; copy: string; action?: string; onAction?: () => void }) {
   return <div className="empty-state"><span><Icon aria-hidden="true" /></span><h2>{title}</h2><p>{copy}</p>{action && onAction && <button className="primary-button" type="button" onClick={onAction}>{action}</button>}</div>;
 }
 
-function applyUnlocksAndCollectibles(state: LearningState, regionId: string): LearningState {
+export function applyUnlocksAndCollectibles(state: LearningState, regionId: string, words: readonly Word[]): LearningState {
   let next = state;
   const regionIndex = REGIONS.findIndex((region) => region.id === regionId);
-  const learnedInRegion = WORDS.filter((word) => word.regionId === regionId && next.wordProgress[word.id]).length;
+  const firstLessonWords = words.filter(
+    (word) => word.regionId === regionId && word.lesson === 1,
+  );
+  const requiredWords = Math.min(REGION_UNLOCK_WORDS, firstLessonWords.length);
+  const learnedInFirstLesson = firstLessonWords.filter(
+    (word) => next.wordProgress[word.id],
+  ).length;
   const nextRegion = REGIONS[regionIndex + 1];
-  if (learnedInRegion >= 4 && nextRegion && !next.unlockedRegionIds.includes(nextRegion.id)) {
+  if (requiredWords > 0 && learnedInFirstLesson >= requiredWords && nextRegion && !next.unlockedRegionIds.includes(nextRegion.id)) {
     next = { ...next, unlockedRegionIds: [...next.unlockedRegionIds, nextRegion.id] };
   }
   return applyCollectibles(next);
@@ -1677,21 +1971,19 @@ function applyCollectibles(state: LearningState): LearningState {
 }
 
 function buildOptions(word: Word, allWords: readonly Word[]): Word[] {
-  const distractors = allWords.filter((item) => item.id !== word.id && item.partOfSpeech === word.partOfSpeech).slice(0, 3);
+  const samePartOfSpeech = allWords.filter(
+    (item) => item.id !== word.id && item.partOfSpeech === word.partOfSpeech,
+  );
+  const otherLearnedWords = allWords.filter(
+    (item) =>
+      item.id !== word.id &&
+      item.partOfSpeech !== word.partOfSpeech &&
+      !samePartOfSpeech.some((candidate) => candidate.id === item.id),
+  );
+  const distractors = [...samePartOfSpeech, ...otherLearnedWords].slice(0, 3);
   const options = [word, ...distractors];
   const shift = word.id.split("").reduce((sum, character) => sum + character.charCodeAt(0), 0) % options.length;
   return [...options.slice(shift), ...options.slice(0, shift)];
-}
-
-function speakFrench(text: string) {
-  if (typeof window === "undefined" || !("speechSynthesis" in window)) return;
-  window.speechSynthesis.cancel();
-  const utterance = new SpeechSynthesisUtterance(text);
-  utterance.lang = "fr-FR";
-  utterance.rate = 0.86;
-  const voice = window.speechSynthesis.getVoices().find((item) => item.lang.toLowerCase().startsWith("fr"));
-  if (voice) utterance.voice = voice;
-  window.speechSynthesis.speak(utterance);
 }
 
 function normalizeText(value: string): string {
@@ -1719,9 +2011,33 @@ function formatDue(value: string): string {
   const difference = new Date(value).getTime() - Date.now();
   if (difference <= 0) return "Ready now";
   const hours = Math.round(difference / (60 * 60 * 1000));
-  if (hours < 24) return `in ${Math.max(1, hours)} hour${hours === 1 ? "" : "s"}`;
+  if (hours < 24) return `in ${formatCount(Math.max(1, hours), "hour")}`;
   const days = Math.round(hours / 24);
-  return `in ${days} day${days === 1 ? "" : "s"}`;
+  return `in ${formatCount(days, "day")}`;
+}
+
+export function formatCount(
+  count: number,
+  singular: string,
+  plural = `${singular}s`,
+): string {
+  return `${count} ${wordForCount(count, singular, plural)}`;
+}
+
+function wordForCount(
+  count: number,
+  singular: string,
+  plural = `${singular}s`,
+): string {
+  return count === 1 ? singular : plural;
+}
+
+function wordLabel(count: number): string {
+  return wordForCount(count, "word");
+}
+
+function formatRemainingWords(count: number): string {
+  return `${formatCount(count, "word")} ${count === 1 ? "remains" : "remain"}`;
 }
 
 function createId(prefix: string): string {

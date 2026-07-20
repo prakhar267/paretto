@@ -1,0 +1,846 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 77;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		09C1E47ACE7E16FB15481A2C /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = 2267ED23F5093C9D32019A63 /* PrivacyInfo.xcprivacy */; };
+		0E61E9931E388F0C84D68962 /* PasAPasCore in Frameworks */ = {isa = PBXBuildFile; productRef = 4395B09FBFAEBFE35C7694C9 /* PasAPasCore */; };
+		1BD0846E418A8E0EE76B8179 /* FrenchAudio in Resources */ = {isa = PBXBuildFile; fileRef = 8FCF69EC61D71DAB2B593BD8 /* FrenchAudio */; };
+		21DF8B665A31D7AA10244012 /* AppleSignInNonce.swift in Sources */ = {isa = PBXBuildFile; fileRef = 14ED635A0CD2B72160559518 /* AppleSignInNonce.swift */; };
+		2785FA3D6782D1CE218365C5 /* OnboardingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9D1324350D30708CD9D0FC73 /* OnboardingView.swift */; };
+		2F04F429CD2608DAE4CC9C79 /* PasAPasTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9E8B4F2C8EB491F26BE267B5 /* PasAPasTests.swift */; };
+		3E8CB8F240C40056E24DBB7F /* TodayView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 832EBE1B2FFB1D1577FC1419 /* TodayView.swift */; };
+		58F33212A18CF40571DE299E /* ReviewView.swift in Sources */ = {isa = PBXBuildFile; fileRef = EC51D2C7EEE31C1B76B3FAF7 /* ReviewView.swift */; };
+		6679D9988A2AC5D64FE0837D /* KeychainSessionStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0078193FCA72F5356F099DBD /* KeychainSessionStore.swift */; };
+		68B8458F49B993FBABEA2D6A /* AppModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6E996548187370EB8EE9BE00 /* AppModel.swift */; };
+		6DF9DE1FA02846E014805987 /* DiceView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2B355F00FDC5D09A3F4802AA /* DiceView.swift */; };
+		70EA4C389244F05E7F9739DC /* FrenchAudioPlayer.swift in Sources */ = {isa = PBXBuildFile; fileRef = D6F44084858CF31940A2A2FE /* FrenchAudioPlayer.swift */; };
+		74515862F95953AED425B3A4 /* CollectiblesView.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA6776B7E34F18AA94492201 /* CollectiblesView.swift */; };
+		7B57B337184415CBC23B405C /* SecureAppleSignInButton.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3710967F3F231564EFF2ACC6 /* SecureAppleSignInButton.swift */; };
+		7FC3D73F553627E65D7171C1 /* ChallengeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 80CB252032B73C97B91DBCB8 /* ChallengeView.swift */; };
+		8AC47DAF00559EAC1943EA5B /* AdaptiveRootView.swift in Sources */ = {isa = PBXBuildFile; fileRef = BC33B030D418479B8AC9AF10 /* AdaptiveRootView.swift */; };
+		8D0DB5D481D22C4E46CD663E /* Theme.swift in Sources */ = {isa = PBXBuildFile; fileRef = A54EA48A706656BE4B6ECC65 /* Theme.swift */; };
+		98F00F70985A6E3E964ADF5F /* WordbookView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4F693486B5516A8FC2736B1D /* WordbookView.swift */; };
+		AEFC5D012192A45EAD4AE2E9 /* PasAPasUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 58C032DBD187931A5344709B /* PasAPasUITests.swift */; };
+		B4D05CDC07096163D410EB89 /* AppDependencies.swift in Sources */ = {isa = PBXBuildFile; fileRef = 58BDC177994847D89E73D318 /* AppDependencies.swift */; };
+		B8C4F610CE7F18AF19B6BF5B /* JourneyView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A29BC25689659900CC3D9847 /* JourneyView.swift */; };
+		C3AFE9A50EDA0BD44A1FA954 /* ProfileView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 784F2E3547FE7F0988DE96CA /* ProfileView.swift */; };
+		C4E5FCFA1009E27E69C6B5D7 /* PasAPasCore in Frameworks */ = {isa = PBXBuildFile; productRef = B838D83343F598CE179BDDCA /* PasAPasCore */; };
+		C710ECA3A3EC9E66B66D2B8E /* APIClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = 45184A9FE6394F795C0C6B29 /* APIClient.swift */; };
+		CDB43BAD536D75AF2CCA3571 /* AppEnvironment.swift in Sources */ = {isa = PBXBuildFile; fileRef = C0E690F3C9F2F22448C199C5 /* AppEnvironment.swift */; };
+		DCECD7ED1EEE7A49DB2C8B34 /* LessonFlowView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1BD093089BC136D1C208694A /* LessonFlowView.swift */; };
+		F3CC9DE30F925E181E16FF0C /* PasAPasApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = A42668DAE0A3849CBF19A43E /* PasAPasApp.swift */; };
+		F40F12413B6FD3FC91B83293 /* AppEntryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D7D02848366DCFD7012187F5 /* AppEntryView.swift */; };
+		F4ECDC69A18B4EA9EBA5517A /* ReminderScheduler.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8EA270C4FBC371E1B2515D34 /* ReminderScheduler.swift */; };
+		FBB156CAD6CE3AD69EC535D3 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 6F94C0785870B7C0BBC6FF80 /* Assets.xcassets */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXContainerItemProxy section */
+		87AA2194AA301EB93D37DBF7 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 1858C59CB184680C3C366559 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 64816725AF18D57538C877AF;
+			remoteInfo = PasAPas;
+		};
+		EF6B60109DA950F351AD792A /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 1858C59CB184680C3C366559 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 64816725AF18D57538C877AF;
+			remoteInfo = PasAPas;
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXFileReference section */
+		0078193FCA72F5356F099DBD /* KeychainSessionStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KeychainSessionStore.swift; sourceTree = "<group>"; };
+		14ED635A0CD2B72160559518 /* AppleSignInNonce.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppleSignInNonce.swift; sourceTree = "<group>"; };
+		1534875C858BA64C25D2F9F4 /* PasAPas.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = PasAPas.entitlements; sourceTree = "<group>"; };
+		1BD093089BC136D1C208694A /* LessonFlowView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LessonFlowView.swift; sourceTree = "<group>"; };
+		2267ED23F5093C9D32019A63 /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; path = PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
+		240961E570FFD5191D9167C3 /* PasAPasUITests.xctest */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.cfbundle; path = PasAPasUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		2B355F00FDC5D09A3F4802AA /* DiceView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DiceView.swift; sourceTree = "<group>"; };
+		3710967F3F231564EFF2ACC6 /* SecureAppleSignInButton.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SecureAppleSignInButton.swift; sourceTree = "<group>"; };
+		45184A9FE6394F795C0C6B29 /* APIClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = APIClient.swift; sourceTree = "<group>"; };
+		4F693486B5516A8FC2736B1D /* WordbookView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WordbookView.swift; sourceTree = "<group>"; };
+		58BDC177994847D89E73D318 /* AppDependencies.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppDependencies.swift; sourceTree = "<group>"; };
+		58C032DBD187931A5344709B /* PasAPasUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PasAPasUITests.swift; sourceTree = "<group>"; };
+		6E996548187370EB8EE9BE00 /* AppModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppModel.swift; sourceTree = "<group>"; };
+		6F94C0785870B7C0BBC6FF80 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		784F2E3547FE7F0988DE96CA /* ProfileView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProfileView.swift; sourceTree = "<group>"; };
+		80CB252032B73C97B91DBCB8 /* ChallengeView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChallengeView.swift; sourceTree = "<group>"; };
+		832EBE1B2FFB1D1577FC1419 /* TodayView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TodayView.swift; sourceTree = "<group>"; };
+		8EA270C4FBC371E1B2515D34 /* ReminderScheduler.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReminderScheduler.swift; sourceTree = "<group>"; };
+		8FCF69EC61D71DAB2B593BD8 /* FrenchAudio */ = {isa = PBXFileReference; lastKnownFileType = folder; name = FrenchAudio; path = ../../public/audio/fr; sourceTree = SOURCE_ROOT; };
+		9D1324350D30708CD9D0FC73 /* OnboardingView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnboardingView.swift; sourceTree = "<group>"; };
+		9E8B4F2C8EB491F26BE267B5 /* PasAPasTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PasAPasTests.swift; sourceTree = "<group>"; };
+		A29BC25689659900CC3D9847 /* JourneyView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = JourneyView.swift; sourceTree = "<group>"; };
+		A42668DAE0A3849CBF19A43E /* PasAPasApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PasAPasApp.swift; sourceTree = "<group>"; };
+		A54EA48A706656BE4B6ECC65 /* Theme.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Theme.swift; sourceTree = "<group>"; };
+		AB37EEFF418CC09A33B693EB /* PasAPas.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = PasAPas.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		BC33B030D418479B8AC9AF10 /* AdaptiveRootView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AdaptiveRootView.swift; sourceTree = "<group>"; };
+		C0E690F3C9F2F22448C199C5 /* AppEnvironment.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppEnvironment.swift; sourceTree = "<group>"; };
+		CC33F584FEE6C24ACDBA5363 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
+		D6F44084858CF31940A2A2FE /* FrenchAudioPlayer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FrenchAudioPlayer.swift; sourceTree = "<group>"; };
+		D7D02848366DCFD7012187F5 /* AppEntryView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppEntryView.swift; sourceTree = "<group>"; };
+		DA6776B7E34F18AA94492201 /* CollectiblesView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CollectiblesView.swift; sourceTree = "<group>"; };
+		DDA84FF5CF6ED48FE520428F /* Shared.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Shared.xcconfig; sourceTree = "<group>"; };
+		E140E9C2FF4B4039EB9097DC /* PasAPasCore */ = {isa = PBXFileReference; lastKnownFileType = folder; name = PasAPasCore; path = ../PasAPasCore; sourceTree = SOURCE_ROOT; };
+		E78C1BEC9DD931D6F8403C04 /* PasAPasTests.xctest */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.cfbundle; path = PasAPasTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		EC51D2C7EEE31C1B76B3FAF7 /* ReviewView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReviewView.swift; sourceTree = "<group>"; };
+/* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		5A9599CF30E6BC1331D391D9 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				C4E5FCFA1009E27E69C6B5D7 /* PasAPasCore in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		C272230246118198D129E246 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				0E61E9931E388F0C84D68962 /* PasAPasCore in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		25B6E7A1160D2E7155B94757 /* Features */ = {
+			isa = PBXGroup;
+			children = (
+				BC33B030D418479B8AC9AF10 /* AdaptiveRootView.swift */,
+				80CB252032B73C97B91DBCB8 /* ChallengeView.swift */,
+				DA6776B7E34F18AA94492201 /* CollectiblesView.swift */,
+				2B355F00FDC5D09A3F4802AA /* DiceView.swift */,
+				A29BC25689659900CC3D9847 /* JourneyView.swift */,
+				1BD093089BC136D1C208694A /* LessonFlowView.swift */,
+				9D1324350D30708CD9D0FC73 /* OnboardingView.swift */,
+				784F2E3547FE7F0988DE96CA /* ProfileView.swift */,
+				EC51D2C7EEE31C1B76B3FAF7 /* ReviewView.swift */,
+				832EBE1B2FFB1D1577FC1419 /* TodayView.swift */,
+				4F693486B5516A8FC2736B1D /* WordbookView.swift */,
+			);
+			path = Features;
+			sourceTree = "<group>";
+		};
+		26B0562204BA8043C206E1C2 /* PasAPasUITests */ = {
+			isa = PBXGroup;
+			children = (
+				58C032DBD187931A5344709B /* PasAPasUITests.swift */,
+			);
+			path = PasAPasUITests;
+			sourceTree = "<group>";
+		};
+		474D48057A61C57DCB36A4DF /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				AB37EEFF418CC09A33B693EB /* PasAPas.app */,
+				E78C1BEC9DD931D6F8403C04 /* PasAPasTests.xctest */,
+				240961E570FFD5191D9167C3 /* PasAPasUITests.xctest */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		4EF7379D63CB2441ED2FAB02 /* PasAPasTests */ = {
+			isa = PBXGroup;
+			children = (
+				9E8B4F2C8EB491F26BE267B5 /* PasAPasTests.swift */,
+			);
+			path = PasAPasTests;
+			sourceTree = "<group>";
+		};
+		7E9B935BEA715125E95436F6 = {
+			isa = PBXGroup;
+			children = (
+				C16AA301D9557BCECEB1ECBA /* Configuration */,
+				DBE7AC0F3B63144B08519CD7 /* Packages */,
+				C4DDC3D2E9E8F11852B0E5A0 /* PasAPasApp */,
+				4EF7379D63CB2441ED2FAB02 /* PasAPasTests */,
+				26B0562204BA8043C206E1C2 /* PasAPasUITests */,
+				8FCF69EC61D71DAB2B593BD8 /* FrenchAudio */,
+				474D48057A61C57DCB36A4DF /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		C16AA301D9557BCECEB1ECBA /* Configuration */ = {
+			isa = PBXGroup;
+			children = (
+				DDA84FF5CF6ED48FE520428F /* Shared.xcconfig */,
+			);
+			path = Configuration;
+			sourceTree = "<group>";
+		};
+		C4DDC3D2E9E8F11852B0E5A0 /* PasAPasApp */ = {
+			isa = PBXGroup;
+			children = (
+				C75632FE724D7CE3BE2F050D /* App */,
+				C68ECD201C59896B58E3D7AE /* Auth */,
+				FA8BF9DCEACDDA3417879187 /* DesignSystem */,
+				25B6E7A1160D2E7155B94757 /* Features */,
+				F86BD654E73984618601E4F1 /* Services */,
+				6F94C0785870B7C0BBC6FF80 /* Assets.xcassets */,
+				CC33F584FEE6C24ACDBA5363 /* Info.plist */,
+				1534875C858BA64C25D2F9F4 /* PasAPas.entitlements */,
+				2267ED23F5093C9D32019A63 /* PrivacyInfo.xcprivacy */,
+			);
+			path = PasAPasApp;
+			sourceTree = "<group>";
+		};
+		C68ECD201C59896B58E3D7AE /* Auth */ = {
+			isa = PBXGroup;
+			children = (
+				14ED635A0CD2B72160559518 /* AppleSignInNonce.swift */,
+				0078193FCA72F5356F099DBD /* KeychainSessionStore.swift */,
+				3710967F3F231564EFF2ACC6 /* SecureAppleSignInButton.swift */,
+			);
+			path = Auth;
+			sourceTree = "<group>";
+		};
+		C75632FE724D7CE3BE2F050D /* App */ = {
+			isa = PBXGroup;
+			children = (
+				D7D02848366DCFD7012187F5 /* AppEntryView.swift */,
+				C0E690F3C9F2F22448C199C5 /* AppEnvironment.swift */,
+				6E996548187370EB8EE9BE00 /* AppModel.swift */,
+				A42668DAE0A3849CBF19A43E /* PasAPasApp.swift */,
+			);
+			path = App;
+			sourceTree = "<group>";
+		};
+		DBE7AC0F3B63144B08519CD7 /* Packages */ = {
+			isa = PBXGroup;
+			children = (
+				E140E9C2FF4B4039EB9097DC /* PasAPasCore */,
+			);
+			name = Packages;
+			sourceTree = "<group>";
+		};
+		F86BD654E73984618601E4F1 /* Services */ = {
+			isa = PBXGroup;
+			children = (
+				45184A9FE6394F795C0C6B29 /* APIClient.swift */,
+				58BDC177994847D89E73D318 /* AppDependencies.swift */,
+				D6F44084858CF31940A2A2FE /* FrenchAudioPlayer.swift */,
+				8EA270C4FBC371E1B2515D34 /* ReminderScheduler.swift */,
+			);
+			path = Services;
+			sourceTree = "<group>";
+		};
+		FA8BF9DCEACDDA3417879187 /* DesignSystem */ = {
+			isa = PBXGroup;
+			children = (
+				A54EA48A706656BE4B6ECC65 /* Theme.swift */,
+			);
+			path = DesignSystem;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		64816725AF18D57538C877AF /* PasAPas */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 5FE3692A7A290632FC13C712 /* Build configuration list for PBXNativeTarget "PasAPas" */;
+			buildPhases = (
+				FEECCA789AD063726FFB17FE /* Sources */,
+				5108257288D122B0592B0902 /* Resources */,
+				5A9599CF30E6BC1331D391D9 /* Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = PasAPas;
+			packageProductDependencies = (
+				B838D83343F598CE179BDDCA /* PasAPasCore */,
+			);
+			productName = PasAPas;
+			productReference = AB37EEFF418CC09A33B693EB /* PasAPas.app */;
+			productType = "com.apple.product-type.application";
+		};
+		8262EECF1BA22B6A1851D7EF /* PasAPasUITests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = CD263E6C2128C5D973656834 /* Build configuration list for PBXNativeTarget "PasAPasUITests" */;
+			buildPhases = (
+				C65B400FCC25EE27C81BD3FA /* Sources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				77F2C3905BA10BF5D5C21C43 /* PBXTargetDependency */,
+			);
+			name = PasAPasUITests;
+			packageProductDependencies = (
+			);
+			productName = PasAPasUITests;
+			productReference = 240961E570FFD5191D9167C3 /* PasAPasUITests.xctest */;
+			productType = "com.apple.product-type.bundle.ui-testing";
+		};
+		C2D8D11F77C85F26CA25B37E /* PasAPasTests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 4EDCB8822CB218B29E434448 /* Build configuration list for PBXNativeTarget "PasAPasTests" */;
+			buildPhases = (
+				196DA58F90C1C4C7664E6EDC /* Sources */,
+				C272230246118198D129E246 /* Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				A655C40A05DA6BCA115466C4 /* PBXTargetDependency */,
+			);
+			name = PasAPasTests;
+			packageProductDependencies = (
+				4395B09FBFAEBFE35C7694C9 /* PasAPasCore */,
+			);
+			productName = PasAPasTests;
+			productReference = E78C1BEC9DD931D6F8403C04 /* PasAPasTests.xctest */;
+			productType = "com.apple.product-type.bundle.unit-test";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		1858C59CB184680C3C366559 /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				BuildIndependentTargetsInParallel = YES;
+				LastUpgradeCheck = 1430;
+				TargetAttributes = {
+					64816725AF18D57538C877AF = {
+						DevelopmentTeam = "";
+						ProvisioningStyle = Automatic;
+					};
+					8262EECF1BA22B6A1851D7EF = {
+						DevelopmentTeam = "";
+						ProvisioningStyle = Automatic;
+						TestTargetID = 64816725AF18D57538C877AF;
+					};
+					C2D8D11F77C85F26CA25B37E = {
+						DevelopmentTeam = "";
+						ProvisioningStyle = Automatic;
+					};
+				};
+			};
+			buildConfigurationList = 6066F89741FA83FFA74C1FA7 /* Build configuration list for PBXProject "PasAPas" */;
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				Base,
+				en,
+			);
+			mainGroup = 7E9B935BEA715125E95436F6;
+			minimizedProjectReferenceProxies = 1;
+			packageReferences = (
+				75C6C0CF55B3746B7B5EA7AB /* XCLocalSwiftPackageReference "../PasAPasCore" */,
+			);
+			preferredProjectObjectVersion = 77;
+			productRefGroup = 474D48057A61C57DCB36A4DF /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				64816725AF18D57538C877AF /* PasAPas */,
+				C2D8D11F77C85F26CA25B37E /* PasAPasTests */,
+				8262EECF1BA22B6A1851D7EF /* PasAPasUITests */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		5108257288D122B0592B0902 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				FBB156CAD6CE3AD69EC535D3 /* Assets.xcassets in Resources */,
+				09C1E47ACE7E16FB15481A2C /* PrivacyInfo.xcprivacy in Resources */,
+				1BD0846E418A8E0EE76B8179 /* FrenchAudio in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		196DA58F90C1C4C7664E6EDC /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				2F04F429CD2608DAE4CC9C79 /* PasAPasTests.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		C65B400FCC25EE27C81BD3FA /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				AEFC5D012192A45EAD4AE2E9 /* PasAPasUITests.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		FEECCA789AD063726FFB17FE /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				C710ECA3A3EC9E66B66D2B8E /* APIClient.swift in Sources */,
+				8AC47DAF00559EAC1943EA5B /* AdaptiveRootView.swift in Sources */,
+				B4D05CDC07096163D410EB89 /* AppDependencies.swift in Sources */,
+				F40F12413B6FD3FC91B83293 /* AppEntryView.swift in Sources */,
+				CDB43BAD536D75AF2CCA3571 /* AppEnvironment.swift in Sources */,
+				68B8458F49B993FBABEA2D6A /* AppModel.swift in Sources */,
+				21DF8B665A31D7AA10244012 /* AppleSignInNonce.swift in Sources */,
+				7FC3D73F553627E65D7171C1 /* ChallengeView.swift in Sources */,
+				74515862F95953AED425B3A4 /* CollectiblesView.swift in Sources */,
+				6DF9DE1FA02846E014805987 /* DiceView.swift in Sources */,
+				70EA4C389244F05E7F9739DC /* FrenchAudioPlayer.swift in Sources */,
+				B8C4F610CE7F18AF19B6BF5B /* JourneyView.swift in Sources */,
+				6679D9988A2AC5D64FE0837D /* KeychainSessionStore.swift in Sources */,
+				DCECD7ED1EEE7A49DB2C8B34 /* LessonFlowView.swift in Sources */,
+				2785FA3D6782D1CE218365C5 /* OnboardingView.swift in Sources */,
+				F3CC9DE30F925E181E16FF0C /* PasAPasApp.swift in Sources */,
+				C3AFE9A50EDA0BD44A1FA954 /* ProfileView.swift in Sources */,
+				F4ECDC69A18B4EA9EBA5517A /* ReminderScheduler.swift in Sources */,
+				58F33212A18CF40571DE299E /* ReviewView.swift in Sources */,
+				7B57B337184415CBC23B405C /* SecureAppleSignInButton.swift in Sources */,
+				8D0DB5D481D22C4E46CD663E /* Theme.swift in Sources */,
+				3E8CB8F240C40056E24DBB7F /* TodayView.swift in Sources */,
+				98F00F70985A6E3E964ADF5F /* WordbookView.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		77F2C3905BA10BF5D5C21C43 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 64816725AF18D57538C877AF /* PasAPas */;
+			targetProxy = EF6B60109DA950F351AD792A /* PBXContainerItemProxy */;
+		};
+		A655C40A05DA6BCA115466C4 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 64816725AF18D57538C877AF /* PasAPas */;
+			targetProxy = 87AA2194AA301EB93D37DBF7 /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
+
+/* Begin XCBuildConfiguration section */
+		113448FCB0D88C1D38228D4D /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.pasapas.PasAPasTests;
+				SDKROOT = iphoneos;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/PasAPas.app/PasAPas";
+			};
+			name = Release;
+		};
+		171246897B11F928ABB8462A /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.pasapas.PasAPasUITests;
+				SDKROOT = iphoneos;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_TARGET_NAME = PasAPas;
+			};
+			name = Release;
+		};
+		343E0331424B46908B369762 /* Staging */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = DDA84FF5CF6ED48FE520428F /* Shared.xcconfig */;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_ENTITLEMENTS = PasAPasApp/PasAPas.entitlements;
+				CODE_SIGN_IDENTITY = "iPhone Developer";
+				INFOPLIST_FILE = PasAPasApp/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				PASAPAS_API_BASE_URL = "$(PASAPAS_STAGING_API_BASE_URL)";
+				PRODUCT_BUNDLE_IDENTIFIER = com.pasapas.french;
+				PRODUCT_NAME = "Pas à Pas";
+				SDKROOT = iphoneos;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = STAGING;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Staging;
+		};
+		725CFE3B17E8FA3230B0F478 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				CODE_SIGN_STYLE = Automatic;
+				COPY_PHASE_STRIP = NO;
+				CURRENT_PROJECT_VERSION = 1;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				DEVELOPMENT_TEAM = "";
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				MARKETING_VERSION = 1.0.0;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				MTL_FAST_MATH = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SWIFT_COMPILATION_MODE = wholemodule;
+				SWIFT_OPTIMIZATION_LEVEL = "-O";
+				SWIFT_VERSION = 6.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Release;
+		};
+		8345746E3623F2CDDD9EF8A7 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.pasapas.PasAPasTests;
+				SDKROOT = iphoneos;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/PasAPas.app/PasAPas";
+			};
+			name = Debug;
+		};
+		946AC98FBCE80A334355C837 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				CODE_SIGN_STYLE = Automatic;
+				COPY_PHASE_STRIP = NO;
+				CURRENT_PROJECT_VERSION = 1;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				DEVELOPMENT_TEAM = "";
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"$(inherited)",
+					"DEBUG=1",
+				);
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				MARKETING_VERSION = 1.0.0;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				MTL_FAST_MATH = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+				SWIFT_VERSION = 6.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		B3E6CE9070E8EEF0E51295FD /* Release */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = DDA84FF5CF6ED48FE520428F /* Shared.xcconfig */;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_ENTITLEMENTS = PasAPasApp/PasAPas.entitlements;
+				CODE_SIGN_IDENTITY = "iPhone Developer";
+				INFOPLIST_FILE = PasAPasApp/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				PASAPAS_API_BASE_URL = "$(PASAPAS_PRODUCTION_API_BASE_URL)";
+				PRODUCT_BUNDLE_IDENTIFIER = com.pasapas.french;
+				PRODUCT_NAME = "Pas à Pas";
+				SDKROOT = iphoneos;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Release;
+		};
+		C24211E3C2E6BD21E71DAE3A /* Debug */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = DDA84FF5CF6ED48FE520428F /* Shared.xcconfig */;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_ENTITLEMENTS = PasAPasApp/PasAPas.entitlements;
+				CODE_SIGN_IDENTITY = "iPhone Developer";
+				INFOPLIST_FILE = PasAPasApp/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				PASAPAS_API_BASE_URL = "http:/$()/localhost:3000";
+				PRODUCT_BUNDLE_IDENTIFIER = com.pasapas.french;
+				PRODUCT_NAME = "Pas à Pas";
+				SDKROOT = iphoneos;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		D6B35589B15BE0AAFB48AC8B /* Staging */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.pasapas.PasAPasTests;
+				SDKROOT = iphoneos;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/PasAPas.app/PasAPas";
+			};
+			name = Staging;
+		};
+		DF5E4AB67C7802E7DB4C526A /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.pasapas.PasAPasUITests;
+				SDKROOT = iphoneos;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_TARGET_NAME = PasAPas;
+			};
+			name = Debug;
+		};
+		E481A65B78357F604C7C5A08 /* Staging */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.pasapas.PasAPasUITests;
+				SDKROOT = iphoneos;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_TARGET_NAME = PasAPas;
+			};
+			name = Staging;
+		};
+		EC031A7DF180D4879503E545 /* Staging */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				CODE_SIGN_STYLE = Automatic;
+				COPY_PHASE_STRIP = NO;
+				CURRENT_PROJECT_VERSION = 1;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				DEVELOPMENT_TEAM = "";
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				MARKETING_VERSION = 1.0.0;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				MTL_FAST_MATH = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SWIFT_COMPILATION_MODE = wholemodule;
+				SWIFT_OPTIMIZATION_LEVEL = "-O";
+				SWIFT_VERSION = 6.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Staging;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		4EDCB8822CB218B29E434448 /* Build configuration list for PBXNativeTarget "PasAPasTests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				8345746E3623F2CDDD9EF8A7 /* Debug */,
+				113448FCB0D88C1D38228D4D /* Release */,
+				D6B35589B15BE0AAFB48AC8B /* Staging */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		5FE3692A7A290632FC13C712 /* Build configuration list for PBXNativeTarget "PasAPas" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				C24211E3C2E6BD21E71DAE3A /* Debug */,
+				B3E6CE9070E8EEF0E51295FD /* Release */,
+				343E0331424B46908B369762 /* Staging */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		6066F89741FA83FFA74C1FA7 /* Build configuration list for PBXProject "PasAPas" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				946AC98FBCE80A334355C837 /* Debug */,
+				725CFE3B17E8FA3230B0F478 /* Release */,
+				EC031A7DF180D4879503E545 /* Staging */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		CD263E6C2128C5D973656834 /* Build configuration list for PBXNativeTarget "PasAPasUITests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				DF5E4AB67C7802E7DB4C526A /* Debug */,
+				171246897B11F928ABB8462A /* Release */,
+				E481A65B78357F604C7C5A08 /* Staging */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+/* End XCConfigurationList section */
+
+/* Begin XCLocalSwiftPackageReference section */
+		75C6C0CF55B3746B7B5EA7AB /* XCLocalSwiftPackageReference "../PasAPasCore" */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = ../PasAPasCore;
+		};
+/* End XCLocalSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		4395B09FBFAEBFE35C7694C9 /* PasAPasCore */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = PasAPasCore;
+		};
+		B838D83343F598CE179BDDCA /* PasAPasCore */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = PasAPasCore;
+		};
+/* End XCSwiftPackageProductDependency section */
+	};
+	rootObject = 1858C59CB184680C3C366559 /* Project object */;
+}

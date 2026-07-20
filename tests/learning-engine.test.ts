@@ -69,6 +69,7 @@ describe("createInitialState", () => {
         phonetics: true,
         reducedMotion: false,
         sessionReminders: false,
+        analytics: false,
       },
       challenge: {
         lastPlayedDate: null,
@@ -396,6 +397,7 @@ describe("stateFromUnknown", () => {
       phonetics: true,
       reducedMotion: false,
       sessionReminders: false,
+      analytics: false,
     });
     expect(result.challenge).toEqual({
       lastPlayedDate: null,
@@ -507,6 +509,7 @@ describe("stateFromUnknown", () => {
           phonetics: false,
           reducedMotion: true,
           sessionReminders: 1,
+          analytics: "yes",
         },
         challenge: {
           lastPlayedDate: "tomorrow",
@@ -532,6 +535,7 @@ describe("stateFromUnknown", () => {
         phonetics: false,
         reducedMotion: true,
         sessionReminders: false,
+        analytics: false,
       },
       challenge: { lastPlayedDate: null, bestScore: 0 },
       dice: { lastPlayedDate: "2026-07-18" },
@@ -623,6 +627,7 @@ describe("mergeLearningStates", () => {
         phonetics: true,
         reducedMotion: false,
         sessionReminders: false,
+        analytics: false,
       },
       challenge: { lastPlayedDate: "2026-07-18", bestScore: 4 },
       dice: { lastPlayedDate: "2026-07-19" },
@@ -674,6 +679,7 @@ describe("mergeLearningStates", () => {
         phonetics: false,
         reducedMotion: true,
         sessionReminders: true,
+        analytics: true,
       },
       challenge: { lastPlayedDate: "2026-07-19", bestScore: 3 },
       dice: { lastPlayedDate: "2026-07-18" },
@@ -743,6 +749,7 @@ describe("mergeLearningStates", () => {
         phonetics: true,
         reducedMotion: false,
         sessionReminders: true,
+        analytics: true,
       },
     };
 

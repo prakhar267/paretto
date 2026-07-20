@@ -2,6 +2,7 @@ import PasAPasApp from "./PasAPasApp";
 import { chatGPTSignInPath, getChatGPTUser } from "./chatgpt-auth";
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
+import { getPublishedCurriculum } from "./published-curriculum.server";
 
 export const dynamic = "force-dynamic";
 
@@ -24,6 +25,13 @@ export default async function Home() {
     .map((byte) => byte.toString(16).padStart(2, "0"))
     .join("")
     .slice(0, 24);
+  const publishedCurriculum = await getPublishedCurriculum();
 
-  return <PasAPasApp storageKey={`pas-a-pas-progress-v1:${storageNamespace}`} />;
+  return (
+    <PasAPasApp
+      storageKey={`pas-a-pas-progress-v1:${storageNamespace}`}
+      publishedRecords={publishedCurriculum.records}
+      curriculumRevision={publishedCurriculum.revision}
+    />
+  );
 }
