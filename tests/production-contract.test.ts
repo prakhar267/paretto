@@ -181,6 +181,18 @@ describe("mobile, PWA, security, and launch contracts", () => {
       ]);
       expect(template).toContain('"directory": "dist/client"');
       expect(template).toContain('"binding": "ASSETS"');
+      expect(JSON.parse(template).assets.run_worker_first).toEqual([
+        "/",
+        "/accessibility",
+        "/admin",
+        "/admin/*",
+        "/api/*",
+        "/attributions",
+        "/cookies",
+        "/privacy",
+        "/support",
+        "/terms",
+      ]);
       expect(template).toContain('"binding": "DB"');
       expect(template).toContain('"migrations_dir": "drizzle"');
       expect(template).toContain('"crons": ["17 3 * * *"]');

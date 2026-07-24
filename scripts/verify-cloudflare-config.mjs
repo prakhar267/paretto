@@ -15,6 +15,18 @@ const REQUIRED_SECRETS = [
   "ADMIN_SESSION_SECRET",
   "TURNSTILE_SECRET",
 ];
+const WORKER_FIRST_ROUTES = [
+  "/",
+  "/accessibility",
+  "/admin",
+  "/admin/*",
+  "/api/*",
+  "/attributions",
+  "/cookies",
+  "/privacy",
+  "/support",
+  "/terms",
+];
 const root = process.cwd();
 const options = parseArguments(process.argv.slice(2));
 
@@ -139,8 +151,13 @@ function validateConfiguration(configuration, environment, requireProvisioned) {
     "Apple/native secrets must stay optional while NATIVE_API_ENABLED is false.",
   );
   invariant(
-    configuration.assets?.run_worker_first === undefined,
-    "Keep static files asset-first so they remain free and bypass Worker CPU.",
+    Array.isArray(configuration.assets?.run_worker_first) &&
+      configuration.assets.run_worker_first.length ===
+        WORKER_FIRST_ROUTES.length &&
+      configuration.assets.run_worker_first.every(
+        (route, index) => route === WORKER_FIRST_ROUTES[index],
+      ),
+    "Run only dynamic SSR, admin, legal, support, and API routes through the Worker.",
   );
   invariant(
     Array.isArray(configuration.d1_databases) &&

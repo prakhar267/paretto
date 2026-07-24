@@ -43,12 +43,15 @@ launch, use the checked-in `wrangler.staging.jsonc.example` and
 `dist/server/wrangler.json`: that build artifact intentionally contains the local
 Sites placeholder database ID.
 
-The direct templates keep static files asset-first, bind `ASSETS` for Vinext,
-bind one D1 database as `DB`, read migrations from `drizzle/`, schedule retention
-at 03:17 UTC, and enable Worker observability. They omit Images, R2, paid-plan CPU
-limits, and every unused product binding. They also declare the exact four
-required launch secrets. The deployment verifier enforces the Workers Free
-static-asset limits before Wrangler can run.
+The direct templates run only SSR pages, admin routes, legal/support pages, and
+`/api/*` through the Worker. Packaged audio, fonts, icons, service-worker files,
+and hashed application assets stay asset-first. The templates bind `ASSETS` for
+Vinext, bind one D1 database as `DB`, read migrations from `drizzle/`, schedule
+retention at 03:17 UTC, and enable Worker observability. They omit Images, R2,
+paid-plan CPU limits, and every unused product binding. They also declare the
+exact four required launch secrets. The deployment verifier enforces both the
+selective Worker route list and the Workers Free static-asset limits before
+Wrangler can run.
 
 Authenticate using Cloudflare's browser OAuth; never send an account password,
 API token, or verification code:
