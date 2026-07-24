@@ -1,8 +1,8 @@
 import { LegalDocument, LegalSection } from "../legal-document";
 
 export const metadata = {
-  title: "Terms of use — Loquivo",
-  description: "The terms governing use of the Loquivo learning service.",
+  title: "Terms of use — Paretto",
+  description: "The terms governing use of the Paretto learning service.",
 };
 
 export default function TermsPage() {
@@ -10,11 +10,11 @@ export default function TermsPage() {
     <LegalDocument
       eyebrow="Terms of use"
       title="A fair agreement for learning, creating, and operating responsibly."
-      intro="By accessing Loquivo, you agree to these Terms. If you do not agree, do not use the service."
+      intro="By accessing Paretto, you agree to these Terms. If you do not agree, do not use the service."
     >
       <LegalSection title="The service">
         <p>
-          Loquivo provides French vocabulary lessons, pronunciation,
+          Paretto provides French vocabulary lessons, pronunciation,
           spaced-repetition practice, progress tracking, and related cultural
           context. Features may change as the curriculum improves. The service
           is educational and does not guarantee a particular exam, immigration,
@@ -45,7 +45,7 @@ export default function TermsPage() {
 
       <LegalSection title="Content and intellectual property">
         <p>
-          Loquivo and its original interface, curriculum arrangement,
+          Paretto and its original interface, curriculum arrangement,
           illustrations, copy, and software are protected by applicable
           intellectual-property laws. You receive a limited, personal,
           revocable, non-transferable right to use the service for learning.

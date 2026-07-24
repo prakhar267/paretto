@@ -1,16 +1,16 @@
 import { LegalDocument, LegalSection } from "../legal-document";
 
 export const metadata = {
-  title: "Attributions — Loquivo",
-  description: "Open-source, font, icon, and French audio attributions for Loquivo.",
+  title: "Attributions — Paretto",
+  description: "Open-source, font, icon, and French audio attributions for Paretto.",
 };
 
 export default function AttributionsPage() {
   return (
     <LegalDocument
       eyebrow="Attributions"
-      title="The tools and open materials that helped Loquivo speak clearly."
-      intro="Loquivo keeps required notices discoverable here and ships machine-readable audio provenance with every release."
+      title="The tools and open materials that helped Paretto speak clearly."
+      intro="Paretto keeps required notices discoverable here and ships machine-readable audio provenance with every release."
     >
       <LegalSection title="French pronunciation audio">
         <p>
@@ -47,7 +47,7 @@ export default function AttributionsPage() {
 
       <LegalSection title="Original product material">
         <p>
-          The Loquivo interface, original curriculum arrangement, regional
+          The Paretto interface, original curriculum arrangement, regional
           learning copy, and product illustrations were created for this
           application unless a notice above states otherwise. French words,
           grammar facts, and geographic facts are not claimed as proprietary.

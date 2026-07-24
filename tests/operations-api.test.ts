@@ -61,11 +61,11 @@ class OperationsStatement {
   }
 }
 
-const EMAIL = "admin@loquivo.test";
+const EMAIL = "admin@paretto.test";
 let adminCookie = "";
 
 function retentionRequest(batchLimit?: number) {
-  return new Request("https://loquivo.test/api/admin/operations", {
+  return new Request("https://paretto.test/api/admin/operations", {
     method: "POST",
     headers: {
       "content-type": "application/json",

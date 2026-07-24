@@ -4,7 +4,7 @@ The included privacy notice, terms, storage notice, accessibility statement, and
 workflow are product-ready templates, not jurisdiction-specific legal advice. Before a
 public commercial launch, the operator must confirm:
 
-- the supplied public operating name (`Loquivo`) is the correct legal or
+- the supplied public operating name (`Paretto`) is the correct legal or
   trading identity; the published address is `25/38 Kaveri Path, Mansarovar,
   Jaipur, Rajasthan, India`, and the working web Support form is the launch
   contact channel;

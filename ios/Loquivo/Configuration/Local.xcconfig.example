@@ -1,4 +1,0 @@
-// Copy to Local.xcconfig (ignored by Git) and set real deployed HTTPS origins.
-// Xcode's $() escape prevents // from being parsed as a comment.
-LOQUIVO_STAGING_API_BASE_URL = https:/$()/staging.your-domain.example
-LOQUIVO_PRODUCTION_API_BASE_URL = https:/$()/your-domain.example

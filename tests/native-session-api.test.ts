@@ -131,7 +131,7 @@ describe("native session revocation", () => {
 });
 
 function sessionRequest(token: string) {
-  return new Request("https://loquivo.test/api/native/session", {
+  return new Request("https://paretto.test/api/native/session", {
     method: "DELETE",
     headers: { authorization: `Bearer ${token}` },
   });

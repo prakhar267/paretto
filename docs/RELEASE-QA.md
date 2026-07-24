@@ -1,4 +1,4 @@
-# Loquivo release QA matrix
+# Paretto release QA matrix
 
 Every public release must complete the automated gate and the supported-device matrix.
 Do not mark an unexecuted manual check as passed.
@@ -38,8 +38,9 @@ and a simulated offline transition:
 8. Audio asset success, network failure fallback, disabled audio, and rapid repeated play.
 9. Progress export and permanent deletion.
 10. Support submission and status visibility.
-11. Non-admin denial for every admin page and API; admin draft, validation, publish,
-    unpublish, revision conflict, and audit history.
+11. Non-admin denial for every admin page and API; administrator draft and
+    validation; same-actor review/publish denial under the one-admin launch
+    allowlist; compiled-curriculum fallback; revision conflict; and audit history.
 12. Analytics opt-in ingestion, server-side opt-out enforcement, property rejection, and retention.
 13. Legal-hold creation/release, held-record preservation, bounded manual retention,
     and operator audit events.

@@ -664,7 +664,7 @@ export default function AdminConsole({ adminEmail }: { adminEmail: string }) {
     <main className={styles.shell}>
       <header className={styles.header}>
         <div>
-          <p className={styles.eyebrow}>Loquivo</p>
+          <p className={styles.eyebrow}>Paretto</p>
           <h1>Curriculum studio</h1>
           <p className={styles.subtitle}>
             Review French curriculum, publish safely, and respond to learner needs.

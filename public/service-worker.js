@@ -1,4 +1,4 @@
-const STATIC_CACHE = "loquivo-static-v3";
+const STATIC_CACHE = "paretto-static-v4";
 // Keep the legacy audio cache identity so existing installs do not redownload
 // the complete French pronunciation library during the brand transition.
 const AUDIO_CACHE = "pas-a-pas-audio-v1";
@@ -72,7 +72,7 @@ async function networkNavigationWithOfflineShell(request) {
     const cache = await caches.open(STATIC_CACHE);
     const offlineShell = await cache.match(OFFLINE_SHELL_PATH);
     if (offlineShell) return offlineShell;
-    return new Response("Loquivo is offline. Reconnect and try again.", {
+    return new Response("Paretto is offline. Reconnect and try again.", {
       status: 503,
       headers: { "content-type": "text/plain; charset=utf-8" },
     });
@@ -90,7 +90,7 @@ async function cacheFirst(request, cacheName) {
     } catch (error) {
       // Quota/eviction failures must never turn a successful asset request into
       // a playback or rendering failure.
-      console.warn("Loquivo cache write skipped", error);
+      console.warn("Paretto cache write skipped", error);
     }
   }
   return response;

@@ -46,7 +46,7 @@ describe("admin and learner-care accessibility", () => {
 
   it("keeps every administration tab free of automated WCAG A/AA violations", async () => {
     const user = userEvent.setup();
-    render(<AdminConsole adminEmail="admin@loquivo.test" />);
+    render(<AdminConsole adminEmail="admin@paretto.test" />);
     await screen.findByRole("heading", { name: "Curriculum studio" });
 
     for (const tab of ["Curriculum", "Support", "Analytics", "Operations", "Audit log"]) {
@@ -92,7 +92,7 @@ describe("admin and learner-care accessibility", () => {
     vi.stubGlobal("fetch", fetchMock);
 
     const user = userEvent.setup();
-    render(<AdminConsole adminEmail="admin@loquivo.test" />);
+    render(<AdminConsole adminEmail="admin@paretto.test" />);
     await screen.findByRole("heading", { name: "Curriculum studio" });
     await user.click(screen.getByRole("button", { name: "Operations" }));
 
@@ -139,7 +139,7 @@ function legalHold(id: string, reason: string) {
     recordKey: `account:${id.slice(0, 8)}`,
     reason,
     status: "active",
-    createdByEmail: "admin@loquivo.test",
+    createdByEmail: "admin@paretto.test",
     createdAt: "2026-07-20T00:00:00.000Z",
     releasedByEmail: null,
     releasedAt: null,

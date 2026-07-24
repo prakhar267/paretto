@@ -1,4 +1,4 @@
-# Loquivo release evidence template
+# Paretto release evidence template
 
 Copy this file for each candidate release. Do not record secret values, raw
 authentication headers, learner data, support messages, or administrator email
@@ -92,7 +92,9 @@ addresses in release evidence.
 - [ ] The signed native staging/TestFlight build passed Apple sign-in/sign-out,
       token refresh/expiry, offline relaunch, two-device conflict recovery,
       export, account deletion, and revoked-session recovery.
-- [ ] Non-admin denial and administrator draft/publish workflow passed.
+- [ ] Non-admin denial, administrator draft/validation, same-actor
+      review/publish denial, and compiled-curriculum fallback passed for the
+      one-admin launch configuration.
 - [ ] Support intake and analytics opt-in/opt-out passed.
 - [ ] Public legal, storage, accessibility, attribution, and support pages passed.
 - [ ] Daily `17 3 * * *` trigger is visible and one successful scheduled run was

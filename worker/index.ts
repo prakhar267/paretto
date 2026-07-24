@@ -1,4 +1,4 @@
-/** Cloudflare Worker entry point for Loquivo. */
+/** Cloudflare Worker entry point for Paretto. */
 import handler from "vinext/server/app-router-entry";
 import { runRetentionMaintenance } from "../app/retention-policy";
 import {

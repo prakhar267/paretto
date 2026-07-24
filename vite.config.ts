@@ -70,7 +70,7 @@ export default defineConfig(async ({ command }) => {
                   // Local-only identity material makes a fresh checkout usable
                   // without weakening or embedding any production credential.
                   USER_KEY_SECRET:
-                    "local-only-loquivo-user-key-secret-never-deploy",
+                    "local-only-paretto-user-key-secret-never-deploy",
                   NATIVE_API_ENABLED: "false",
                 },
               }

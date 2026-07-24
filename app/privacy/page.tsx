@@ -6,8 +6,8 @@ import {
 } from "../legal-document";
 
 export const metadata = {
-  title: "Privacy & data — Loquivo",
-  description: "How Loquivo collects, protects, retains, and deletes data.",
+  title: "Privacy & data — Paretto",
+  description: "How Paretto collects, protects, retains, and deletes data.",
 };
 
 export default function PrivacyPage() {
@@ -15,11 +15,11 @@ export default function PrivacyPage() {
     <LegalDocument
       eyebrow="Privacy & data"
       title="A useful learning record, with a deliberately small data footprint."
-      intro="This notice explains what Loquivo processes, why it is needed, and the controls available to every learner."
+      intro="This notice explains what Paretto processes, why it is needed, and the controls available to every learner."
     >
       <LegalSection title="Information we process">
         <p>
-          Loquivo stores the display name you choose, vocabulary progress,
+          Paretto stores the display name you choose, vocabulary progress,
           review schedules, session history, rewards, streaks, and learning
           preferences. The browser keeps an origin-isolated offline copy so a
           weak connection cannot erase an unfinished lesson.
@@ -36,7 +36,7 @@ export default function PrivacyPage() {
         <p>
           The web app creates a random, high-entropy identifier in a strictly
           necessary, HttpOnly first-party cookie. Before progress, support, or
-          optional product events reach the database, Loquivo combines that
+          optional product events reach the database, Paretto combines that
           random value with a server secret to create a one-way learner key.
           The raw cookie value is not stored in those tables. This anonymous
           browser profile does not contain a sign-in email and does not
@@ -46,7 +46,7 @@ export default function PrivacyPage() {
           A reply address explicitly entered into the support form is stored
           with that request so the team can respond. Cloudflare Turnstile also
           processes challenge, browser, network, and IP information to distinguish
-          people from automated abuse. Loquivo validates the challenge for
+          people from automated abuse. Paretto validates the challenge for
           this site and form action; it does not store the challenge token.
         </p>
         <p>
@@ -72,7 +72,7 @@ export default function PrivacyPage() {
         </ul>
         <p>
           Information is not sold, used for targeted advertising, or disclosed
-          to other learners. Loquivo does not record or upload your microphone.
+          to other learners. Paretto does not record or upload your microphone.
         </p>
       </LegalSection>
 
@@ -170,7 +170,7 @@ export default function PrivacyPage() {
 
       <LegalSection title="Children and changes">
         <p>
-          Loquivo is not directed to children under 13. Where local law sets
+          Paretto is not directed to children under 13. Where local law sets
           a higher age for independent consent, a parent or guardian must
           authorize use. Material privacy changes will be dated here and, when
           appropriate, highlighted inside the product.

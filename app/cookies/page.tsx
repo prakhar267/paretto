@@ -1,8 +1,8 @@
 import { LegalDocument, LegalSection } from "../legal-document";
 
 export const metadata = {
-  title: "Cookies & local storage — Loquivo",
-  description: "The device storage and necessary authentication used by Loquivo.",
+  title: "Cookies & local storage — Paretto",
+  description: "The device storage and necessary authentication used by Paretto.",
 };
 
 export default function CookiesPage() {
@@ -13,10 +13,10 @@ export default function CookiesPage() {
     >
       <LegalSection title="What the app uses">
         <p>
-          Loquivo stores an offline progress queue and a small set of interface
+          Paretto stores an offline progress queue and a small set of interface
           preferences in first-party browser storage. This lets a lesson survive
           a refresh or a temporary loss of connectivity. The data is isolated to
-          the Loquivo origin and is not available to unrelated websites.
+          the Paretto origin and is not available to unrelated websites.
         </p>
       </LegalSection>
 

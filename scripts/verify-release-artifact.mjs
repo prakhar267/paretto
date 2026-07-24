@@ -73,7 +73,7 @@ invariant(
 const wrangler = JSON.parse(wranglerText);
 for (const artifact of [wranglerText, workerBundleText]) {
   invariant(
-    !artifact.includes("local-only-loquivo-user-key-secret-never-deploy"),
+    !artifact.includes("local-only-paretto-user-key-secret-never-deploy"),
     "The local-only learner identity key must never enter a release artifact.",
   );
 }

@@ -1,11 +1,11 @@
-# Loquivo App Store launch
+# Paretto App Store launch
 
 ## Local build status
 
 The native source is separate from the React web interface and lives in
-`ios/Loquivo`. XcodeGen has produced `Loquivo.xcodeproj`; the application reuses
+`ios/Paretto`. XcodeGen has produced `Paretto.xcodeproj`; the application reuses
 the verified 18-region curriculum, 270 packaged audio clips, learning rules, and
-native API contracts. `LoquivoCore` can be built and tested with the Swift command
+native API contracts. `ParettoCore` can be built and tested with the Swift command
 line before the full Xcode application toolchain is available.
 
 The release workstation has full Xcode 26.6 (build 17F113) on macOS 26.5.2,
@@ -21,7 +21,7 @@ interactive approval. App Store publication is intentionally deferred for this
 release. Never send an Apple password, recovery key, or verification code to a
 developer or automation tool.
 
-`com.loquivo.app` is a clean pre-release bundle-identifier cutover. If any build
+`com.paretto.app` is a clean pre-release bundle-identifier cutover. If any build
 under the retired identifier is ever distributed to real users, stop and design
 a signed shared-container/Keychain migration before release; the in-repository
 legacy probes alone cannot cross normal iOS sandbox boundaries.
@@ -29,7 +29,7 @@ legacy probes alone cannot cross normal iOS sandbox boundaries.
 ## Inputs required from the account owner
 
 - Active Apple Developer Program membership and acceptance of current agreements.
-- Confirmation that the final bundle identifier is `com.loquivo.app`, or the
+- Confirmation that the final bundle identifier is `com.paretto.app`, or the
   replacement identifier before any provisioning profile or App Store record is made.
 - Apple Developer Team ID selected inside Xcode.
 - App Store Connect app record, primary language, name, subtitle, category,
@@ -95,7 +95,7 @@ binary and provider behavior in App Store Connect.
 
 ## App Review notes template
 
-> Loquivo is a French-learning app with 54 short lessons and 270 packaged
+> Paretto is a French-learning app with 54 short lessons and 270 packaged
 > pronunciation clips. Release builds require an initial Sign in with Apple. After
 > that sign-in, lessons and progress work offline on device and synchronize when
 > connectivity returns. The iOS app emits no product analytics or tracking events.

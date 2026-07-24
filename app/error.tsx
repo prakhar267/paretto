@@ -24,8 +24,8 @@ export default function ErrorPage({
     <main className="recovery-screen">
       <div className="recovery-card" role="alert">
         <div className="brand">
-          <span className="brand-mark" aria-hidden="true">L</span>
-          <span className="brand-name">Loquivo</span>
+          <span className="brand-mark" aria-hidden="true">P</span>
+          <span className="brand-name">Paretto</span>
         </div>
         <p className="eyebrow">A page slipped out of the journal</p>
         <h1>Let’s reopen this step.</h1>

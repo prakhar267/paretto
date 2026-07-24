@@ -1,6 +1,6 @@
-# Loquivo
+# Paretto
 
-Loquivo is a game-inspired language-learning platform launching with a
+Paretto is a game-inspired language-learning platform launching with a
 full-stack French course built around short, recall-first lessons and a journey
 through all 18 administrative regions of France.
 
@@ -43,10 +43,10 @@ locally from checked-in templates only after Cloudflare returns real staging and
 production D1 IDs. Bare `wrangler deploy` is intentionally unsupported because
 the normal build artifact contains a Sites-only placeholder binding.
 
-The native project is generated at `ios/Loquivo/Loquivo.xcodeproj`. See
-`ios/Loquivo/README.md` for Xcode, simulator, and environment instructions. Its
+The native project is generated at `ios/Paretto/Paretto.xcodeproj`. See
+`ios/Paretto/README.md` for Xcode, simulator, and environment instructions. Its
 shared learning engine can be verified without Xcode using
-`swift test --package-path ios/LoquivoCore`.
+`swift test --package-path ios/ParettoCore`.
 
 ## Quality checks
 

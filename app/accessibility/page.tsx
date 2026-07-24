@@ -1,8 +1,8 @@
 import { LegalDocument, LegalSection } from "../legal-document";
 
 export const metadata = {
-  title: "Accessibility — Loquivo",
-  description: "Loquivo accessibility features, target, and feedback process.",
+  title: "Accessibility — Paretto",
+  description: "Paretto accessibility features, target, and feedback process.",
 };
 
 export default function AccessibilityPage() {
@@ -10,7 +10,7 @@ export default function AccessibilityPage() {
     <LegalDocument
       eyebrow="Accessibility"
       title="French practice should work with the way you navigate, read, hear, and learn."
-      intro="Loquivo is designed toward WCAG 2.2 Level AA. This is a commitment and testing target, not an unsupported certification claim."
+      intro="Paretto is designed toward WCAG 2.2 Level AA. This is a commitment and testing target, not an unsupported certification claim."
     >
       <LegalSection title="Included accessibility features">
         <ul>

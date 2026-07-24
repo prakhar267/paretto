@@ -33,7 +33,7 @@ async function render(pathname = "/") {
   );
 }
 
-test("server-renders the Loquivo app shell and product metadata", async () => {
+test("server-renders the Paretto app shell and product metadata", async () => {
   const response = await render();
   assert.equal(response.status, 200);
   assert.match(response.headers.get("content-type") ?? "", /^text\/html\b/i);
@@ -42,9 +42,9 @@ test("server-renders the Loquivo app shell and product metadata", async () => {
   assert.match(response.headers.get("x-request-id") ?? "", /^[0-9a-f-]{36}$/i);
 
   const html = await response.text();
-  assert.match(html, /<title>Loquivo — Learn French, one region at a time<\/title>/i);
+  assert.match(html, /<title>Paretto — Learn French, one region at a time<\/title>/i);
   assert.match(html, /Opening your travel journal/);
-  assert.match(html, /Loquivo/);
+  assert.match(html, /Paretto/);
   assert.match(html, /five-minute lessons, adaptive reviews/i);
   assert.match(html, /property="og:image" content="http:\/\/localhost(?::3000)?\/og\.png"/i);
   assert.match(html, /name="twitter:card" content="summary_large_image"/i);
@@ -79,19 +79,30 @@ test("renders every public legal, attribution, and support route", async () => {
 });
 
 test("removes the disposable starter surface and keeps production metadata", async () => {
-  const [page, layout, packageJson, hosting] = await Promise.all([
+  const [page, layout, packageJson, hosting, app, errorPage, legalDocument, favicon] =
+    await Promise.all([
     readFile(new URL("../app/page.tsx", import.meta.url), "utf8"),
     readFile(new URL("../app/layout.tsx", import.meta.url), "utf8"),
     readFile(new URL("../package.json", import.meta.url), "utf8"),
     readFile(new URL("../.openai/hosting.json", import.meta.url), "utf8"),
-  ]);
+    readFile(new URL("../app/ParettoApp.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/error.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/legal-document.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../public/favicon.svg", import.meta.url), "utf8"),
+    ]);
 
-  assert.match(page, /<LoquivoApp\s+[\s\S]*storageKey=/);
+  assert.match(page, /<ParettoApp\s+[\s\S]*storageKey=/);
   assert.doesNotMatch(page, /SkeletonPreview|codex-preview/);
-  assert.match(layout, /Loquivo/);
+  assert.match(layout, /Paretto/);
   assert.match(layout, /themeColor:\s*"#17233b"/);
   assert.doesNotMatch(packageJson, /react-loading-skeleton/);
   assert.match(hosting, /"d1": "DB"/);
+  for (const source of [app, errorPage, legalDocument]) {
+    assert.doesNotMatch(source, />\s*L\s*</, "visible brand marks must use P");
+    assert.doesNotMatch(source, /Loquivo/i, "current product UI must not expose the legacy brand");
+  }
+  assert.match(favicon, /aria-label="Paretto"/);
+  assert.doesNotMatch(favicon, /Loquivo/);
 
   await Promise.all([
     access(new URL("../public/og.png", import.meta.url)),

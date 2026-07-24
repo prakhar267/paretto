@@ -15,7 +15,7 @@ const audioManifest = JSON.parse(
 
 const output = resolve(
   root,
-  "ios/LoquivoCore/Sources/LoquivoCore/Resources/curriculum.json",
+  "ios/ParettoCore/Sources/ParettoCore/Resources/curriculum.json",
 );
 
 const curriculum = {

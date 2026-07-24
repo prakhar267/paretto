@@ -1,7 +1,7 @@
-# Loquivo operations runbook
+# Paretto operations runbook
 
 This runbook defines the production checks, alert thresholds, recovery actions,
-and ownership expectations for the Loquivo web application.
+and ownership expectations for the Paretto web application.
 
 ## Service objectives
 
@@ -65,9 +65,10 @@ authentication launch.
    deploy `dist/server/wrangler.json`; it carries the local Sites placeholder ID.
 4. Smoke-test health, a fresh anonymous learner session, first lesson, review,
    web progress conflict handling, admin login/logout and throttling,
-   draft/publish, audio fallback, analytics consent, Turnstile-protected support,
-   export, and deletion. Native/Apple checks are out of scope while
-   `NATIVE_API_ENABLED=false`.
+   administrator draft/validation, same-actor review and publish denial, the
+   verified compiled-curriculum fallback, audio fallback, analytics consent,
+   Turnstile-protected support, export, and deletion. Native/Apple checks are
+   out of scope while `NATIVE_API_ENABLED=false`.
 5. Save the exact pushed commit as a release version and deploy only that version.
 6. Verify `/api/health` reports `productionReady: true`, the home page, legal
    pages, and one authenticated progress cycle from the production URL. Confirm
@@ -81,7 +82,7 @@ and a portable export in an access-controlled ignored directory:
 
 ```sh
 npx wrangler d1 time-travel info DB \
-  --remote --config wrangler.production.jsonc
+  --config wrangler.production.jsonc
 npx wrangler d1 export DB \
   --remote --config wrangler.production.jsonc \
   --output work/d1-production-before-release.sql

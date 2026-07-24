@@ -1,6 +1,6 @@
 # French pronunciation audio attribution
 
-Loquivo bundles 270 synthetic French pronunciation clips. They were generated
+Paretto bundles 270 synthetic French pronunciation clips. They were generated
 with Piper 1.4.2 using the `fr_FR-mls-medium` voice at 22,050 Hz. These clips are
 synthetic and are not human narration.
 
