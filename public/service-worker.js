@@ -43,18 +43,11 @@ self.addEventListener("fetch", (event) => {
   // responses, so let the network handle Range requests without interception.
   if (request.headers.has("range")) return;
 
-  // Platform authentication routes and APIs always remain network-only.
-  if (
-    url.pathname.startsWith("/api/") ||
-    url.pathname.startsWith("/signin-with-chatgpt") ||
-    url.pathname.startsWith("/signout-with-chatgpt") ||
-    url.pathname.startsWith("/callback")
-  ) {
-    return;
-  }
+  // APIs always remain network-only.
+  if (url.pathname.startsWith("/api/")) return;
 
-  // Authenticated HTML is never cached. A failed cold navigation receives only
-  // the static, identity-free reconnect page that was cached at install time.
+  // Learner HTML is never cached. A failed cold navigation receives only the
+  // static reconnect page that was cached at install time.
   if (request.mode === "navigate") {
     event.respondWith(networkNavigationWithOfflineShell(request));
     return;

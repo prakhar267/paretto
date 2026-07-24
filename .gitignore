@@ -39,6 +39,8 @@ next-env.d.ts
 *.tsbuildinfo
 /dist/
 /.wrangler/
+/wrangler.staging.jsonc
+/wrangler.production.jsonc
 /outputs/
 /work/
 
@@ -47,4 +49,8 @@ next-env.d.ts
 **/.swiftpm/
 **/xcuserdata/
 *.xcuserstate
+*.p8
+*.p12
+*.mobileprovision
+*.key
 /ios/PasAPas/Configuration/Local.xcconfig

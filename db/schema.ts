@@ -16,6 +16,24 @@ export const learningState = sqliteTable("learning_state", {
   updatedAt: integer("updated_at").notNull(),
 });
 
+export const adminLoginAttempts = sqliteTable(
+  "admin_login_attempts",
+  {
+    ipHash: text("ip_hash").primaryKey(),
+    windowStartedAt: integer("window_started_at").notNull(),
+    failedAttempts: integer("failed_attempts").notNull().default(0),
+    blockedUntil: integer("blocked_until"),
+    updatedAt: integer("updated_at").notNull(),
+  },
+  (table) => [
+    index("admin_login_attempts_updated_idx").on(table.updatedAt),
+    check(
+      "admin_login_attempts_failed_check",
+      sql`${table.failedAttempts} >= 0`,
+    ),
+  ],
+);
+
 export const cmsContent = sqliteTable(
   "cms_content",
   {

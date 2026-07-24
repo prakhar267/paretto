@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it } from "vitest";
 
 import { POST } from "../app/api/admin/operations/route";
+import { createAdminTestAuth } from "./auth-fixtures";
 import { setCloudflareEnv } from "./cloudflare-workers-mock";
 
 class OperationsMemoryD1 {
@@ -61,13 +62,14 @@ class OperationsStatement {
 }
 
 const EMAIL = "admin@pas-a-pas.test";
+let adminCookie = "";
 
 function retentionRequest(batchLimit?: number) {
   return new Request("https://pas-a-pas.test/api/admin/operations", {
     method: "POST",
     headers: {
       "content-type": "application/json",
-      "oai-authenticated-user-email": EMAIL,
+      cookie: adminCookie,
     },
     body: JSON.stringify({
       confirm: "delete-expired-records",
@@ -79,9 +81,11 @@ function retentionRequest(batchLimit?: number) {
 describe("manual retention operations", () => {
   let database: OperationsMemoryD1;
 
-  beforeEach(() => {
+  beforeEach(async () => {
     database = new OperationsMemoryD1();
-    setCloudflareEnv({ DB: database, ADMIN_EMAILS: EMAIL });
+    const adminAuth = await createAdminTestAuth([EMAIL]);
+    adminCookie = adminAuth.cookies.get(EMAIL)!;
+    setCloudflareEnv({ DB: database, ...adminAuth.bindings });
   });
 
   it("audits both the start and successful completion with one run ID", async () => {

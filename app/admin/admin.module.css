@@ -75,6 +75,23 @@
   font-weight: 750;
 }
 
+.signOutButton {
+  width: fit-content;
+  padding: 0;
+  border: 0;
+  color: #8a2d2d;
+  background: transparent;
+  font: inherit;
+  font-size: 0.82rem;
+  font-weight: 750;
+  cursor: pointer;
+}
+
+.signOutButton:focus-visible,
+.signOutButton:hover {
+  text-decoration: underline;
+}
+
 .metrics {
   max-width: 1440px;
   margin: 0 auto 1rem;
@@ -891,6 +908,60 @@
 .accessCard p:not(.eyebrow) {
   color: #566174;
   line-height: 1.6;
+}
+
+.loginForm {
+  margin: 1.4rem 0;
+  display: grid;
+  gap: 1rem;
+}
+
+.loginForm label {
+  display: grid;
+  gap: 0.4rem;
+  color: #17233b;
+  font-size: 0.84rem;
+  font-weight: 750;
+}
+
+.loginForm input {
+  min-height: 3rem;
+  padding: 0.65rem 0.8rem;
+  border: 1px solid rgba(23, 35, 59, 0.22);
+  border-radius: 0.7rem;
+  color: #17233b;
+  background: #fff;
+  font: inherit;
+}
+
+.loginForm input:focus-visible {
+  outline: 3px solid rgba(49, 92, 140, 0.25);
+  outline-offset: 2px;
+}
+
+.loginForm button {
+  min-height: 3rem;
+  border: 0;
+  border-radius: 0.75rem;
+  color: #fff;
+  background: #315c8c;
+  font: inherit;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.loginForm button:disabled {
+  cursor: wait;
+  opacity: 0.68;
+}
+
+.loginError {
+  margin: 0;
+  padding: 0.7rem 0.8rem;
+  border-radius: 0.65rem;
+  color: #8a2d2d !important;
+  background: #fae3df;
+  font-weight: 700;
 }
 
 @media (max-width: 900px) {

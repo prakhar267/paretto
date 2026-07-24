@@ -22,15 +22,19 @@ export default function CookiesPage() {
 
       <LegalSection title="Authentication">
         <p>
-          The hosting or identity platform may use strictly necessary cookies to
-          keep you signed in, prevent request forgery, and apply site-access
-          rules. Pas à Pas does not read those cookies directly. Blocking them
-          may prevent sign-in or synchronized progress from working.
+          The web app sets a strictly necessary anonymous learner cookie for up
+          to one year. It contains a random value, is unavailable to JavaScript,
+          is sent only to this site, and lets the server locate this
+          browser&apos;s learning journal. Clearing it disconnects that browser
+          from the existing server record, so export or delete learning data
+          before clearing site data if you need either action.
         </p>
         <p>
-          The native app does not use a browser cookie for its session. It stores
-          a short opaque access token in the iOS Keychain; the server stores only
-          a keyed hash of that token.
+          Administrators receive a separate, strictly necessary HttpOnly,
+          Secure, SameSite=Strict cookie after successful sign-in. It expires
+          after eight hours. Cloudflare Turnstile may use strictly necessary
+          challenge storage when you submit Support; it is used for
+          abuse-prevention, not advertising.
         </p>
       </LegalSection>
 
@@ -50,7 +54,8 @@ export default function CookiesPage() {
           preferences. “Delete my learning data” removes the server progress
           record and this browser&apos;s offline progress copy. Browser settings can
           also clear site storage, but doing so before queued work synchronizes
-          may discard that local-only work.
+          may discard local-only work and disconnect the anonymous browser
+          profile from its server record.
         </p>
       </LegalSection>
     </LegalDocument>

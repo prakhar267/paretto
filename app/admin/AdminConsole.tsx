@@ -82,6 +82,8 @@ export default function AdminConsole({ adminEmail }: { adminEmail: string }) {
   const [analytics, setAnalytics] = useState<AnalyticsSummary | null>(null);
   const [operations, setOperations] = useState<OperationsSummary | null>(null);
   const [legalHolds, setLegalHolds] = useState<LegalHoldRecord[]>([]);
+  const [legalHoldCursor, setLegalHoldCursor] = useState<string | null>(null);
+  const [legalHoldLoadingMore, setLegalHoldLoadingMore] = useState(false);
   const [holdDataClass, setHoldDataClass] = useState<LegalHoldRecord["dataClass"]>("product_events");
   const [holdRecordKey, setHoldRecordKey] = useState("");
   const [holdReason, setHoldReason] = useState("");
@@ -112,10 +114,14 @@ export default function AdminConsole({ adminEmail }: { adminEmail: string }) {
   const loadOperations = useCallback(async () => {
     const [summary, holds] = await Promise.all([
       apiRequest<OperationsSummary>("/api/admin/operations"),
-      apiRequest<{ holds: LegalHoldRecord[] }>("/api/admin/legal-holds"),
+      apiRequest<{
+        holds: LegalHoldRecord[];
+        nextCursor: string | null;
+      }>("/api/admin/legal-holds?limit=100"),
     ]);
     setOperations(summary);
     setLegalHolds(holds.holds);
+    setLegalHoldCursor(holds.nextCursor);
   }, []);
 
   useEffect(() => {
@@ -138,11 +144,15 @@ export default function AdminConsole({ adminEmail }: { adminEmail: string }) {
     } else if (tab === "operations") {
       operation = Promise.all([
         apiRequest<OperationsSummary>("/api/admin/operations"),
-        apiRequest<{ holds: LegalHoldRecord[] }>("/api/admin/legal-holds"),
+        apiRequest<{
+          holds: LegalHoldRecord[];
+          nextCursor: string | null;
+        }>("/api/admin/legal-holds?limit=100"),
       ]).then(([summary, holds]) => {
         if (active) {
           setOperations(summary);
           setLegalHolds(holds.holds);
+          setLegalHoldCursor(holds.nextCursor);
         }
       });
     } else {
@@ -176,6 +186,22 @@ export default function AdminConsole({ adminEmail }: { adminEmail: string }) {
     setError("");
     setMessage("");
     setTab(nextTab);
+  }
+
+  async function signOut() {
+    setBusy(true);
+    setError("");
+    try {
+      const response = await fetch("/api/admin/session", {
+        method: "DELETE",
+        credentials: "same-origin",
+      });
+      if (!response.ok) throw new Error("Sign-out could not be completed.");
+      window.location.assign("/admin/login");
+    } catch (reason) {
+      setError(errorMessage(reason));
+      setBusy(false);
+    }
   }
 
   const counts = useMemo(
@@ -433,6 +459,29 @@ export default function AdminConsole({ adminEmail }: { adminEmail: string }) {
     }
   }
 
+  async function loadMoreLegalHolds() {
+    if (!legalHoldCursor || legalHoldLoadingMore) return;
+    setLegalHoldLoadingMore(true);
+    setError("");
+    try {
+      const page = await apiRequest<{
+        holds: LegalHoldRecord[];
+        nextCursor: string | null;
+      }>(
+        `/api/admin/legal-holds?limit=100&cursor=${encodeURIComponent(legalHoldCursor)}`,
+      );
+      setLegalHolds((current) => {
+        const known = new Set(current.map((hold) => hold.id));
+        return [...current, ...page.holds.filter((hold) => !known.has(hold.id))];
+      });
+      setLegalHoldCursor(page.nextCursor);
+    } catch (reason) {
+      setError(errorMessage(reason));
+    } finally {
+      setLegalHoldLoadingMore(false);
+    }
+  }
+
   async function deleteEntry() {
     if (!editor.id || !editor.revision) return;
     if (!window.confirm(`Delete “${editor.title}”? The audit history will remain.`)) return;
@@ -625,6 +674,14 @@ export default function AdminConsole({ adminEmail }: { adminEmail: string }) {
           <span>Signed in as</span>
           <strong>{adminEmail}</strong>
           <Link href="/">Open learner app</Link>
+          <button
+            className={styles.signOutButton}
+            type="button"
+            onClick={() => void signOut()}
+            disabled={busy}
+          >
+            Sign out
+          </button>
         </div>
       </header>
 
@@ -1053,6 +1110,17 @@ export default function AdminConsole({ adminEmail }: { adminEmail: string }) {
                     </article>
                   ))}
                 </div>
+                {legalHoldCursor && (
+                  <div className={styles.loadMoreRow}>
+                    <button
+                      type="button"
+                      disabled={legalHoldLoadingMore}
+                      onClick={() => void loadMoreLegalHolds()}
+                    >
+                      {legalHoldLoadingMore ? "Loading…" : "Load more legal holds"}
+                    </button>
+                  </div>
+                )}
               </section>
               <p className={styles.checkedAt}>Last checked {formatDate(operations.checkedAt)}</p>
             </div>

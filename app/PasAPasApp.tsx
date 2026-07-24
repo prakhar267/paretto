@@ -710,7 +710,7 @@ function Onboarding({
               </button>
               <p className="privacy-note">
                 <ShieldCheck size={15} aria-hidden="true" /> Private progress, saved to
-                your signed-in workspace.
+                this browser&apos;s anonymous learning journal.
               </p>
             </>
           ) : (
@@ -1510,7 +1510,7 @@ function ProfileScreen({
             }}
           />
           <div className="beta-pass"><Sparkles aria-hidden="true" /><div><strong>Complete curriculum included</strong><span>All 54 lessons and practice modes are included. Each new region opens after you complete the previous region’s first lesson.</span></div></div>
-          <div className="privacy-summary"><ShieldCheck size={18} aria-hidden="true" /><div><strong>Your learning data stays private</strong><span>Progress is tied to a protected account key, cached on this device for offline safety, and never used for ads.</span><a href="/privacy">Privacy</a><a href="/terms">Terms</a><a href="/accessibility">Accessibility</a><a href="/attributions">Attributions</a><a href="/support">Support</a></div></div>
+          <div className="privacy-summary"><ShieldCheck size={18} aria-hidden="true" /><div><strong>Your learning data stays private</strong><span>Progress uses a random browser session, keeps an offline queue on this device, and is never used for ads. It does not yet follow you to another browser or device.</span><a href="/privacy">Privacy</a><a href="/terms">Terms</a><a href="/accessibility">Accessibility</a><a href="/attributions">Attributions</a><a href="/support">Support</a></div></div>
           <button className="secondary-button full" type="button" onClick={exportProgress}><Download size={17} aria-hidden="true" /> Export my progress</button>
           {!confirmReset ? (
             <button ref={deleteTriggerRef} className="danger-text-button" type="button" onClick={openDeleteConfirmation}>Delete my learning data</button>

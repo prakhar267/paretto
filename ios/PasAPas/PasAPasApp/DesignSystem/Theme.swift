@@ -98,7 +98,7 @@ extension View {
     @ViewBuilder
     func pasAccessibilityLanguage(_ languageCode: String) -> some View {
         #if os(iOS)
-        accessibilityLanguage(languageCode)
+        environment(\.locale, Locale(identifier: languageCode))
         #else
         self
         #endif

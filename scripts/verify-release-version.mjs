@@ -69,6 +69,12 @@ invariant(
   projectBuilds.length === 1 && projectBuilds[0] === xcodegenBuild,
   `Generated Xcode build numbers do not match ${xcodegenBuild}: ${projectBuilds.join(", ")}.`,
 );
+if (process.env.GITHUB_REF_TYPE === "tag") {
+  invariant(
+    process.env.GITHUB_REF_NAME === `v${version}`,
+    `Git tag ${process.env.GITHUB_REF_NAME ?? "missing"} must equal v${version}.`,
+  );
+}
 
 console.log(
   `Release identity verified: version ${version}, planned tag v${version}, native build ${xcodegenBuild}.`,

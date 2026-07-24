@@ -153,14 +153,19 @@ export function validateSupportCreate(value: unknown): ValidationResult<{
   category: SupportCategory;
   subject: string;
   body: string;
+  turnstileToken: string;
 }> {
   if (
     !isRecord(value) ||
-    !hasOnlyKeys(value, ["replyEmail", "category", "subject", "body"], [
-      "replyEmail",
-    ])
+    !hasOnlyKeys(
+      value,
+      ["replyEmail", "category", "subject", "body", "turnstileToken"],
+      ["replyEmail"],
+    )
   ) {
-    return invalid("Expected category, subject, body, and optional replyEmail only.");
+    return invalid(
+      "Expected category, subject, body, security token, and optional replyEmail only.",
+    );
   }
   if (!isOneOf(value.category, SUPPORT_CATEGORIES)) {
     return invalid("Invalid support category.");
@@ -169,6 +174,14 @@ export function validateSupportCreate(value: unknown): ValidationResult<{
   if (!subject) return invalid("Subject must be between 3 and 120 characters.");
   const body = boundedText(value.body, 10, 4_000);
   if (!body) return invalid("Message must be between 10 and 4,000 characters.");
+  if (
+    typeof value.turnstileToken !== "string" ||
+    value.turnstileToken.length < 1 ||
+    value.turnstileToken.length > 2_048 ||
+    /[\u0000-\u001f\u007f]/.test(value.turnstileToken)
+  ) {
+    return invalid("The security check is required.");
+  }
 
   let replyEmail: string | null = null;
   if (value.replyEmail !== undefined && value.replyEmail !== null && value.replyEmail !== "") {
@@ -183,7 +196,13 @@ export function validateSupportCreate(value: unknown): ValidationResult<{
   }
   return {
     ok: true,
-    value: { replyEmail, category: value.category, subject, body },
+    value: {
+      replyEmail,
+      category: value.category,
+      subject,
+      body,
+      turnstileToken: value.turnstileToken,
+    },
   };
 }
 

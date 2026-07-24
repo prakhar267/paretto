@@ -3,7 +3,6 @@ import { headers } from "next/headers";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 
-import { chatGPTSignInPath } from "@/app/chatgpt-auth";
 import { authorizeAdmin } from "@/app/server-auth";
 import AdminConsole from "./AdminConsole";
 import styles from "./admin.module.css";
@@ -18,22 +17,10 @@ export const metadata: Metadata = {
 
 export default async function AdminPage() {
   const requestHeaders = await headers();
-  const host =
-    requestHeaders.get("x-forwarded-host") ??
-    requestHeaders.get("host") ??
-    "localhost";
-  const protocol =
-    requestHeaders.get("x-forwarded-proto") ??
-    (host.startsWith("localhost") || host.startsWith("127.0.0.1")
-      ? "http"
-      : "https");
-  const authorization = await authorizeAdmin(
-    requestHeaders,
-    new URL(`${protocol}://${host}/admin`),
-  );
+  const authorization = await authorizeAdmin(requestHeaders);
 
   if (!authorization.ok && authorization.status === 401) {
-    redirect(chatGPTSignInPath("/admin"));
+    redirect("/admin/login");
   }
   if (!authorization.ok) {
     return (
@@ -42,8 +29,8 @@ export default async function AdminPage() {
           <p className={styles.eyebrow}>Pas à Pas administration</p>
           <h1>Access unavailable</h1>
           <p>
-            This account is not on the administrator allowlist, or the
-            ADMIN_EMAILS environment binding has not been configured.
+            Administrator authentication is not configured. Verify the
+            allowlisted email, password verifier, and session secret.
           </p>
           <Link href="/">Return to the learning app</Link>
         </section>

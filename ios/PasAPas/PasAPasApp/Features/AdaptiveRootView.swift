@@ -1,6 +1,6 @@
 import SwiftUI
 
-enum AppSection: String, CaseIterable, Identifiable {
+enum AppSection: String, CaseIterable, Hashable, Identifiable {
     case today, journey, review, wordbook, profile
     var id: String { rawValue }
 
@@ -34,7 +34,17 @@ struct AdaptiveRootView: View {
         Group {
             if horizontalSizeClass == .regular {
                 NavigationSplitView {
-                    List(AppSection.allCases, selection: $selection) { section in
+                    List(
+                        AppSection.allCases,
+                        selection: Binding<AppSection?>(
+                            get: { selection },
+                            set: { newSelection in
+                                if let newSelection {
+                                    selection = newSelection
+                                }
+                            }
+                        )
+                    ) { section in
                         Label(section.title, systemImage: section.symbol).tag(section)
                     }
                     .navigationTitle("Pas à Pas")

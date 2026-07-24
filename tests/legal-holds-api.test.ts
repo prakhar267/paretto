@@ -5,6 +5,7 @@ import {
   POST,
 } from "../app/api/admin/legal-holds/route";
 import { DELETE } from "../app/api/admin/legal-holds/[id]/route";
+import { createAdminTestAuth } from "./auth-fixtures";
 import { setCloudflareEnv } from "./cloudflare-workers-mock";
 
 type Hold = {
@@ -54,8 +55,29 @@ class LegalHoldStatement {
 
   async all<T>() {
     if (this.sql.startsWith("SELECT ID, DATA_CLASS")) {
+      let holds = [...this.database.holds].sort(compareHolds);
+      if (this.sql.includes("CASE STATUS WHEN 'ACTIVE' THEN 0 ELSE 1 END > ?")) {
+        const [rankValue, repeatedRankValue, createdAtValue, repeatedCreatedAtValue, idValue] =
+          this.values;
+        const rank = Number(rankValue);
+        const createdAt = Number(createdAtValue);
+        const id = String(idValue);
+        if (rank !== Number(repeatedRankValue) || createdAt !== Number(repeatedCreatedAtValue)) {
+          throw new Error("Legal-hold cursor bindings do not match.");
+        }
+        holds = holds.filter((hold) => {
+          const holdRank = legalHoldRank(hold);
+          return (
+            holdRank > rank ||
+            (holdRank === rank &&
+              (hold.created_at < createdAt ||
+                (hold.created_at === createdAt && hold.id < id)))
+          );
+        });
+      }
+      const limit = Number(this.values.at(-1));
       return {
-        results: [...this.database.holds] as T[],
+        results: holds.slice(0, limit) as T[],
         success: true,
         meta: {},
       };
@@ -111,13 +133,28 @@ class LegalHoldStatement {
   }
 }
 
+function legalHoldRank(hold: Hold): number {
+  return hold.status === "active" ? 0 : 1;
+}
+
+function compareHolds(left: Hold, right: Hold): number {
+  const rankDifference = legalHoldRank(left) - legalHoldRank(right);
+  if (rankDifference !== 0) return rankDifference;
+  if (left.created_at !== right.created_at) {
+    return right.created_at - left.created_at;
+  }
+  if (left.id === right.id) return 0;
+  return left.id < right.id ? 1 : -1;
+}
+
 const EMAIL = "admin@pas-a-pas.test";
+let adminCookie = "";
 
 function adminRequest(path: string, init: RequestInit = {}) {
   return new Request(`https://pas-a-pas.test${path}`, {
     ...init,
     headers: {
-      "oai-authenticated-user-email": EMAIL,
+      cookie: adminCookie,
       ...(init.headers ?? {}),
     },
   });
@@ -126,9 +163,11 @@ function adminRequest(path: string, init: RequestInit = {}) {
 describe("legal hold administration", () => {
   let database: LegalHoldMemoryD1;
 
-  beforeEach(() => {
+  beforeEach(async () => {
     database = new LegalHoldMemoryD1();
-    setCloudflareEnv({ DB: database, ADMIN_EMAILS: EMAIL });
+    const adminAuth = await createAdminTestAuth([EMAIL]);
+    adminCookie = adminAuth.cookies.get(EMAIL)!;
+    setCloudflareEnv({ DB: database, ...adminAuth.bindings });
   });
 
   it("creates, lists, releases, and audits a bounded legal hold", async () => {
@@ -154,6 +193,7 @@ describe("legal hold administration", () => {
     expect(listed.status).toBe(200);
     await expect(listed.json()).resolves.toMatchObject({
       holds: [{ status: "active", recordKey: "account:abc123" }],
+      nextCursor: null,
     });
 
     const released = await DELETE(
@@ -202,4 +242,61 @@ describe("legal hold administration", () => {
     expect(response.status).toBe(400);
     expect(database.holds).toHaveLength(0);
   });
+
+  it("paginates every hold without gaps or duplicates across status and timestamp ties", async () => {
+    database.holds = Array.from({ length: 205 }, (_, index) => ({
+      id: holdId(index),
+      data_class: "product_events",
+      record_key: `account:${index}`,
+      reason: `Preserve account ${index} records for a legal review.`,
+      status: index < 150 ? "active" : "released",
+      created_by_email: EMAIL,
+      created_at: 1_700_000_000_000 + Math.floor(index / 5),
+      released_by_email: index < 150 ? null : EMAIL,
+      released_at: index < 150 ? null : 1_700_000_100_000 + index,
+    }));
+
+    const received: Array<{ id: string; status: Hold["status"] }> = [];
+    let cursor: string | null = null;
+    do {
+      const path = cursor
+        ? `/api/admin/legal-holds?limit=37&cursor=${encodeURIComponent(cursor)}`
+        : "/api/admin/legal-holds?limit=37";
+      const response = await GET(adminRequest(path));
+      expect(response.status).toBe(200);
+      const body = (await response.json()) as {
+        holds: Array<{ id: string; status: Hold["status"] }>;
+        nextCursor: string | null;
+      };
+      received.push(...body.holds);
+      cursor = body.nextCursor;
+    } while (cursor);
+
+    expect(received).toHaveLength(205);
+    expect(new Set(received.map((hold) => hold.id)).size).toBe(205);
+    expect(received.slice(0, 150).every((hold) => hold.status === "active")).toBe(true);
+    expect(received.slice(150).every((hold) => hold.status === "released")).toBe(true);
+    expect(received.map((hold) => hold.id)).toEqual(
+      [...database.holds].sort(compareHolds).map((hold) => hold.id),
+    );
+  });
+
+  it("rejects invalid pagination parameters", async () => {
+    const invalidLimit = await GET(
+      adminRequest("/api/admin/legal-holds?limit=101"),
+    );
+    expect(invalidLimit.status).toBe(400);
+
+    const invalidCursor = await GET(
+      adminRequest(
+        "/api/admin/legal-holds?cursor=2%3A1700000000000%3Anot-a-legal-hold-id",
+      ),
+    );
+    expect(invalidCursor.status).toBe(400);
+  });
 });
+
+function holdId(index: number): string {
+  const hexadecimal = index.toString(16);
+  return `${hexadecimal.padStart(8, "0")}-0000-4000-8000-${hexadecimal.padStart(12, "0")}`;
+}

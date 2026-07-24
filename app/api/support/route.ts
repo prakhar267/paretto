@@ -7,6 +7,7 @@ import {
 } from "@/app/api/_lib/api-utils";
 import { getCmsDatabase } from "@/app/api/_lib/cms-database";
 import { validateSupportCreate } from "@/app/api/_lib/content-validation";
+import { verifySupportTurnstile } from "@/app/turnstile";
 
 export const dynamic = "force-dynamic";
 
@@ -22,7 +23,7 @@ export async function POST(request: Request) {
   }
   if (!identity.ok) {
     return identity.status === 401
-      ? apiError(401, "Sign in to contact support.")
+      ? apiError(401, "A valid browser learning session is required.")
       : apiError(503, "Support is temporarily unavailable.");
   }
 
@@ -30,6 +31,11 @@ export async function POST(request: Request) {
   if (!body.ok) return body.response;
   const parsed = validateSupportCreate(body.value);
   if (!parsed.ok) return apiError(400, parsed.error);
+  const challenge = await verifySupportTurnstile(
+    parsed.value.turnstileToken,
+    request,
+  );
+  if (!challenge.ok) return apiError(challenge.status, challenge.error);
 
   const id = crypto.randomUUID();
   const now = Date.now();

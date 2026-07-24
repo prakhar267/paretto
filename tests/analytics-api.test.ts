@@ -2,6 +2,10 @@ import { beforeEach, describe, expect, it } from "vitest";
 
 import { GET as ANALYTICS_GET } from "../app/api/admin/analytics/route";
 import { POST as EVENT_POST, validateEvent } from "../app/api/events/route";
+import {
+  createAdminTestAuth,
+  learnerCookieHeaders,
+} from "./auth-fixtures";
 import { setCloudflareEnv } from "./cloudflare-workers-mock";
 
 type StoredEvent = {
@@ -127,10 +131,17 @@ const SECRET = "analytics-test-secret-with-at-least-thirty-two-characters";
 
 describe("privacy-aware analytics", () => {
   let database: AnalyticsMemoryD1;
+  let adminCookie: string;
 
-  beforeEach(() => {
+  beforeEach(async () => {
     database = new AnalyticsMemoryD1();
-    setCloudflareEnv({ DB: database, USER_KEY_SECRET: SECRET, ADMIN_EMAILS: EMAIL });
+    const adminAuth = await createAdminTestAuth([EMAIL]);
+    adminCookie = adminAuth.cookies.get(EMAIL)!;
+    setCloudflareEnv({
+      DB: database,
+      USER_KEY_SECRET: SECRET,
+      ...adminAuth.bindings,
+    });
   });
 
   it("rejects unknown fields and stores only an opaque account key", async () => {
@@ -185,7 +196,7 @@ describe("privacy-aware analytics", () => {
         method: "POST",
         headers: {
           "content-type": "application/json",
-          "oai-authenticated-user-email": EMAIL,
+          ...learnerCookieHeaders(),
         },
         body: JSON.stringify({
           event: "lesson_completed",
@@ -205,7 +216,7 @@ describe("privacy-aware analytics", () => {
         method: "POST",
         headers: {
           "content-type": "application/json",
-          "oai-authenticated-user-email": EMAIL,
+          ...learnerCookieHeaders(),
         },
         body: JSON.stringify({
           event: "navigation_changed",
@@ -225,7 +236,7 @@ describe("privacy-aware analytics", () => {
         method: "POST",
         headers: {
           "content-type": "application/json",
-          "oai-authenticated-user-email": EMAIL,
+          ...learnerCookieHeaders(),
         },
         body: JSON.stringify({
           event: "app_opened",
@@ -245,7 +256,7 @@ describe("privacy-aware analytics", () => {
         method: "POST",
         headers: {
           "content-type": "application/json",
-          "oai-authenticated-user-email": EMAIL,
+          ...learnerCookieHeaders(),
         },
         body: JSON.stringify({
           event: "app_opened",
@@ -258,7 +269,7 @@ describe("privacy-aware analytics", () => {
 
     const response = await ANALYTICS_GET(
       new Request("https://pas-a-pas.test/api/admin/analytics?days=30", {
-        headers: { "oai-authenticated-user-email": EMAIL },
+        headers: { cookie: adminCookie },
       }),
     );
     expect(response.status).toBe(200);

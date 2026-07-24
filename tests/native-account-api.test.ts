@@ -81,7 +81,11 @@ describe("native account deletion", () => {
       ACCOUNT_ID,
     );
     const database = new NativeAccountMemoryD1(ACCOUNT_ID, encrypted);
-    setCloudflareEnv({ DB: database, ...configuration });
+    setCloudflareEnv({
+      DB: database,
+      NATIVE_API_ENABLED: "true",
+      ...configuration,
+    });
     const fetcher = vi.fn(async (_input: RequestInfo | URL, init?: RequestInit) => {
       const body = new URLSearchParams(String(init?.body));
       expect(body.get("token")).toBe("refresh-token-with-enough-length");
@@ -110,7 +114,11 @@ describe("native account deletion", () => {
       ACCOUNT_ID,
     );
     const database = new NativeAccountMemoryD1(ACCOUNT_ID, encrypted);
-    setCloudflareEnv({ DB: database, ...configuration });
+    setCloudflareEnv({
+      DB: database,
+      NATIVE_API_ENABLED: "true",
+      ...configuration,
+    });
     vi.stubGlobal(
       "fetch",
       vi.fn(async () => new Response("provider failure", { status: 503 })),
@@ -132,7 +140,11 @@ describe("native account deletion", () => {
       ACCOUNT_ID,
     );
     const database = new NativeAccountMemoryD1(ACCOUNT_ID, encrypted);
-    setCloudflareEnv({ DB: database, ...configuration });
+    setCloudflareEnv({
+      DB: database,
+      NATIVE_API_ENABLED: "true",
+      ...configuration,
+    });
     vi.stubGlobal(
       "fetch",
       vi.fn(async () =>
@@ -163,7 +175,11 @@ describe("native account deletion", () => {
       ACCOUNT_ID,
     );
     const database = new NativeAccountMemoryD1(ACCOUNT_ID, encrypted);
-    setCloudflareEnv({ DB: database, ...configuration });
+    setCloudflareEnv({
+      DB: database,
+      NATIVE_API_ENABLED: "true",
+      ...configuration,
+    });
     vi.stubGlobal(
       "fetch",
       vi.fn(async () =>

@@ -2,6 +2,11 @@ import PasAPasCore
 import SwiftUI
 import UniformTypeIdentifiers
 
+func profileProgressSummary(xp: Int, coins: Int, streak: Int) -> String {
+    let coinNoun = coins == 1 ? "coin" : "coins"
+    return "\(xp) XP · \(coins) \(coinNoun) · \(streak)-day streak"
+}
+
 struct ProfileView: View {
     @EnvironmentObject private var model: AppModel
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
@@ -26,7 +31,13 @@ struct ProfileView: View {
                         .background(Color.pasNavy, in: Circle())
                     VStack(alignment: .leading) {
                         Text(model.state.displayName).font(.title2.bold())
-                        Text("\(model.state.xp) XP · \(model.state.coins) coins · \(model.state.streak) day streak")
+                        Text(
+                            profileProgressSummary(
+                                xp: model.state.xp,
+                                coins: model.state.coins,
+                                streak: model.state.streak
+                            )
+                        )
                             .foregroundStyle(.secondary)
                     }
                 }

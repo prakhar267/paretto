@@ -1,4 +1,5 @@
 import { LegalDocument, LegalSection } from "../legal-document";
+import { loadTurnstilePublicSiteKey } from "../turnstile";
 import SupportForm from "./SupportForm";
 
 export const metadata = {
@@ -6,7 +7,8 @@ export const metadata = {
   description: "Contact the Pas à Pas learner-care team securely.",
 };
 
-export default function SupportPage() {
+export default async function SupportPage() {
+  const turnstileSiteKey = await loadTurnstilePublicSiteKey();
   return (
     <LegalDocument
       eyebrow="Learner support"
@@ -21,14 +23,16 @@ export default function SupportPage() {
         </p>
       </LegalSection>
 
-      <SupportForm />
+      <SupportForm turnstileSiteKey={turnstileSiteKey} />
 
       <LegalSection title="Response and privacy">
         <p>
           A reply email is optional. Without one, the request can still help us
           improve the product, but we cannot contact you directly. Support
           records use an opaque account reference and follow the retention
-          period described in the Privacy notice.
+          period described in the Privacy notice. Cloudflare Turnstile checks
+          each submission for automated abuse before it reaches the support
+          queue.
         </p>
       </LegalSection>
     </LegalDocument>

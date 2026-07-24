@@ -3,6 +3,7 @@ name: CI
 on:
   push:
     branches: [main]
+    tags: ["v*"]
   pull_request:
   workflow_dispatch:
 
@@ -46,9 +47,9 @@ jobs:
         run: npm run release:verify
 
   native-gate:
-    name: Native release gate (Xcode 26.3)
+    name: Native iPhone and iPad release gate (Xcode 26.3)
     runs-on: macos-15
-    timeout-minutes: 45
+    timeout-minutes: 60
     env:
       DEVELOPER_DIR: /Applications/Xcode_26.3.app/Contents/Developer
     steps:
@@ -76,3 +77,15 @@ jobs:
           -destination 'platform=iOS Simulator,name=iPhone 16 Pro,OS=latest'
           CODE_SIGNING_ALLOWED=NO
           test
+
+      - name: Test the adaptive iPad layout without signing
+        run: >-
+          xcodebuild
+          -project ios/PasAPas/PasAPas.xcodeproj
+          -scheme PasAPas
+          -destination 'platform=iOS Simulator,name=iPad Pro 13-inch (M4),OS=latest'
+          CODE_SIGNING_ALLOWED=NO
+          test
+
+      - name: Confirm tests did not mutate tracked release inputs
+        run: git diff --exit-code

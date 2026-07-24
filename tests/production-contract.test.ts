@@ -48,13 +48,15 @@ function contrastRatio(foreground: string, background: string): number {
 
 describe("mobile, PWA, security, and launch contracts", () => {
   it("ships an installable iOS/Android web app without caching private routes", async () => {
-    const [manifestText, serviceWorker, css, worker, viteConfig] = await Promise.all([
-      readFile(resolve(ROOT, "public/manifest.webmanifest"), "utf8"),
-      readFile(resolve(ROOT, "public/service-worker.js"), "utf8"),
-      readFile(resolve(ROOT, "app/globals.css"), "utf8"),
-      readFile(resolve(ROOT, "worker/index.ts"), "utf8"),
-      readFile(resolve(ROOT, "vite.config.ts"), "utf8"),
-    ]);
+    const [manifestText, serviceWorker, staticHeaders, css, worker, viteConfig] =
+      await Promise.all([
+        readFile(resolve(ROOT, "public/manifest.webmanifest"), "utf8"),
+        readFile(resolve(ROOT, "public/service-worker.js"), "utf8"),
+        readFile(resolve(ROOT, "public/_headers"), "utf8"),
+        readFile(resolve(ROOT, "app/globals.css"), "utf8"),
+        readFile(resolve(ROOT, "worker/index.ts"), "utf8"),
+        readFile(resolve(ROOT, "vite.config.ts"), "utf8"),
+      ]);
     const manifest = JSON.parse(manifestText) as {
       display: string;
       start_url: string;
@@ -78,6 +80,12 @@ describe("mobile, PWA, security, and launch contracts", () => {
     expect(worker).toContain("async scheduled(");
     expect(worker).toContain("runRetentionMaintenance");
     expect(viteConfig).toContain('crons: ["17 3 * * *"]');
+    expect(viteConfig).toContain('migrations_dir: "drizzle"');
+    expect(viteConfig).toMatch(/assets:\s*\{\s*binding:\s*"ASSETS"/);
+    expect(staticHeaders).toMatch(
+      /\/service-worker\.js[\s\S]*Cache-Control: no-cache, no-store, must-revalidate/,
+    );
+    expect(staticHeaders).toContain("Service-Worker-Allowed: /");
     expect(css).toMatch(/@media \(max-width: 760px\)/);
     expect(css).toMatch(/@media \(max-width: 480px\)/);
     expect(css).toMatch(
@@ -104,6 +112,12 @@ describe("mobile, PWA, security, and launch contracts", () => {
     }
     expect(worker).toContain("frame-ancestors 'none'");
     expect(worker).toContain("object-src 'none'");
+    expect(worker).toContain(
+      "frame-src https://challenges.cloudflare.com",
+    );
+    expect(worker).toContain(
+      "script-src 'self' 'unsafe-inline' https://challenges.cloudflare.com",
+    );
     expect(worker).toContain('event: "request_completed"');
     expect(worker).toContain('event: "scheduled_retention_completed"');
 
@@ -119,6 +133,82 @@ describe("mobile, PWA, security, and launch contracts", () => {
         "docs/RELEASE-QA.md",
         "docs/LEGAL-LAUNCH-CHECKLIST.md",
       ].map((path) => access(resolve(ROOT, path))),
+    );
+  });
+
+  it("guards direct Cloudflare staging and production deployment", async () => {
+    const [
+      worker,
+      stagingTemplate,
+      productionTemplate,
+      verifier,
+      preparer,
+      secretVerifier,
+      packageSource,
+    ] = await Promise.all([
+      readFile(resolve(ROOT, "worker/index.ts"), "utf8"),
+      readFile(resolve(ROOT, "wrangler.staging.jsonc.example"), "utf8"),
+      readFile(resolve(ROOT, "wrangler.production.jsonc.example"), "utf8"),
+      readFile(resolve(ROOT, "scripts/verify-cloudflare-config.mjs"), "utf8"),
+      readFile(resolve(ROOT, "scripts/prepare-cloudflare-config.mjs"), "utf8"),
+      readFile(resolve(ROOT, "scripts/verify-cloudflare-secrets.mjs"), "utf8"),
+      readFile(resolve(ROOT, "package.json"), "utf8"),
+    ]);
+
+    expect(worker).not.toMatch(
+      /handleImageOptimization|env\.IMAGES|\/_vinext\/image/,
+    );
+    for (const [environment, template] of [
+      ["staging", stagingTemplate],
+      ["production", productionTemplate],
+    ]) {
+      expect(template).toContain(
+        environment === "staging"
+          ? '"name": "pas-a-pas-french-staging"'
+          : '"name": "pas-a-pas-french"',
+      );
+      expect(template).toContain('"main": "dist/server/index.js"');
+      expect(template).toContain('"ADMIN_EMAILS": "__ADMIN_EMAIL__"');
+      expect(template).toContain('"NATIVE_API_ENABLED": "false"');
+      expect(template).toContain(
+        '"TURNSTILE_SITE_KEY": "__TURNSTILE_SITE_KEY__"',
+      );
+      expect(JSON.parse(template).secrets.required).toEqual([
+        "USER_KEY_SECRET",
+        "ADMIN_PASSWORD_VERIFIER",
+        "ADMIN_SESSION_SECRET",
+        "TURNSTILE_SECRET",
+      ]);
+      expect(template).toContain('"directory": "dist/client"');
+      expect(template).toContain('"binding": "ASSETS"');
+      expect(template).toContain('"binding": "DB"');
+      expect(template).toContain('"migrations_dir": "drizzle"');
+      expect(template).toContain('"crons": ["17 3 * * *"]');
+      expect(template).toContain('"enabled": true');
+      expect(template).toContain("__CLOUDFLARE_ACCOUNT_ID__");
+      expect(template).toContain("__D1_DATABASE_ID__");
+      expect(template).not.toMatch(/"images"|"r2_buckets"|"limits"/);
+    }
+    expect(verifier).toContain("FREE_MAX_ASSET_FILES = 20_000");
+    expect(verifier).toContain("FREE_MAX_ASSET_BYTES = 25 * 1024 * 1024");
+    expect(verifier).toContain("database.migrations_dir === \"drizzle\"");
+    expect(preparer).toContain("isPlaceholderDatabaseId");
+    expect(secretVerifier).toContain(
+      '"ADMIN_PASSWORD_VERIFIER"',
+    );
+    expect(secretVerifier).toContain("metadata.mode & 0o077");
+    expect(packageSource).toContain('"cloudflare:dry-run:staging"');
+    expect(packageSource).toContain('"cloudflare:dry-run:production"');
+    expect(packageSource).toContain('"cloudflare:deploy:staging"');
+    expect(packageSource).toContain('"cloudflare:deploy:production"');
+    expect(packageSource).toContain(
+      "--secrets-file .env.staging --keep-vars --strict",
+    );
+    expect(packageSource).toContain(
+      "--secrets-file .env.production --keep-vars --strict",
+    );
+    expect(packageSource).not.toMatch(
+      /"cloudflare:deploy:[^"]+":\s*"[^"]*dist\/server\/wrangler\.json/,
     );
   });
 

@@ -1,6 +1,33 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
+
+const TURNSTILE_SCRIPT_ID = "cloudflare-turnstile-script";
+const TURNSTILE_SCRIPT_URL =
+  "https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit";
+
+type TurnstileApi = {
+  render: (
+    container: HTMLElement,
+    options: {
+      sitekey: string;
+      action: string;
+      theme: "auto";
+      size: "flexible";
+      callback: (token: string) => void;
+      "expired-callback": () => void;
+      "error-callback": () => void;
+    },
+  ) => string;
+  reset: (widgetId: string) => void;
+  remove: (widgetId: string) => void;
+};
+
+declare global {
+  interface Window {
+    turnstile?: TurnstileApi;
+  }
+}
 
 const CATEGORIES = [
   ["technical", "Technical problem"],
@@ -24,11 +51,92 @@ const INITIAL_FORM: FormState = {
   replyEmail: "",
 };
 
-export default function SupportForm() {
+export default function SupportForm({
+  turnstileSiteKey = null,
+}: {
+  turnstileSiteKey?: string | null;
+}) {
   const [form, setForm] = useState<FormState>(INITIAL_FORM);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [ticket, setTicket] = useState<string | null>(null);
+  const [turnstileToken, setTurnstileToken] = useState("");
+  const [challengeMessage, setChallengeMessage] = useState(
+    turnstileSiteKey
+      ? "Loading the security check…"
+      : "The security check is temporarily unavailable.",
+  );
+  const challengeContainerRef = useRef<HTMLDivElement>(null);
+  const challengeWidgetRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    if (!turnstileSiteKey || ticket) return;
+    let active = true;
+    const script =
+      document.getElementById(TURNSTILE_SCRIPT_ID) ??
+      createTurnstileScript();
+
+    const renderChallenge = () => {
+      if (
+        !active ||
+        !window.turnstile ||
+        !challengeContainerRef.current ||
+        challengeWidgetRef.current
+      ) {
+        return;
+      }
+      challengeWidgetRef.current = window.turnstile.render(
+        challengeContainerRef.current,
+        {
+          sitekey: turnstileSiteKey,
+          action: "support_submit",
+          theme: "auto",
+          size: "flexible",
+          callback: (token) => {
+            if (!active) return;
+            setTurnstileToken(token);
+            setChallengeMessage("Security check complete.");
+          },
+          "expired-callback": () => {
+            if (!active) return;
+            setTurnstileToken("");
+            setChallengeMessage(
+              "The security check expired. Complete it again.",
+            );
+          },
+          "error-callback": () => {
+            if (!active) return;
+            setTurnstileToken("");
+            setChallengeMessage(
+              "The security check could not load. Please retry.",
+            );
+          },
+        },
+      );
+    };
+    const handleScriptError = () => {
+      if (active) {
+        setChallengeMessage(
+          "The security check could not load. Please retry.",
+        );
+      }
+    };
+
+    script.addEventListener("load", renderChallenge);
+    script.addEventListener("error", handleScriptError);
+    if (window.turnstile) renderChallenge();
+
+    return () => {
+      active = false;
+      script.removeEventListener("load", renderChallenge);
+      script.removeEventListener("error", handleScriptError);
+      if (window.turnstile && challengeWidgetRef.current) {
+        window.turnstile.remove(challengeWidgetRef.current);
+      }
+      challengeWidgetRef.current = null;
+      setTurnstileToken("");
+    };
+  }, [ticket, turnstileSiteKey]);
 
   async function submit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -42,6 +150,7 @@ export default function SupportForm() {
           category: form.category,
           subject: form.subject,
           body: form.body,
+          turnstileToken,
           ...(form.replyEmail.trim() ? { replyEmail: form.replyEmail.trim() } : {}),
         }),
       });
@@ -52,7 +161,7 @@ export default function SupportForm() {
         throw new Error(
           payload?.error ??
             (response.status === 401
-              ? "Please sign in to send a support request."
+              ? "Your browser session could not be established. Refresh and try again."
               : "The request could not be submitted. Please try again."),
         );
       }
@@ -62,6 +171,11 @@ export default function SupportForm() {
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : "The request could not be submitted.");
     } finally {
+      setTurnstileToken("");
+      if (window.turnstile && challengeWidgetRef.current) {
+        window.turnstile.reset(challengeWidgetRef.current);
+        setChallengeMessage("Complete the security check to send.");
+      }
       setBusy(false);
     }
   }
@@ -142,12 +256,36 @@ export default function SupportForm() {
           />
         </label>
 
+        <div
+          ref={challengeContainerRef}
+          className="turnstile-container"
+          role="group"
+          aria-label="Security check"
+        />
+        <p className="turnstile-status" aria-live="polite">
+          {challengeMessage}
+        </p>
+
         {error && <p className="support-error" role="alert">{error}</p>}
 
-        <button className="primary-button large" type="submit" disabled={busy}>
+        <button
+          className="primary-button large"
+          type="submit"
+          disabled={busy || !turnstileToken}
+        >
           {busy ? "Sending…" : "Send securely"}
         </button>
       </form>
     </section>
   );
+}
+
+function createTurnstileScript(): HTMLScriptElement {
+  const script = document.createElement("script");
+  script.id = TURNSTILE_SCRIPT_ID;
+  script.src = TURNSTILE_SCRIPT_URL;
+  script.async = true;
+  script.defer = true;
+  document.head.appendChild(script);
+  return script;
 }

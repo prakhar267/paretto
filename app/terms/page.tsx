@@ -22,13 +22,13 @@ export default function TermsPage() {
         </p>
       </LegalSection>
 
-      <LegalSection title="Eligibility and accounts">
+      <LegalSection title="Eligibility and browser profiles">
         <p>
           You must be at least 13 and legally able to accept these Terms. A
           parent or guardian must authorize use where required by local law.
-          Keep access to your sign-in account secure and promptly report
-          suspected unauthorized use. You are responsible for activity under
-          your account unless applicable law provides otherwise.
+          The web service currently keeps progress in an anonymous browser
+          profile. Protect access to the device and browser that holds it, and
+          export progress before clearing site data or moving browsers.
         </p>
       </LegalSection>
 
@@ -90,10 +90,11 @@ export default function TermsPage() {
       <LegalSection title="Disputes and governing rules">
         <p>
           Contact Support first so concerns can be resolved informally. These
-          Terms are governed by the laws applicable to the service operator,
-          without overriding mandatory rights available where you live. Courts
-          with lawful jurisdiction may hear unresolved disputes. If one term is
-          unenforceable, the remaining terms continue.
+          Terms are governed by the laws of India. Subject to mandatory
+          consumer rights and any court that must hear a matter under applicable
+          law, courts in Jaipur, Rajasthan have jurisdiction over unresolved
+          disputes. Nothing here removes mandatory rights available where you
+          live. If one term is unenforceable, the remaining terms continue.
         </p>
       </LegalSection>
     </LegalDocument>

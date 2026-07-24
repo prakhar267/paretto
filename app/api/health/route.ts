@@ -1,13 +1,23 @@
-import { getRuntimeConfigurationReadiness } from "@/app/server-auth";
+import {
+  getRuntimeConfigurationReadiness,
+  type RuntimeConfigurationReadiness,
+} from "@/app/server-auth";
 import { getDatabase } from "@/db";
 
 export const dynamic = "force-dynamic";
 
-const SERVICE_VERSION = "1.0.0";
-const SCHEMA_REVISION = "0006";
+const SERVICE_VERSION = "1.0.1";
+const SCHEMA_REVISION = "0007";
 
 const REQUIRED_SCHEMA = {
   learning_state: ["user_key", "revision", "payload", "updated_at"],
+  admin_login_attempts: [
+    "ip_hash",
+    "window_started_at",
+    "failed_attempts",
+    "blocked_until",
+    "updated_at",
+  ],
   cms_content: [
     "id",
     "kind",
@@ -129,6 +139,7 @@ const REQUIRED_SCHEMA = {
 } as const;
 
 const REQUIRED_INDEXES = [
+  "admin_login_attempts_updated_idx",
   "cms_content_kind_slug_unique",
   "cms_content_kind_stable_key_unique",
   "cms_content_status_updated_idx",
@@ -161,6 +172,10 @@ export async function GET() {
   let configuration = {
     userKeySecret: false,
     adminAllowlist: false,
+    adminAuthentication: false,
+    turnstileSiteKey: false,
+    turnstileSecret: false,
+    nativeApiEnabled: false,
     appleClientId: false,
     appleServerCredentials: false,
     appleTokenEncryptionSecret: false,
@@ -172,6 +187,7 @@ export async function GET() {
   } catch (error) {
     logHealthFailure("health_configuration_check_failed", error);
   }
+  const runtimeReadiness = evaluateRuntimeReadiness(configuration);
 
   let database: D1Database;
   try {
@@ -186,29 +202,14 @@ export async function GET() {
         version: SERVICE_VERSION,
         schemaRevision: SCHEMA_REVISION,
         productionReady: false,
+        webReady: false,
+        nativeReady: runtimeReadiness.nativeReady,
         checkedAt,
         latencyMs: Date.now() - startedAt,
         checks: {
           database: "unavailable",
           schema: "unknown",
-          userKeySecret: configuration.userKeySecret
-            ? "ready"
-            : "misconfigured",
-          adminAllowlist: configuration.adminAllowlist
-            ? "ready"
-            : "misconfigured",
-          appleClientId: configuration.appleClientId
-            ? "ready"
-            : "misconfigured",
-          appleServerCredentials: configuration.appleServerCredentials
-            ? "ready"
-            : "misconfigured",
-          appleTokenEncryptionSecret: configuration.appleTokenEncryptionSecret
-            ? "ready"
-            : "misconfigured",
-          nativeSessionSecret: configuration.nativeSessionSecret
-            ? "ready"
-            : "misconfigured",
+          ...configurationCheckStatuses(configuration),
         },
         database: "unavailable",
       },
@@ -227,29 +228,14 @@ export async function GET() {
         version: SERVICE_VERSION,
         schemaRevision: SCHEMA_REVISION,
         productionReady: false,
+        webReady: false,
+        nativeReady: runtimeReadiness.nativeReady,
         checkedAt,
         latencyMs: Date.now() - startedAt,
         checks: {
           database: "ready",
           schema: "incomplete",
-          userKeySecret: configuration.userKeySecret
-            ? "ready"
-            : "misconfigured",
-          adminAllowlist: configuration.adminAllowlist
-            ? "ready"
-            : "misconfigured",
-          appleClientId: configuration.appleClientId
-            ? "ready"
-            : "misconfigured",
-          appleServerCredentials: configuration.appleServerCredentials
-            ? "ready"
-            : "misconfigured",
-          appleTokenEncryptionSecret: configuration.appleTokenEncryptionSecret
-            ? "ready"
-            : "misconfigured",
-          nativeSessionSecret: configuration.nativeSessionSecret
-            ? "ready"
-            : "misconfigured",
+          ...configurationCheckStatuses(configuration),
         },
         database: "ready",
       },
@@ -257,13 +243,7 @@ export async function GET() {
     );
   }
 
-  const productionReady =
-    configuration.userKeySecret &&
-    configuration.adminAllowlist &&
-    configuration.appleClientId &&
-    configuration.appleServerCredentials &&
-    configuration.appleTokenEncryptionSecret &&
-    configuration.nativeSessionSecret;
+  const { productionReady, webReady, nativeReady } = runtimeReadiness;
   const serviceReady = productionReady || developmentPreview;
   return healthResponse(
     {
@@ -272,11 +252,13 @@ export async function GET() {
       version: SERVICE_VERSION,
       schemaRevision: SCHEMA_REVISION,
       productionReady,
+      webReady,
+      nativeReady,
       environment: developmentPreview ? "development-preview" : "production",
       warnings:
         developmentPreview && !productionReady
           ? [
-              "Local preview fallbacks are active; production runtime values remain required before deployment.",
+              "Development preview is available, but production runtime bindings remain incomplete.",
             ]
           : [],
       checkedAt,
@@ -284,41 +266,76 @@ export async function GET() {
       checks: {
         database: "ready",
         schema: "ready",
-        userKeySecret: configuration.userKeySecret
-          ? "ready"
-          : developmentPreview
-            ? "preview-fallback"
-            : "misconfigured",
-        adminAllowlist: configuration.adminAllowlist
-          ? "ready"
-          : developmentPreview
-            ? "preview-fallback"
-            : "misconfigured",
-        appleClientId: configuration.appleClientId
-          ? "ready"
-          : developmentPreview
-            ? "native-disabled"
-            : "misconfigured",
-        appleServerCredentials: configuration.appleServerCredentials
-          ? "ready"
-          : developmentPreview
-            ? "native-disabled"
-            : "misconfigured",
-        appleTokenEncryptionSecret: configuration.appleTokenEncryptionSecret
-          ? "ready"
-          : developmentPreview
-            ? "native-disabled"
-            : "misconfigured",
-        nativeSessionSecret: configuration.nativeSessionSecret
-          ? "ready"
-          : developmentPreview
-            ? "native-disabled"
-            : "misconfigured",
+        ...configurationCheckStatuses(configuration),
       },
       database: "ready",
     },
     serviceReady ? 200 : 503,
   );
+}
+
+function evaluateRuntimeReadiness(
+  configuration: RuntimeConfigurationReadiness,
+): {
+  webReady: boolean;
+  nativeReady: boolean;
+  productionReady: boolean;
+} {
+  const webReady =
+    configuration.userKeySecret &&
+    configuration.adminAllowlist &&
+    configuration.adminAuthentication &&
+    configuration.turnstileSiteKey &&
+    configuration.turnstileSecret;
+  const nativeReady =
+    configuration.nativeApiEnabled &&
+    configuration.appleClientId &&
+    configuration.appleServerCredentials &&
+    configuration.appleTokenEncryptionSecret &&
+    configuration.nativeSessionSecret;
+  return {
+    webReady,
+    nativeReady,
+    productionReady:
+      webReady && (!configuration.nativeApiEnabled || nativeReady),
+  };
+}
+
+function configurationCheckStatuses(
+  configuration: RuntimeConfigurationReadiness,
+) {
+  const nativeStatus = (ready: boolean) =>
+    ready
+      ? "ready"
+      : configuration.nativeApiEnabled
+        ? "misconfigured"
+        : "native-disabled";
+  return {
+    userKeySecret: configuration.userKeySecret
+      ? "ready"
+      : "misconfigured",
+    adminAllowlist: configuration.adminAllowlist
+      ? "ready"
+      : "misconfigured",
+    adminAuthentication: configuration.adminAuthentication
+      ? "ready"
+      : "misconfigured",
+    turnstileSiteKey: configuration.turnstileSiteKey
+      ? "ready"
+      : "misconfigured",
+    turnstileSecret: configuration.turnstileSecret
+      ? "ready"
+      : "misconfigured",
+    nativeApi: configuration.nativeApiEnabled ? "enabled" : "disabled",
+    appleClientId: nativeStatus(configuration.appleClientId),
+    appleServerCredentials: nativeStatus(
+      configuration.appleServerCredentials,
+    ),
+    appleTokenEncryptionSecret: nativeStatus(
+      configuration.appleTokenEncryptionSecret,
+    ),
+    nativeSessionSecret: nativeStatus(configuration.nativeSessionSecret),
+  };
 }
 
 export async function verifyRequiredSchema(database: D1Database): Promise<void> {

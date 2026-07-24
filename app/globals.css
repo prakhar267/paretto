@@ -3211,6 +3211,15 @@ button.sync-pill {
   border-color: var(--blue);
 }
 .support-form .primary-button { justify-self: start; }
+.turnstile-container {
+  width: min(100%, 420px);
+  min-height: 65px;
+}
+.turnstile-status {
+  margin: -10px 0 0;
+  color: var(--muted);
+  font-size: 0.82rem;
+}
 .support-error {
   padding: 14px 16px;
   border-radius: 14px;

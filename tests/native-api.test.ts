@@ -15,9 +15,11 @@ import {
   initialNativeLearningState,
   validateNativeLearningState,
 } from "../app/api/native/_lib/native-progress";
+import { setCloudflareEnv } from "./cloudflare-workers-mock";
 
 describe("native API security contracts", () => {
   it("requires a one-time Apple authorization code at the HTTP boundary", async () => {
+    setCloudflareEnv({ NATIVE_API_ENABLED: "true" });
     const response = await APPLE_AUTH_POST(
       new Request("https://pas-a-pas.test/api/native/auth/apple", {
         method: "POST",

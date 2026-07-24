@@ -1,8 +1,10 @@
 import { validAppleOAuthConfiguration } from "@/app/api/native/_lib/apple-oauth";
-
-const USER_EMAIL_HEADER = "oai-authenticated-user-email";
-const LOCAL_PREVIEW_EMAIL = "local-preview@pas-a-pas.test";
-const LOCAL_ADMIN_EMAIL = "local-admin@pas-a-pas.test";
+import {
+  adminAuthConfiguration,
+  verifyAdminSession,
+} from "@/app/admin-auth";
+import { turnstileConfiguration } from "@/app/turnstile";
+import { readLearnerSessionToken } from "@/app/web-session";
 
 type AuthFailureReason =
   | "missing_identity"
@@ -11,7 +13,7 @@ type AuthFailureReason =
   | "misconfigured";
 
 export type RequestIdentityResult =
-  | { ok: true; email: string; userKey: string }
+  | { ok: true; userKey: string }
   | { ok: false; status: 401 | 503; reason: AuthFailureReason };
 
 export type AdminAuthorizationResult =
@@ -21,6 +23,10 @@ export type AdminAuthorizationResult =
 export type RuntimeConfigurationReadiness = {
   userKeySecret: boolean;
   adminAllowlist: boolean;
+  adminAuthentication: boolean;
+  turnstileSiteKey: boolean;
+  turnstileSecret: boolean;
+  nativeApiEnabled: boolean;
   appleClientId: boolean;
   appleServerCredentials: boolean;
   appleTokenEncryptionSecret: boolean;
@@ -29,11 +35,16 @@ export type RuntimeConfigurationReadiness = {
 
 export async function getRuntimeConfigurationReadiness(): Promise<RuntimeConfigurationReadiness> {
   const bindings = await serverBindings();
+  const turnstile = turnstileConfiguration(bindings);
   return {
     userKeySecret:
       typeof bindings.USER_KEY_SECRET === "string" &&
       bindings.USER_KEY_SECRET.length >= 32,
     adminAllowlist: parseAdminAllowlist(bindings.ADMIN_EMAILS).size > 0,
+    adminAuthentication: Boolean(adminAuthConfiguration(bindings)),
+    turnstileSiteKey: Boolean(turnstile?.siteKey),
+    turnstileSecret: Boolean(turnstile?.secret),
+    nativeApiEnabled: bindings.NATIVE_API_ENABLED === "true",
     appleClientId:
       typeof bindings.APPLE_CLIENT_ID === "string" &&
       bindings.APPLE_CLIENT_ID.length >= 3,
@@ -54,35 +65,20 @@ export async function getRuntimeConfigurationReadiness(): Promise<RuntimeConfigu
 
 export async function resolveRequestIdentity(
   request: Request,
-  options: { allowLocalPreview?: boolean } = {},
 ): Promise<RequestIdentityResult> {
-  const url = new URL(request.url);
-  const localPreview =
-    options.allowLocalPreview !== false && isLocalDevelopment(url);
-  const rawEmail = request.headers.get(USER_EMAIL_HEADER);
-  const email = rawEmail ? normalizeEmail(rawEmail) : null;
-
-  if (rawEmail && !email) {
-    return { ok: false, status: 401, reason: "invalid_identity" };
-  }
-  if (!email && !localPreview) {
+  const sessionToken = readLearnerSessionToken(request);
+  if (!sessionToken) {
     return { ok: false, status: 401, reason: "missing_identity" };
   }
 
-  const resolvedEmail = email ?? LOCAL_PREVIEW_EMAIL;
   const bindings = await serverBindings();
   if (typeof bindings.USER_KEY_SECRET === "string" && bindings.USER_KEY_SECRET.length >= 32) {
     return {
       ok: true,
-      email: resolvedEmail,
-      userKey: await hmacSha256(bindings.USER_KEY_SECRET, resolvedEmail),
-    };
-  }
-  if (localPreview) {
-    return {
-      ok: true,
-      email: resolvedEmail,
-      userKey: await sha256(`pas-a-pas-local:${resolvedEmail}`),
+      userKey: await hmacSha256(
+        bindings.USER_KEY_SECRET,
+        `web-anon:v1:${sessionToken}`,
+      ),
     };
   }
   return { ok: false, status: 503, reason: "misconfigured" };
@@ -90,36 +86,22 @@ export async function resolveRequestIdentity(
 
 export async function authorizeAdmin(
   requestHeaders: Pick<Headers, "get">,
-  requestUrl: URL,
 ): Promise<AdminAuthorizationResult> {
-  const localDevelopment = isLocalDevelopment(requestUrl);
-  const rawEmail = requestHeaders.get(USER_EMAIL_HEADER);
-  const email = rawEmail ? normalizeEmail(rawEmail) : null;
-
-  if (rawEmail && !email) {
-    return { ok: false, status: 401, reason: "invalid_identity" };
-  }
-  if (!email && !localDevelopment) {
-    return { ok: false, status: 401, reason: "missing_identity" };
-  }
-
   const bindings = await serverBindings();
-  const allowlist = parseAdminAllowlist(bindings.ADMIN_EMAILS);
-  const resolvedEmail = email ?? LOCAL_ADMIN_EMAIL;
-  if (localDevelopment && !email) return { ok: true, email: resolvedEmail };
-  if (allowlist.size === 0) {
+  const configuration = adminAuthConfiguration(bindings);
+  if (!configuration) {
     return { ok: false, status: 503, reason: "misconfigured" };
   }
-  if (!allowlist.has(resolvedEmail)) {
-    return { ok: false, status: 403, reason: "not_allowed" };
-  }
-  return { ok: true, email: resolvedEmail };
+  const verification = await verifyAdminSession(requestHeaders, configuration);
+  return verification.ok
+    ? verification
+    : { ok: false, status: 401, reason: "invalid_identity" };
 }
 
 export async function requireAdmin(
   request: Request,
 ): Promise<{ ok: true; email: string } | { ok: false; response: Response }> {
-  const result = await authorizeAdmin(request.headers, new URL(request.url));
+  const result = await authorizeAdmin(request.headers);
   if (result.ok) return result;
 
   const messages: Record<AuthFailureReason, string> = {
@@ -143,13 +125,6 @@ export async function requireAdmin(
   };
 }
 
-function isLocalDevelopment(url: URL): boolean {
-  return (
-    process.env.NODE_ENV === "development" &&
-    (url.hostname === "localhost" || url.hostname === "127.0.0.1")
-  );
-}
-
 function normalizeEmail(value: string): string | null {
   const email = value.trim().toLowerCase();
   if (email.length < 3 || email.length > 254) return null;
@@ -170,6 +145,12 @@ function parseAdminAllowlist(value: unknown): Set<string> {
 async function serverBindings(): Promise<{
   USER_KEY_SECRET?: unknown;
   ADMIN_EMAILS?: unknown;
+  ADMIN_PASSWORD_VERIFIER?: unknown;
+  ADMIN_PASSWORD_VERIFIERS?: unknown;
+  ADMIN_SESSION_SECRET?: unknown;
+  TURNSTILE_SITE_KEY?: unknown;
+  TURNSTILE_SECRET?: unknown;
+  NATIVE_API_ENABLED?: unknown;
   APPLE_CLIENT_ID?: unknown;
   APPLE_TEAM_ID?: unknown;
   APPLE_KEY_ID?: unknown;
@@ -181,6 +162,12 @@ async function serverBindings(): Promise<{
   return env as unknown as {
     USER_KEY_SECRET?: unknown;
     ADMIN_EMAILS?: unknown;
+    ADMIN_PASSWORD_VERIFIER?: unknown;
+    ADMIN_PASSWORD_VERIFIERS?: unknown;
+    ADMIN_SESSION_SECRET?: unknown;
+    TURNSTILE_SITE_KEY?: unknown;
+    TURNSTILE_SECRET?: unknown;
+    NATIVE_API_ENABLED?: unknown;
     APPLE_CLIENT_ID?: unknown;
     APPLE_TEAM_ID?: unknown;
     APPLE_KEY_ID?: unknown;
@@ -201,14 +188,6 @@ async function hmacSha256(secret: string, value: string): Promise<string> {
   );
   const signature = await crypto.subtle.sign("HMAC", key, encoder.encode(value));
   return bytesToHex(signature);
-}
-
-async function sha256(value: string): Promise<string> {
-  const digest = await crypto.subtle.digest(
-    "SHA-256",
-    new TextEncoder().encode(value),
-  );
-  return bytesToHex(digest);
 }
 
 function bytesToHex(value: ArrayBuffer): string {

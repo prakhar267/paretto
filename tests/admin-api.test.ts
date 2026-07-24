@@ -26,6 +26,13 @@ import type {
   ContentRow,
   SupportRow,
 } from "../app/api/_lib/cms-database";
+import {
+  createAdminTestAuth,
+  learnerCookieHeaders,
+  successfulTurnstileResponse,
+  TEST_TURNSTILE_SECRET,
+  TEST_TURNSTILE_SITE_KEY,
+} from "./auth-fixtures";
 import { setCloudflareEnv } from "./cloudflare-workers-mock";
 
 type StoredSupportRow = SupportRow & { user_key: string };
@@ -840,19 +847,23 @@ function publicSupportRow(row: StoredSupportRow): SupportRow {
 
 const ADMIN_EMAIL = "editor@pas-a-pas.test";
 const REVIEWER_EMAIL = "reviewer@pas-a-pas.test";
+let adminCookie = "";
+let reviewerCookie = "";
 const ADMIN_HEADERS = {
-  "oai-authenticated-user-email": ADMIN_EMAIL,
   "content-type": "application/json",
 };
 const LEARNER_HEADERS = {
-  "oai-authenticated-user-email": "learner@pas-a-pas.test",
   "content-type": "application/json",
 };
 
 function adminRequest(path: string, init: RequestInit = {}) {
   return new Request(`https://pas-a-pas.test${path}`, {
     ...init,
-    headers: { ...ADMIN_HEADERS, ...headersObject(init.headers) },
+    headers: {
+      ...ADMIN_HEADERS,
+      cookie: adminCookie,
+      ...headersObject(init.headers),
+    },
   });
 }
 
@@ -861,17 +872,22 @@ function reviewerRequest(path: string, init: RequestInit = {}) {
     ...init,
     headers: {
       ...ADMIN_HEADERS,
-      "oai-authenticated-user-email": REVIEWER_EMAIL,
+      cookie: reviewerCookie,
       ...headersObject(init.headers),
     },
   });
 }
 
 function learnerRequest(body: object, email = "learner@pas-a-pas.test") {
+  const token =
+    email === "learner@pas-a-pas.test" ? "L".repeat(43) : "S".repeat(43);
   return new Request("https://pas-a-pas.test/api/support", {
     method: "POST",
-    headers: { ...LEARNER_HEADERS, "oai-authenticated-user-email": email },
-    body: JSON.stringify(body),
+    headers: { ...LEARNER_HEADERS, ...learnerCookieHeaders(token) },
+    body: JSON.stringify({
+      ...body,
+      turnstileToken: "test-turnstile-token",
+    }),
   });
 }
 
@@ -928,14 +944,27 @@ async function json<T>(response: Response): Promise<T> {
 describe("admin CMS and support APIs", () => {
   let database: CmsMemoryD1;
 
-  beforeEach(() => {
+  beforeEach(async () => {
     database = new CmsMemoryD1();
+    vi.restoreAllMocks();
+    vi.unstubAllGlobals();
+    const adminAuth = await createAdminTestAuth([
+      ADMIN_EMAIL,
+      REVIEWER_EMAIL,
+    ]);
+    adminCookie = adminAuth.cookies.get(ADMIN_EMAIL)!;
+    reviewerCookie = adminAuth.cookies.get(REVIEWER_EMAIL)!;
     setCloudflareEnv({
       DB: database,
-      ADMIN_EMAILS: `owner@pas-a-pas.test, ${ADMIN_EMAIL.toUpperCase()}, ${REVIEWER_EMAIL}`,
+      ...adminAuth.bindings,
       USER_KEY_SECRET: "test-user-key-secret-with-more-than-thirty-two-characters",
+      TURNSTILE_SITE_KEY: TEST_TURNSTILE_SITE_KEY,
+      TURNSTILE_SECRET: TEST_TURNSTILE_SECRET,
     });
-    vi.restoreAllMocks();
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => successfulTurnstileResponse()),
+    );
   });
 
   it("authorizes every admin operation and strictly validates draft creation", async () => {
@@ -946,10 +975,10 @@ describe("admin CMS and support APIs", () => {
 
     const forbidden = await CONTENT_LIST(
       new Request("https://pas-a-pas.test/api/admin/content", {
-        headers: { "oai-authenticated-user-email": "intruder@example.test" },
+        headers: { cookie: "__Host-admin-session=invalid" },
       }),
     );
-    expect(forbidden.status).toBe(403);
+    expect(forbidden.status).toBe(401);
 
     const invalid = await CONTENT_CREATE(
       adminRequest("/api/admin/content", {

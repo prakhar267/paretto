@@ -32,6 +32,12 @@ npm run dev
 
 The local app runs at `http://localhost:3000`. D1 is simulated by Wrangler through the `DB` binding declared in `.openai/hosting.json`.
 
+For the guarded direct-Cloudflare fallback, start with
+`docs/PRODUCTION-INFRA.md`. Environment-specific Wrangler files are generated
+locally from checked-in templates only after Cloudflare returns real staging and
+production D1 IDs. Bare `wrangler deploy` is intentionally unsupported because
+the normal build artifact contains a Sites-only placeholder binding.
+
 The native project is generated at `ios/PasAPas/PasAPas.xcodeproj`. See
 `ios/PasAPas/README.md` for Xcode, simulator, and environment instructions. Its
 shared learning engine can be verified without Xcode using
@@ -65,18 +71,20 @@ native XCTest suite on an unsigned iOS Simulator build with Xcode 26.3.
 - `docs/APP-STORE-LAUNCH.md` and `docs/PRODUCTION-INFRA.md` cover native submission
   inputs and a free-start operations topology.
 
-Production identity is provided by the hosting platform through the `oai-authenticated-user-email` request header. Anonymous localhost requests use an isolated preview identity.
-Production must also define a secret `USER_KEY_SECRET` value of at least 32 characters; the API uses it to derive a keyed account identifier without storing raw email addresses.
-Native sync additionally requires `APPLE_CLIENT_ID`, `APPLE_TEAM_ID`,
-`APPLE_KEY_ID`, the corresponding managed-secret `APPLE_PRIVATE_KEY`, and
-independent `NATIVE_SESSION_SECRET` and `APPLE_TOKEN_ENCRYPTION_SECRET` values
-of at least 32 characters. The server exchanges Apple's one-time authorization
-code, encrypts the returned refresh token, and revokes it before account deletion.
-Native sign-out calls `DELETE /api/native/session` to revoke the current hashed
-server session before clearing the device Keychain; local clearing still proceeds
-if the device is offline.
+The first public web release uses an origin-bound, 256-bit anonymous learner
+cookie. The API HMACs that token with `USER_KEY_SECRET`, so raw cookie values and
+email addresses are not stored in D1. Progress is browser-specific until a public
+account and cross-device sync system is enabled. Administration uses one
+allowlisted email, a generated high-entropy access key, a one-way
+`ADMIN_PASSWORD_VERIFIER`, login throttling, and an eight-hour signed cookie.
+Support submissions are protected by server-verified Cloudflare Turnstile.
+
+Native sync and Sign in with Apple remain implemented behind
+`NATIVE_API_ENABLED=false`; their Apple and native-session credentials are not
+required for this web launch. The production deployment contract and exact
+staging/production commands are in `docs/PRODUCTION-INFRA.md`.
 
 The production service worker caches only public application assets, requested
-pronunciation audio, and `offline.html`. It always fetches signed-in navigations
+pronunciation audio, and `offline.html`. It always fetches learner navigations
 from the network and uses the static offline page only when that navigation
-cannot connect, so a cold offline launch never exposes cached account HTML.
+cannot connect, so a cold offline launch never exposes cached learning HTML.

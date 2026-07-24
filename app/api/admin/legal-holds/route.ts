@@ -1,6 +1,7 @@
 import {
   apiError,
   apiJson,
+  isOpaqueId,
   isRecord,
   logApiError,
   readJsonBody,
@@ -33,18 +34,60 @@ type LegalHoldRow = {
 export async function GET(request: Request) {
   const admin = await requireAdmin(request);
   if (!admin.ok) return admin.response;
+
+  const url = new URL(request.url);
+  const limit = Number(url.searchParams.get("limit") ?? 100);
+  if (!Number.isInteger(limit) || limit < 1 || limit > 100) {
+    return apiError(400, "Limit must be an integer from 1 to 100.");
+  }
+  const rawCursor = url.searchParams.get("cursor");
+  const cursor = rawCursor === null ? null : parseLegalHoldCursor(rawCursor);
+  if (rawCursor !== null && !cursor) {
+    return apiError(400, "Invalid legal-hold cursor.");
+  }
+
+  const values: unknown[] = [];
+  let where = "";
+  if (cursor) {
+    where = `WHERE (
+      CASE status WHEN 'active' THEN 0 ELSE 1 END > ?
+      OR (
+        CASE status WHEN 'active' THEN 0 ELSE 1 END = ?
+        AND (created_at < ? OR (created_at = ? AND id < ?))
+      )
+    )`;
+    values.push(
+      cursor.statusRank,
+      cursor.statusRank,
+      cursor.createdAt,
+      cursor.createdAt,
+      cursor.id,
+    );
+  }
+
   try {
     const result = await (await getDatabase())
       .prepare(
         `SELECT id, data_class, record_key, reason, status, created_by_email,
                 created_at, released_by_email, released_at
          FROM retention_legal_holds
+         ${where}
          ORDER BY CASE status WHEN 'active' THEN 0 ELSE 1 END,
-                  created_at DESC
-         LIMIT 200`,
+                  created_at DESC,
+                  id DESC
+         LIMIT ?`,
       )
+      .bind(...values, limit + 1)
       .all<LegalHoldRow>();
-    return apiJson({ holds: result.results.map(legalHoldFromRow) });
+    const page = result.results.slice(0, limit);
+    const last = page.at(-1);
+    return apiJson({
+      holds: page.map(legalHoldFromRow),
+      nextCursor:
+        result.results.length > limit && last
+          ? `${legalHoldStatusRank(last.status)}:${last.created_at}:${last.id}`
+          : null,
+    });
   } catch (error) {
     logApiError("admin_legal_holds_list_failed", error);
     return apiError(503, "Legal holds are temporarily unavailable.");
@@ -141,4 +184,27 @@ function legalHoldFromRow(row: LegalHoldRow) {
     releasedAt:
       row.released_at === null ? null : new Date(row.released_at).toISOString(),
   };
+}
+
+function parseLegalHoldCursor(
+  value: string,
+): { statusRank: 0 | 1; createdAt: number; id: string } | null {
+  const parts = value.split(":");
+  if (parts.length !== 3) return null;
+  const statusRank = Number(parts[0]);
+  const createdAt = Number(parts[1]);
+  const id = parts[2];
+  if (
+    (statusRank !== 0 && statusRank !== 1) ||
+    !Number.isSafeInteger(createdAt) ||
+    createdAt < 0 ||
+    !isOpaqueId(id)
+  ) {
+    return null;
+  }
+  return { statusRank, createdAt, id };
+}
+
+function legalHoldStatusRank(status: LegalHoldRow["status"]): 0 | 1 {
+  return status === "active" ? 0 : 1;
 }

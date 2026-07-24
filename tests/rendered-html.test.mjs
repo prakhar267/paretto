@@ -14,7 +14,6 @@ async function render(pathname = "/") {
       headers: {
         accept: "text/html",
         host: "localhost",
-        "oai-authenticated-user-email": "render-qa@pas-a-pas.test",
       },
     }),
     {
@@ -65,7 +64,17 @@ test("renders every public legal, attribution, and support route", async () => {
   for (const [pathname, title] of routes) {
     const response = await render(pathname);
     assert.equal(response.status, 200, pathname);
-    assert.match(await response.text(), title);
+    const html = await response.text();
+    assert.match(html, title);
+    assert.match(
+      html,
+      /25\/38 Kaveri Path, Mansarovar, Jaipur, Rajasthan, India/,
+      `${pathname} must publish the operator contact address`,
+    );
+    if (pathname === "/terms") {
+      assert.match(html, /governed by the laws of India/i);
+      assert.match(html, /courts in Jaipur, Rajasthan/i);
+    }
   }
 });
 

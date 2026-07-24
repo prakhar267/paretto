@@ -51,6 +51,12 @@ export async function exchangeAppleIdentity(
     }
   | { ok: false; response: Response }
 > {
+  if (!(await nativeApiEnabled())) {
+    return {
+      ok: false,
+      response: apiError(503, "Native sign-in is not enabled."),
+    };
+  }
   try {
     const configuration = await nativeAccountDeletionConfiguration();
     if (!configuration) {
@@ -236,6 +242,12 @@ export async function requireNativeSession(
     }
   | { ok: false; response: Response }
 > {
+  if (!(await nativeApiEnabled())) {
+    return {
+      ok: false,
+      response: apiError(503, "Native API access is not enabled."),
+    };
+  }
   const authorization = request.headers.get("authorization");
   const match = authorization?.match(/^Bearer ([A-Za-z0-9_-]{43})$/);
   if (!match) {
@@ -431,6 +443,7 @@ export async function nativeAccountDeletionConfiguration(): Promise<
 > {
   const { env } = await import("cloudflare:workers");
   const bindings = env as unknown as {
+    NATIVE_API_ENABLED?: unknown;
     APPLE_CLIENT_ID?: unknown;
     APPLE_TEAM_ID?: unknown;
     APPLE_KEY_ID?: unknown;
@@ -438,6 +451,7 @@ export async function nativeAccountDeletionConfiguration(): Promise<
     APPLE_TOKEN_ENCRYPTION_SECRET?: unknown;
     NATIVE_SESSION_SECRET?: unknown;
   };
+  if (bindings.NATIVE_API_ENABLED !== "true") return null;
   const apple = {
     clientId: bindings.APPLE_CLIENT_ID,
     teamId: bindings.APPLE_TEAM_ID,
@@ -461,11 +475,21 @@ async function nativeSessionConfiguration(): Promise<{
   sessionSecret: string;
 } | null> {
   const { env } = await import("cloudflare:workers");
-  const bindings = env as unknown as { NATIVE_SESSION_SECRET?: unknown };
-  return typeof bindings.NATIVE_SESSION_SECRET === "string" &&
+  const bindings = env as unknown as {
+    NATIVE_API_ENABLED?: unknown;
+    NATIVE_SESSION_SECRET?: unknown;
+  };
+  return bindings.NATIVE_API_ENABLED === "true" &&
+    typeof bindings.NATIVE_SESSION_SECRET === "string" &&
     bindings.NATIVE_SESSION_SECRET.length >= 32
     ? { sessionSecret: bindings.NATIVE_SESSION_SECRET }
     : null;
+}
+
+export async function nativeApiEnabled(): Promise<boolean> {
+  const { env } = await import("cloudflare:workers");
+  return (env as unknown as { NATIVE_API_ENABLED?: unknown })
+    .NATIVE_API_ENABLED === "true";
 }
 
 function decodeJwtObject(value: string): Record<string, unknown> | null {

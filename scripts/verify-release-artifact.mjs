@@ -25,12 +25,19 @@ await Promise.all([
   requireFile(builtHostingPath),
 ]);
 
-const [sourceHostingText, builtHostingText, wranglerText, webManifestText] =
+const [
+  sourceHostingText,
+  builtHostingText,
+  wranglerText,
+  webManifestText,
+  staticHeadersText,
+] =
   await Promise.all([
     readFile(sourceHostingPath, "utf8"),
     readFile(builtHostingPath, "utf8"),
     readFile(resolve(dist, "server/wrangler.json"), "utf8"),
     readFile(resolve(dist, "client/manifest.webmanifest"), "utf8"),
+    readFile(resolve(dist, "client/_headers"), "utf8"),
   ]);
 
 invariant(
@@ -72,6 +79,15 @@ invariant(
     wrangler.triggers.crons.includes("17 3 * * *"),
   "The daily 03:17 UTC retention trigger is missing from the Worker artifact.",
 );
+invariant(
+  wrangler.assets?.directory === "../client" &&
+    wrangler.assets?.binding === "ASSETS",
+  "The Worker artifact must expose built static files through the ASSETS binding.",
+);
+invariant(
+  wrangler.images === undefined,
+  "The unused Cloudflare Images binding must not be present.",
+);
 let d1Binding;
 if (hosting.d1) {
   d1Binding = wrangler.d1_databases?.find(
@@ -84,6 +100,10 @@ if (hosting.d1) {
         d1Binding.database_id,
       ),
     `The Worker artifact is missing the ${hosting.d1} D1 binding.`,
+  );
+  invariant(
+    d1Binding.migrations_dir === "../../drizzle",
+    "The Worker artifact must point D1 migration tooling at checked-in drizzle/.",
   );
 }
 if (hosting.r2) {
@@ -102,6 +122,12 @@ await Promise.all(
     invariant(typeof icon.src === "string" && icon.src.startsWith("/"), "Manifest icon paths must be root-relative.");
     return requireFile(resolve(dist, "client", icon.src.slice(1)));
   }),
+);
+invariant(
+  /\/service-worker\.js[\s\S]*Cache-Control: no-cache, no-store, must-revalidate/.test(
+    staticHeadersText,
+  ) && /Service-Worker-Allowed: \//.test(staticHeadersText),
+  "The built service worker is missing no-cache or root-scope headers.",
 );
 
 const sourceMigrationFiles = await relativeFiles(sourceDrizzle);
@@ -179,7 +205,7 @@ if (d1Binding?.database_id === siteCreatorPlaceholderDatabaseId) {
 }
 if (!hosting.project_id) {
   console.log(
-    "Sites project_id is not assigned; artifact verification passes, but deployment remains blocked until Sites creates the project.",
+    "Sites project_id is not assigned; use the separately verified direct-Cloudflare staging/production configuration while the Sites connector is unavailable.",
   );
 }
 

@@ -1,7 +1,10 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
 
-export const LEGAL_EFFECTIVE_DATE = "July 20, 2026";
+export const LEGAL_EFFECTIVE_DATE = "July 24, 2026";
+export const OPERATOR_NAME = "Pas à Pas";
+export const OPERATOR_POSTAL_ADDRESS =
+  "25/38 Kaveri Path, Mansarovar, Jaipur, Rajasthan, India";
 
 const LEGAL_LINKS = [
   ["Privacy", "/privacy"],
@@ -53,6 +56,9 @@ export function LegalDocument({
           </Link>
           <p>
             Questions or requests? <Link href="/support">Contact support</Link>.
+          </p>
+          <p>
+            {OPERATOR_NAME} · {OPERATOR_POSTAL_ADDRESS}
           </p>
         </footer>
       </article>

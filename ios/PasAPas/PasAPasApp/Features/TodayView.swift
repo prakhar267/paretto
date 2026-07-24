@@ -71,7 +71,7 @@ struct TodayView: View {
                     ) { _ = model.startReview() }
                     RouteCard(
                         symbol: "map",
-                        title: "\(model.state.unlockedRegionIDs.count) regions open",
+                        title: "\(model.state.unlockedRegionIDs.count) \(model.state.unlockedRegionIDs.count == 1 ? "region" : "regions") open",
                         copy: "Follow your cultural route across France.",
                         action: "Open journey",
                         disabled: false

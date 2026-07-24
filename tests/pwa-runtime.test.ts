@@ -104,7 +104,7 @@ describe("production PWA runtime", () => {
     expect(cache.put).not.toHaveBeenCalled();
   });
 
-  it("keeps platform authentication routes network-only", async () => {
+  it("keeps progress APIs network-only", async () => {
     const source = await readFile(
       resolve(import.meta.dirname, "../public/service-worker.js"),
       "utf8",
@@ -136,8 +136,8 @@ describe("production PWA runtime", () => {
     handlers.get("fetch")?.({
       request: {
         method: "GET",
-        mode: "navigate",
-        url: "https://pas-a-pas.test/signin-with-chatgpt?return_to=%2F",
+        mode: "cors",
+        url: "https://pas-a-pas.test/api/progress",
         headers: new Headers(),
       },
       respondWith,

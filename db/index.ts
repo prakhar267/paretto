@@ -8,6 +8,16 @@ const localSchemaSql = [
   )
   `,
   `
+  CREATE TABLE IF NOT EXISTS admin_login_attempts (
+    ip_hash TEXT PRIMARY KEY NOT NULL,
+    window_started_at INTEGER NOT NULL,
+    failed_attempts INTEGER NOT NULL DEFAULT 0 CHECK (failed_attempts >= 0),
+    blocked_until INTEGER,
+    updated_at INTEGER NOT NULL
+  )
+  `,
+  `CREATE INDEX IF NOT EXISTS admin_login_attempts_updated_idx ON admin_login_attempts (updated_at)`,
+  `
   CREATE TABLE IF NOT EXISTS cms_content (
     id TEXT PRIMARY KEY NOT NULL,
     kind TEXT NOT NULL CHECK (kind IN ('vocabulary', 'lesson')),

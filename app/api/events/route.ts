@@ -113,7 +113,7 @@ export async function POST(request: Request) {
   if (!identity) return apiError(503, "Analytics is temporarily unavailable.");
   if (!identity.ok) {
     return identity.status === 401
-      ? apiError(401, "Sign in to record product analytics.")
+      ? apiError(401, "A valid browser learning session is required.")
       : apiError(503, "Analytics is temporarily unavailable.");
   }
 

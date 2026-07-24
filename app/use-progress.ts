@@ -31,8 +31,7 @@ type ProgressCache = {
   dirty: boolean;
 };
 
-const DEFAULT_STORAGE_KEY = "pas-a-pas-progress-v1:local-preview";
-const SIGN_IN_PATH = "/signin-with-chatgpt?return_to=%2F";
+const DEFAULT_STORAGE_KEY = "pas-a-pas-progress-v1:anonymous-browser";
 
 export function useProgress(storageKey = DEFAULT_STORAGE_KEY): {
   state: LearningState;
@@ -97,10 +96,6 @@ export function useProgress(storageKey = DEFAULT_STORAGE_KEY): {
     [storageKey],
   );
 
-  const redirectToSignIn = useCallback(() => {
-    if (typeof window !== "undefined") window.location.assign(SIGN_IN_PATH);
-  }, []);
-
   const saveLatest = useCallback(async () => {
     if (!hydratedRef.current || !dirtyRef.current) return;
     if (savingRef.current) {
@@ -118,15 +113,13 @@ export function useProgress(storageKey = DEFAULT_STORAGE_KEY): {
         let response = await putProgress(snapshot, revisionRef.current);
 
         if (response.status === 401) {
-          redirectToSignIn();
-          throw new Error("session expired");
+          throw new Error("browser session unavailable");
         }
 
         if (response.status === 409) {
           const fresh = await fetch("/api/progress", { cache: "no-store" });
           if (fresh.status === 401) {
-            redirectToSignIn();
-            throw new Error("session expired");
+            throw new Error("browser session unavailable");
           }
           if (!fresh.ok) throw new Error("progress conflict refresh failed");
 
@@ -173,7 +166,7 @@ export function useProgress(storageKey = DEFAULT_STORAGE_KEY): {
     } finally {
       savingRef.current = false;
     }
-  }, [persistCache, redirectToSignIn, setInternalState]);
+  }, [persistCache, setInternalState]);
 
   useEffect(() => {
     let cancelled = false;
@@ -198,8 +191,7 @@ export function useProgress(storageKey = DEFAULT_STORAGE_KEY): {
           signal: controller.signal,
         });
         if (response.status === 401) {
-          redirectToSignIn();
-          throw new Error("session expired");
+          throw new Error("browser session unavailable");
         }
         if (!response.ok) throw new Error(`progress load failed: ${response.status}`);
 
@@ -242,7 +234,7 @@ export function useProgress(storageKey = DEFAULT_STORAGE_KEY): {
       cancelled = true;
       controller.abort();
     };
-  }, [persistCache, redirectToSignIn, retryToken, saveLatest, setInternalState, storageKey]);
+  }, [persistCache, retryToken, saveLatest, setInternalState, storageKey]);
 
   useEffect(() => {
     if (!hydratedRef.current || !dirtyRef.current) return;
@@ -318,7 +310,6 @@ export function useProgress(storageKey = DEFAULT_STORAGE_KEY): {
         keepalive: true,
       });
       if (response.status === 401) {
-        redirectToSignIn();
         return false;
       }
       if (!response.ok) throw new Error(`progress delete failed: ${response.status}`);
@@ -341,7 +332,7 @@ export function useProgress(storageKey = DEFAULT_STORAGE_KEY): {
       setStatus(isOnline() ? "error" : "offline");
       return false;
     }
-  }, [persistCache, redirectToSignIn, setInternalState, storageKey]);
+  }, [persistCache, setInternalState, storageKey]);
 
   return { state, setState, status, ready, savedAt, retry, deleteProgress };
 }

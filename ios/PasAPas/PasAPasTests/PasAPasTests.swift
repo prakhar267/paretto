@@ -5,6 +5,22 @@ import Testing
 
 @Suite("Native app integration")
 struct PasAPasTests {
+    @Test("Profile progress summary uses natural singular and compound-day grammar")
+    func profileProgressSummaryGrammar() {
+        #expect(
+            profileProgressSummary(xp: 10, coins: 1, streak: 1)
+                == "10 XP · 1 coin · 1-day streak"
+        )
+        #expect(
+            profileProgressSummary(xp: 20, coins: 2, streak: 2)
+                == "20 XP · 2 coins · 2-day streak"
+        )
+        #expect(
+            profileProgressSummary(xp: 0, coins: 0, streak: 0)
+                == "0 XP · 0 coins · 0-day streak"
+        )
+    }
+
     @MainActor
     @Test("Fresh learner review remains unavailable")
     func freshReviewUnavailable() {

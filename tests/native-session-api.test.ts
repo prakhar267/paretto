@@ -93,7 +93,11 @@ describe("native session revocation", () => {
       expiresAt: Date.now() + 60_000,
       revokedAt: null,
     });
-    setCloudflareEnv({ DB: database, NATIVE_SESSION_SECRET: SESSION_SECRET });
+    setCloudflareEnv({
+      DB: database,
+      NATIVE_API_ENABLED: "true",
+      NATIVE_SESSION_SECRET: SESSION_SECRET,
+    });
 
     const response = await DELETE(sessionRequest(ACCESS_TOKEN));
 
@@ -113,7 +117,11 @@ describe("native session revocation", () => {
       expiresAt: Date.now() + 60_000,
       revokedAt: null,
     });
-    setCloudflareEnv({ DB: database, NATIVE_SESSION_SECRET: SESSION_SECRET });
+    setCloudflareEnv({
+      DB: database,
+      NATIVE_API_ENABLED: "true",
+      NATIVE_SESSION_SECRET: SESSION_SECRET,
+    });
 
     const response = await DELETE(sessionRequest("B".repeat(43)));
 

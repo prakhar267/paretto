@@ -21,28 +21,28 @@ deployment and monitoring history exist.
 
 | Setting | Purpose | Rule |
 | --- | --- | --- |
-| `USER_KEY_SECRET` | HMACs signed-in emails before database access | Secret, random, at least 32 characters; never store in Git |
-| `ADMIN_EMAILS` | Server-side CMS allowlist | Comma-separated normalized administrator emails; least privilege |
-| `APPLE_CLIENT_ID` | Verifies native Sign in with Apple identity-token audience | Exact registered iOS bundle identifier or Services ID |
-| `APPLE_TEAM_ID` | Issues the server client-secret JWT | Exact 10-character Apple Developer Team ID |
-| `APPLE_KEY_ID` | Selects the Sign in with Apple private key | Exact 10-character key ID for the active `.p8` key |
-| `APPLE_PRIVATE_KEY` | Signs Apple token-exchange and revocation requests | Full PKCS#8 `.p8` value in managed secret storage; never commit or log it |
-| `APPLE_TOKEN_ENCRYPTION_SECRET` | Encrypts Apple refresh tokens stored in D1 | Independent random secret, at least 32 characters; never store in Git |
-| `NATIVE_SESSION_SECRET` | HMACs native access tokens and Apple subject identifiers | Independent random secret, at least 32 characters; never store in Git |
+| `USER_KEY_SECRET` | HMACs anonymous learner-session tokens before database access | Independent 256-bit random secret; never store in Git |
+| `ADMIN_EMAILS` | Server-side CMS allowlist | Exactly one normalized administrator email for the first launch |
+| `ADMIN_PASSWORD_VERIFIER` | Verifies the generated administrator access key without storing it | `sha256$` plus the 43-character base64url SHA-256 digest; managed secret |
+| `ADMIN_SESSION_SECRET` | Signs eight-hour administrator session cookies and hashes login IPs | Independent 256-bit random managed secret |
+| `TURNSTILE_SITE_KEY` | Renders the support-form abuse challenge | Public site key for the environment's exact hostnames |
+| `TURNSTILE_SECRET` | Verifies support challenges server-side | Matching managed secret; never store in Git or browser code |
+| `NATIVE_API_ENABLED` | Controls native Apple-account API readiness | Set to the string `false` for this web release |
 | `DB` | D1 database binding | Provision through hosting and apply every checked-in migration |
 | Daily Cron Trigger | Automatic privacy retention | Deploy `17 3 * * *` from the checked-in Worker configuration and verify the scheduled-run log |
 
 Rotate `USER_KEY_SECRET` only with a migration plan. Changing it without migrating
-account keys makes existing progress unreachable. Review `ADMIN_EMAILS` quarterly
-and immediately after access or employment changes. Rotating
-`NATIVE_SESSION_SECRET` revokes every native session and also changes the derived
-native account key, so perform it only with an account migration or a documented
-emergency sign-out plan.
-Rotate the Apple private key by adding the replacement in Apple Developer,
-deploying its key ID and private key together, verifying exchange and revocation,
-and only then revoking the old key. Rotating `APPLE_TOKEN_ENCRYPTION_SECRET`
-without re-encrypting every stored refresh token prevents server-side Apple
-revocation during account deletion and is not an ordinary secret rotation.
+anonymous account keys makes existing progress unreachable. Review `ADMIN_EMAILS`
+quarterly and immediately after an access change. Rotate the administrator
+access key by generating a new 256-bit value, deploying its new verifier, testing
+login, and then deleting the old key from the password manager. Rotating
+`ADMIN_SESSION_SECRET` immediately signs out every administrator. Rotate a
+Turnstile widget key pair together and verify a real support submission afterward.
+
+Apple and native-session values are intentionally absent while
+`NATIVE_API_ENABLED=false`. When native cloud sync is scheduled, use the separate
+App Store runbook and add those credentials only after a reviewed native
+authentication launch.
 
 ## Release procedure
 
@@ -58,9 +58,16 @@ revocation during account deletion and is not an ordinary secret rotation.
    ascending `idx` order. Treat that journal as authoritative rather than copying
    a migration list into release instructions; `npm run release:artifact` rejects
    missing, unjournaled, non-contiguous, or differently packaged migrations.
-4. Smoke-test health, web and Apple sign-in, first lesson, review, web and native progress conflict handling,
-   admin authorization, draft/publish, audio fallback, analytics consent, support,
-   export, and deletion.
+   For direct Cloudflare, create ignored configurations with
+   `npm run cloudflare:prepare`, run the matching
+   `cloudflare:verify:<environment>` gate, and only then run
+   `cloudflare:migrate:<environment>`. Never run a bare `wrangler deploy` or
+   deploy `dist/server/wrangler.json`; it carries the local Sites placeholder ID.
+4. Smoke-test health, a fresh anonymous learner session, first lesson, review,
+   web progress conflict handling, admin login/logout and throttling,
+   draft/publish, audio fallback, analytics consent, Turnstile-protected support,
+   export, and deletion. Native/Apple checks are out of scope while
+   `NATIVE_API_ENABLED=false`.
 5. Save the exact pushed commit as a release version and deploy only that version.
 6. Verify `/api/health` reports `productionReady: true`, the home page, legal
    pages, and one authenticated progress cycle from the production URL. Confirm
@@ -68,6 +75,22 @@ revocation during account deletion and is not an ordinary secret rotation.
    observe one successful scheduled run.
 7. Copy `docs/RELEASE-EVIDENCE-TEMPLATE.md` and record the commit, CI run,
    migrations, deployment URL, operator, production checks, and go/no-go result.
+
+Before a production D1 migration, capture both the current Time Travel bookmark
+and a portable export in an access-controlled ignored directory:
+
+```sh
+npx wrangler d1 time-travel info DB \
+  --remote --config wrangler.production.jsonc
+npx wrangler d1 export DB \
+  --remote --config wrangler.production.jsonc \
+  --output work/d1-production-before-release.sql
+```
+
+An export blocks database requests while it runs, so schedule it before admitting
+public users or during a maintenance window. Time Travel is automatic; restoring
+it overwrites the live database and remains a separately approved destructive
+incident action.
 
 ## Supply-chain controls
 
@@ -111,7 +134,7 @@ is connected. Alert when any condition holds:
 - p95 progress latency exceeds 1.5 seconds for ten minutes;
 - support intake or admin publishing returns any sustained 5xx response;
 - a deployment fails or a database migration is incomplete;
-- Apple identity verification or native-session lookup fails broadly;
+- admin login is attacked or fails broadly;
 - product-event ingestion grows unexpectedly, a scheduled retention run is
   missed, or retention cleanup logs a failure.
 

@@ -1,26 +1,29 @@
 /** Cloudflare Worker entry point for Pas à Pas. */
-import { handleImageOptimization, DEFAULT_DEVICE_SIZES, DEFAULT_IMAGE_SIZES } from "vinext/server/image-optimization";
 import handler from "vinext/server/app-router-entry";
 import { runRetentionMaintenance } from "../app/retention-policy";
+import {
+  appendSetCookie,
+  prepareWebRequest,
+  rejectUnsafeCrossOriginWebApiRequest,
+} from "../app/web-session";
 
 interface Env {
   ASSETS: Fetcher;
   DB: D1Database;
   USER_KEY_SECRET?: string;
   ADMIN_EMAILS?: string;
+  ADMIN_PASSWORD_VERIFIER?: string;
+  ADMIN_PASSWORD_VERIFIERS?: string;
+  ADMIN_SESSION_SECRET?: string;
+  TURNSTILE_SITE_KEY?: string;
+  TURNSTILE_SECRET?: string;
+  NATIVE_API_ENABLED?: string;
   APPLE_CLIENT_ID?: string;
   APPLE_TEAM_ID?: string;
   APPLE_KEY_ID?: string;
   APPLE_PRIVATE_KEY?: string;
   APPLE_TOKEN_ENCRYPTION_SECRET?: string;
   NATIVE_SESSION_SECRET?: string;
-  IMAGES: {
-    input(stream: ReadableStream): {
-      transform(options: Record<string, unknown>): {
-        output(options: { format: string; quality: number }): Promise<{ response(): Response }>;
-      };
-    };
-  };
 }
 
 interface ExecutionContext {
@@ -28,34 +31,24 @@ interface ExecutionContext {
   passThroughOnException(): void;
 }
 
-// Image security config. SVG sources with .svg extension auto-skip the
-// optimization endpoint on the client side (served directly, no proxy).
-// To route SVGs through the optimizer (with security headers), set
-// dangerouslyAllowSVG: true in next.config.js and uncomment below:
-// const imageConfig: ImageConfig = { dangerouslyAllowSVG: true };
-
 const worker = {
   async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
-    const url = new URL(request.url);
+    const prepared = prepareWebRequest(request);
+    const webRequest = prepared.request;
+    const url = new URL(webRequest.url);
     const requestId = crypto.randomUUID();
     const startedAt = Date.now();
 
-    let response: Response;
+    const rejectedMutation =
+      rejectUnsafeCrossOriginWebApiRequest(webRequest);
+    const response =
+      rejectedMutation ??
+      (await handler.fetch(webRequest, env, ctx));
 
-    if (url.pathname === "/_vinext/image") {
-      const allowedWidths = [...DEFAULT_DEVICE_SIZES, ...DEFAULT_IMAGE_SIZES];
-      response = await handleImageOptimization(request, {
-        fetchAsset: (path) => env.ASSETS.fetch(new Request(new URL(path, request.url))),
-        transformImage: async (body, { width, format, quality }) => {
-          const result = await env.IMAGES.input(body).transform(width > 0 ? { width } : {}).output({ format, quality });
-          return result.response();
-        },
-      }, allowedWidths);
-    } else {
-      response = await handler.fetch(request, env, ctx);
-    }
-
-    const securedResponse = withSecurityHeaders(response, request, requestId);
+    const securedResponse = appendSetCookie(
+      withSecurityHeaders(response, webRequest, requestId),
+      rejectedMutation ? null : prepared.setCookie,
+    );
     if (url.pathname.startsWith("/api/") || response.status >= 500) {
       console.info(
         JSON.stringify({
@@ -126,15 +119,16 @@ function withSecurityHeaders(
       [
         "default-src 'self'",
         "base-uri 'self'",
-        "connect-src 'self'",
+        "connect-src 'self' https://challenges.cloudflare.com",
         "font-src 'self' data:",
         "form-action 'self'",
+        "frame-src https://challenges.cloudflare.com",
         "frame-ancestors 'none'",
         "img-src 'self' data: blob:",
         "manifest-src 'self'",
         "media-src 'self' blob:",
         "object-src 'none'",
-        "script-src 'self' 'unsafe-inline'",
+        "script-src 'self' 'unsafe-inline' https://challenges.cloudflare.com",
         "style-src 'self' 'unsafe-inline'",
         "worker-src 'self'",
         "upgrade-insecure-requests",

@@ -1,6 +1,6 @@
 {
   "name": "pas-a-pas-french",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "private": true,
   "engines": {
     "node": "^22.13.0 || >=24"
@@ -17,22 +17,35 @@
     "db:generate": "drizzle-kit generate",
     "audit:production": "npm audit --omit=dev --audit-level=low",
     "audit:all": "npm audit --audit-level=low",
+    "secrets:verify": "node scripts/verify-no-secrets.mjs",
     "licenses:verify": "node scripts/verify-production-licenses.mjs",
     "version:verify": "node scripts/verify-release-version.mjs",
     "db:verify": "node --disable-warning=ExperimentalWarning scripts/verify-sqlite-migrations.mjs",
+    "cloudflare:prepare": "node scripts/prepare-cloudflare-config.mjs",
+    "cloudflare:templates:verify": "node scripts/verify-cloudflare-config.mjs --templates",
+    "cloudflare:verify:staging": "node scripts/verify-cloudflare-config.mjs --environment staging",
+    "cloudflare:verify:production": "node scripts/verify-cloudflare-config.mjs --environment production",
+    "cloudflare:secrets:verify:staging": "node scripts/verify-cloudflare-secrets.mjs --environment staging",
+    "cloudflare:secrets:verify:production": "node scripts/verify-cloudflare-secrets.mjs --environment production",
+    "cloudflare:dry-run:staging": "npm run cloudflare:verify:staging && wrangler deploy --config wrangler.staging.jsonc --dry-run --strict",
+    "cloudflare:dry-run:production": "npm run cloudflare:verify:production && wrangler deploy --config wrangler.production.jsonc --dry-run --strict",
+    "cloudflare:migrate:staging": "npm run cloudflare:verify:staging && wrangler d1 migrations apply DB --remote --config wrangler.staging.jsonc",
+    "cloudflare:migrate:production": "npm run cloudflare:verify:production && wrangler d1 migrations apply DB --remote --config wrangler.production.jsonc",
+    "cloudflare:deploy:staging": "npm run cloudflare:verify:staging && npm run cloudflare:secrets:verify:staging && wrangler deploy --config wrangler.staging.jsonc --secrets-file .env.staging --keep-vars --strict",
+    "cloudflare:deploy:production": "npm run cloudflare:verify:production && npm run cloudflare:secrets:verify:production && wrangler deploy --config wrangler.production.jsonc --secrets-file .env.production --keep-vars --strict",
     "release:artifact": "node scripts/verify-release-artifact.mjs",
-    "release:verify": "npm run typecheck && npm run lint && npm run audit:production && npm run audit:all && npm run licenses:verify && npm run version:verify && npm run db:verify && npm test && npm run release:artifact"
+    "release:verify": "npm run typecheck && npm run lint && npm run audit:production && npm run audit:all && npm run secrets:verify && npm run licenses:verify && npm run version:verify && npm run db:verify && npm run cloudflare:templates:verify && npm test && npm run release:artifact"
   },
   "dependencies": {
     "drizzle-orm": "0.45.2",
     "lucide-react": "^1.25.0",
-    "next": "16.2.6",
+    "next": "16.2.11",
     "react": "19.2.6",
     "react-dom": "19.2.6"
   },
   "devDependencies": {
-    "@cloudflare/vite-plugin": "1.45.1",
-    "@cloudflare/workers-types": "5.20260719.1",
+    "@cloudflare/vite-plugin": "1.47.0",
+    "@cloudflare/workers-types": "5.20260724.1",
     "@tailwindcss/postcss": "4.2.1",
     "@testing-library/jest-dom": "^6.9.1",
     "@testing-library/react": "^16.3.2",
@@ -53,10 +66,12 @@
     "vinext": "0.0.50",
     "vite": "8.1.5",
     "vitest": "^3.2.7",
-    "wrangler": "4.112.0"
+    "wrangler": "4.114.0"
   },
   "overrides": {
-    "postcss": "8.5.14",
+    "postcss": "8.5.23",
+    "sharp": "0.35.3",
+    "fast-uri": "3.1.4",
     "@babel/core": "7.29.6",
     "js-yaml": "4.3.0",
     "@esbuild-kit/core-utils": {

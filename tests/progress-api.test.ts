@@ -5,6 +5,12 @@ import {
   PUT,
 } from "../app/api/progress/route";
 import { GET as HEALTH_GET } from "../app/api/health/route";
+import {
+  createAdminTestAuth,
+  learnerCookieHeaders,
+  TEST_TURNSTILE_SECRET,
+  TEST_TURNSTILE_SITE_KEY,
+} from "./auth-fixtures";
 import { setCloudflareEnv } from "./cloudflare-workers-mock";
 
 type Row = { payload: string; revision: number; updated_at: number };
@@ -16,6 +22,10 @@ type ProgressResponse = {
 
 const HEALTH_SCHEMA_COLUMNS: Record<string, string[]> = {
   learning_state: ["user_key", "revision", "payload", "updated_at"],
+  admin_login_attempts: [
+    "ip_hash", "window_started_at", "failed_attempts", "blocked_until",
+    "updated_at",
+  ],
   cms_content: [
     "id", "kind", "slug", "stable_key", "title", "content", "status",
     "revision", "created_at", "updated_at", "published_at", "review_status",
@@ -182,9 +192,7 @@ class MemoryStatement {
   }
 }
 
-const authenticatedHeaders = {
-  "oai-authenticated-user-email": "qa@pas-a-pas.test",
-};
+const authenticatedHeaders = learnerCookieHeaders();
 
 function request(init: RequestInit = {}) {
   return new Request("https://pas-a-pas.test/api/progress", init);
@@ -193,19 +201,16 @@ function request(init: RequestInit = {}) {
 describe("progress API", () => {
   let database: MemoryD1;
 
-  beforeEach(() => {
+  beforeEach(async () => {
     database = new MemoryD1();
+    const adminAuth = await createAdminTestAuth(["admin@pas-a-pas.test"]);
     setCloudflareEnv({
       DB: database,
       USER_KEY_SECRET: "qa-only-secret-with-at-least-thirty-two-characters",
-      ADMIN_EMAILS: "admin@pas-a-pas.test",
-      APPLE_CLIENT_ID: "com.pasapas.french",
-      APPLE_TEAM_ID: "TEAMID1234",
-      APPLE_KEY_ID: "KEYID12345",
-      APPLE_PRIVATE_KEY: `-----BEGIN PRIVATE KEY-----\n${"A".repeat(120)}\n-----END PRIVATE KEY-----`,
-      APPLE_TOKEN_ENCRYPTION_SECRET:
-        "qa-only-apple-token-encryption-secret-32-chars",
-      NATIVE_SESSION_SECRET: "native-qa-secret-with-at-least-thirty-two-characters",
+      ...adminAuth.bindings,
+      TURNSTILE_SITE_KEY: TEST_TURNSTILE_SITE_KEY,
+      TURNSTILE_SECRET: TEST_TURNSTILE_SECRET,
+      NATIVE_API_ENABLED: "false",
     });
   });
 
@@ -319,17 +324,21 @@ describe("progress API", () => {
     expect(await response.json()).toMatchObject({
       status: "ok",
       productionReady: true,
-      schemaRevision: "0006",
+      schemaRevision: "0007",
       database: "ready",
       checks: {
         database: "ready",
         schema: "ready",
         userKeySecret: "ready",
         adminAllowlist: "ready",
-        appleClientId: "ready",
-        appleServerCredentials: "ready",
-        appleTokenEncryptionSecret: "ready",
-        nativeSessionSecret: "ready",
+        adminAuthentication: "ready",
+        turnstileSiteKey: "ready",
+        turnstileSecret: "ready",
+        nativeApi: "disabled",
+        appleClientId: "native-disabled",
+        appleServerCredentials: "native-disabled",
+        appleTokenEncryptionSecret: "native-disabled",
+        nativeSessionSecret: "native-disabled",
       },
     });
   });
@@ -346,17 +355,14 @@ describe("progress API", () => {
     });
 
     database.schemaComplete = false;
+    const adminAuth = await createAdminTestAuth(["admin@pas-a-pas.test"]);
     setCloudflareEnv({
       DB: database,
       USER_KEY_SECRET: "qa-only-secret-with-at-least-thirty-two-characters",
-      ADMIN_EMAILS: "admin@pas-a-pas.test",
-      APPLE_CLIENT_ID: "com.pasapas.french",
-      APPLE_TEAM_ID: "TEAMID1234",
-      APPLE_KEY_ID: "KEYID12345",
-      APPLE_PRIVATE_KEY: `-----BEGIN PRIVATE KEY-----\n${"A".repeat(120)}\n-----END PRIVATE KEY-----`,
-      APPLE_TOKEN_ENCRYPTION_SECRET:
-        "qa-only-apple-token-encryption-secret-32-chars",
-      NATIVE_SESSION_SECRET: "native-qa-secret-with-at-least-thirty-two-characters",
+      ...adminAuth.bindings,
+      TURNSTILE_SITE_KEY: TEST_TURNSTILE_SITE_KEY,
+      TURNSTILE_SECRET: TEST_TURNSTILE_SECRET,
+      NATIVE_API_ENABLED: "false",
     });
     const consoleError = vi.spyOn(console, "error").mockImplementation(() => undefined);
     try {
@@ -386,8 +392,12 @@ describe("progress API", () => {
         checks: {
           database: "ready",
           schema: "ready",
-          userKeySecret: "preview-fallback",
-          adminAllowlist: "preview-fallback",
+          userKeySecret: "misconfigured",
+          adminAllowlist: "misconfigured",
+          adminAuthentication: "misconfigured",
+          turnstileSiteKey: "misconfigured",
+          turnstileSecret: "misconfigured",
+          nativeApi: "disabled",
           appleClientId: "native-disabled",
           appleServerCredentials: "native-disabled",
           appleTokenEncryptionSecret: "native-disabled",

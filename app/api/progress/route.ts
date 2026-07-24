@@ -195,7 +195,10 @@ function conflict() {
 }
 
 function unauthorized() {
-  return json({ error: "Sign in to access your progress." }, 401);
+  return json(
+    { error: "A valid browser learning session is required." },
+    401,
+  );
 }
 
 function json(value: unknown, status: number) {

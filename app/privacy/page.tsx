@@ -1,4 +1,9 @@
-import { LegalDocument, LegalSection } from "../legal-document";
+import {
+  LegalDocument,
+  LegalSection,
+  OPERATOR_NAME,
+  OPERATOR_POSTAL_ADDRESS,
+} from "../legal-document";
 
 export const metadata = {
   title: "Privacy & data — Pas à Pas",
@@ -29,36 +34,35 @@ export default function PrivacyPage() {
 
       <LegalSection title="Account identity and security">
         <p>
-          The hosting platform provides the signed-in email address with each
-          authenticated request. Before progress or product events reach the
-          database, Pas à Pas converts that address into a keyed, one-way
-          account identifier. The platform-provided account email is not
-          automatically stored in learning, analytics, or support tables. A
-          reply address explicitly entered into the support form is stored with
-          that request so the team can respond.
+          The web app creates a random, high-entropy identifier in a strictly
+          necessary, HttpOnly first-party cookie. Before progress, support, or
+          optional product events reach the database, Pas à Pas combines that
+          random value with a server secret to create a one-way learner key.
+          The raw cookie value is not stored in those tables. This anonymous
+          browser profile does not contain a sign-in email and does not
+          currently synchronize to another browser or device.
         </p>
         <p>
-          In the native iPhone and iPad app, Sign in with Apple provides an
-          opaque Apple account identifier and may provide a relay email and
-          display name. Pas à Pas stores a keyed form of the Apple identifier
-          with that optional relay email and display name so it can maintain and
-          present the native account. These account details are retained while
-          the native account is active and removed when the account is deleted.
-          Pas à Pas also hashes native session tokens before database storage,
-          encrypts the Apple refresh token needed for account revocation, and
-          keeps the usable Pas à Pas session token in the device Keychain.
+          A reply address explicitly entered into the support form is stored
+          with that request so the team can respond. Cloudflare Turnstile also
+          processes challenge, browser, network, and IP information to distinguish
+          people from automated abuse. Pas à Pas validates the challenge for
+          this site and form action; it does not store the challenge token.
         </p>
         <p>
-          Administrative tools require both a signed-in identity and a
-          server-controlled allowlist. Administrative changes are recorded in
-          an audit trail. Reasonable technical safeguards are used, but no
-          internet service can promise absolute security.
+          Administrative tools require an allowlisted email and a generated
+          high-entropy access key. The server stores only a one-way verifier,
+          issues an HttpOnly signed session lasting up to eight hours, and
+          rate-limits attempts using a keyed hash of the connecting IP address.
+          Administrative changes are recorded in an audit trail. Reasonable
+          technical safeguards are used, but no internet service can promise
+          absolute security.
         </p>
       </LegalSection>
 
       <LegalSection title="How information is used">
         <ul>
-          <li>Deliver lessons, calculate reviews, sync devices, and recover offline work.</li>
+          <li>Deliver lessons, calculate reviews, sync this browser session, and recover queued offline work.</li>
           <li>Respond to support requests and protect the service from abuse.</li>
           <li>Maintain published curriculum and record accountable editorial changes.</li>
           <li>
@@ -91,17 +95,22 @@ export default function PrivacyPage() {
 
       <LegalSection title="Service providers and international processing">
         <p>
-          Hosting, database, authentication, and delivery providers process
-          information only to operate Pas à Pas. Their infrastructure may
-          process information in countries other than the learner&apos;s own. Where
-          applicable, the operator relies on the provider&apos;s contractual and
-          security safeguards for those transfers.
+          Cloudflare provides hosting, database, delivery, and abuse-prevention
+          services. Its infrastructure may process information in countries
+          other than the learner&apos;s own. Where applicable, the operator relies
+          on the provider&apos;s contractual and security safeguards for those
+          transfers.
         </p>
       </LegalSection>
 
       <LegalSection title="Retention and deletion">
         <p>
-          Learning progress is retained while the account uses the service.
+          Learning progress is retained until it is deleted through the browser
+          profile or becomes eligible under an applicable operational retention
+          rule. Clearing the learner cookie alone disconnects the browser from
+          its pseudonymous server record and is not a deletion request.
+          Hashed administrator sign-in attempt records become eligible for
+          bounded deletion after 24 hours.
           Optional product events become eligible for automatic deletion 400
           days after receipt. Resolved or closed support requests and
           administrative audit records become eligible 730 days after their
@@ -129,7 +138,8 @@ export default function PrivacyPage() {
           limited provider backup cycle before expiring.
         </p>
         <p>
-          In the native app, “Delete account and learning data” removes the
+          When native account synchronization is enabled in a future app
+          release, “Delete account and learning data” will remove the
           native account, synchronized progress, active sessions, and encrypted
           Apple credential in addition to the on-device copy. The service first
           asks Apple to revoke the associated refresh token. A temporary Apple
@@ -145,6 +155,16 @@ export default function PrivacyPage() {
           also request access, correction, restriction, objection, portability,
           or deletion through Support. Identity may need to be verified before
           fulfilling an account request.
+        </p>
+      </LegalSection>
+
+      <LegalSection title="Operator and privacy contact">
+        <p>
+          {OPERATOR_NAME} operates this service from{" "}
+          {OPERATOR_POSTAL_ADDRESS}. Use the Support page for privacy questions,
+          access or deletion requests, and complaints. The form accepts an
+          optional reply address and records the request so it can be reviewed
+          and resolved.
         </p>
       </LegalSection>
 
