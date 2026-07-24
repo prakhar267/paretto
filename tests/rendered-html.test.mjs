@@ -33,7 +33,7 @@ async function render(pathname = "/") {
   );
 }
 
-test("server-renders the Pas à Pas app shell and product metadata", async () => {
+test("server-renders the Loquivo app shell and product metadata", async () => {
   const response = await render();
   assert.equal(response.status, 200);
   assert.match(response.headers.get("content-type") ?? "", /^text\/html\b/i);
@@ -42,9 +42,9 @@ test("server-renders the Pas à Pas app shell and product metadata", async () =>
   assert.match(response.headers.get("x-request-id") ?? "", /^[0-9a-f-]{36}$/i);
 
   const html = await response.text();
-  assert.match(html, /<title>Pas à Pas — Learn French, one region at a time<\/title>/i);
+  assert.match(html, /<title>Loquivo — Learn French, one region at a time<\/title>/i);
   assert.match(html, /Opening your travel journal/);
-  assert.match(html, /Pas à Pas/);
+  assert.match(html, /Loquivo/);
   assert.match(html, /five-minute lessons, adaptive reviews/i);
   assert.match(html, /property="og:image" content="http:\/\/localhost(?::3000)?\/og\.png"/i);
   assert.match(html, /name="twitter:card" content="summary_large_image"/i);
@@ -86,9 +86,9 @@ test("removes the disposable starter surface and keeps production metadata", asy
     readFile(new URL("../.openai/hosting.json", import.meta.url), "utf8"),
   ]);
 
-  assert.match(page, /<PasAPasApp\s+[\s\S]*storageKey=/);
+  assert.match(page, /<LoquivoApp\s+[\s\S]*storageKey=/);
   assert.doesNotMatch(page, /SkeletonPreview|codex-preview/);
-  assert.match(layout, /Pas à Pas/);
+  assert.match(layout, /Loquivo/);
   assert.match(layout, /themeColor:\s*"#17233b"/);
   assert.doesNotMatch(packageJson, /react-loading-skeleton/);
   assert.match(hosting, /"d1": "DB"/);

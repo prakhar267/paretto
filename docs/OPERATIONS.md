@@ -1,7 +1,7 @@
-# Pas à Pas operations runbook
+# Loquivo operations runbook
 
 This runbook defines the production checks, alert thresholds, recovery actions,
-and ownership expectations for the Pas à Pas web application.
+and ownership expectations for the Loquivo web application.
 
 ## Service objectives
 

@@ -61,11 +61,11 @@ class OperationsStatement {
   }
 }
 
-const EMAIL = "admin@pas-a-pas.test";
+const EMAIL = "admin@loquivo.test";
 let adminCookie = "";
 
 function retentionRequest(batchLimit?: number) {
-  return new Request("https://pas-a-pas.test/api/admin/operations", {
+  return new Request("https://loquivo.test/api/admin/operations", {
     method: "POST",
     headers: {
       "content-type": "application/json",

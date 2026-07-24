@@ -1,32 +1,35 @@
-# Pas à Pas App Store launch
+# Loquivo App Store launch
 
 ## Local build status
 
 The native source is separate from the React web interface and lives in
-`ios/PasAPas`. XcodeGen has produced `PasAPas.xcodeproj`; the application reuses
+`ios/Loquivo`. XcodeGen has produced `Loquivo.xcodeproj`; the application reuses
 the verified 18-region curriculum, 270 packaged audio clips, learning rules, and
-native API contracts. `PasAPasCore` can be built and tested with the Swift command
+native API contracts. `LoquivoCore` can be built and tested with the Swift command
 line before the full Xcode application toolchain is available.
 
-Opening, signing, running, archiving, TestFlight upload, and App Store submission
-still require a compatible full Xcode installation. Apple sign-in and distribution
-must be completed interactively by the Apple account owner. Never send an Apple
-password, recovery key, or verification code to a developer or automation tool.
+The release workstation has full Xcode 26.6 (build 17F113) on macOS 26.5.2,
+including the iOS 26.5 Simulator runtime. iPhone 17 Pro and iPad Pro 13-inch
+(M5) simulator destinations are available for local build and test evidence.
+The system-wide developer selector may still point to Command Line Tools, so
+release commands set
+`DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer` explicitly.
 
-For this release machine, install Xcode 26.2 or 26.3 on macOS Sequoia 15.6 or
-newer. Apple's [App Store Connect upload requirement](https://developer.apple.com/news/upcoming-requirements/?id=02032026a)
-requires uploads made on or after 28 April 2026 to use Xcode 26 or newer. The
-[Xcode compatibility matrix](https://developer.apple.com/support/xcode/) lists
-Xcode 26.2/26.3 for Sequoia 15.6+, while Xcode 26.6 requires macOS Tahoe 26.2;
-do not select 26.6 on a Sequoia machine. Record the exact macOS/Xcode build used
-in release evidence.
-This workstation currently exposes only Command Line Tools, not full Xcode or an
-iOS SDK/runtime, so Simulator, archive, validation, and upload remain unexecuted.
+Signing, Sign in with Apple, archiving, TestFlight upload, and App Store
+submission require the account owner's Apple Developer configuration and
+interactive approval. App Store publication is intentionally deferred for this
+release. Never send an Apple password, recovery key, or verification code to a
+developer or automation tool.
+
+`com.loquivo.app` is a clean pre-release bundle-identifier cutover. If any build
+under the retired identifier is ever distributed to real users, stop and design
+a signed shared-container/Keychain migration before release; the in-repository
+legacy probes alone cannot cross normal iOS sandbox boundaries.
 
 ## Inputs required from the account owner
 
 - Active Apple Developer Program membership and acceptance of current agreements.
-- Confirmation that the final bundle identifier is `com.pasapas.french`, or the
+- Confirmation that the final bundle identifier is `com.loquivo.app`, or the
   replacement identifier before any provisioning profile or App Store record is made.
 - Apple Developer Team ID selected inside Xcode.
 - App Store Connect app record, primary language, name, subtitle, category,
@@ -52,8 +55,8 @@ iOS SDK/runtime, so Simulator, archive, validation, and upload remain unexecuted
    deletion; rotation requires a credential re-encryption plan.
 5. Configure Debug, Staging, and Release API base URLs in an uncommitted xcconfig.
 6. Select the development team, allow Xcode to create development provisioning,
-   and test on an iPhone and iPad simulator using Xcode 26.2 or 26.3 on the
-   compatible release machine described above.
+   and repeat the unsigned test suites on the available iPhone and iPad
+   simulators before creating a signed build.
 7. Create a signed staging archive, validate it in Xcode Organizer, upload to
    TestFlight, and complete internal testing before App Review.
 
@@ -92,7 +95,7 @@ binary and provider behavior in App Store Connect.
 
 ## App Review notes template
 
-> Pas à Pas is a French-learning app with 54 short lessons and 270 packaged
+> Loquivo is a French-learning app with 54 short lessons and 270 packaged
 > pronunciation clips. Release builds require an initial Sign in with Apple. After
 > that sign-in, lessons and progress work offline on device and synchronize when
 > connectivity returns. The iOS app emits no product analytics or tracking events.

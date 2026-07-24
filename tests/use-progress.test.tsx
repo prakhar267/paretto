@@ -10,7 +10,7 @@ import {
 } from "../app/learning-engine";
 import { useProgress } from "../app/use-progress";
 
-const STORAGE_KEY = "pas-a-pas-progress-test";
+const STORAGE_KEY = "loquivo-progress-test";
 const BASE_TIME = new Date("2026-07-20T08:00:00.000Z");
 
 type ProgressRequest = {

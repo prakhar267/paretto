@@ -1,4 +1,4 @@
-# Pas à Pas release QA matrix
+# Loquivo release QA matrix
 
 Every public release must complete the automated gate and the supported-device matrix.
 Do not mark an unexecuted manual check as passed.
@@ -60,11 +60,13 @@ and a simulated offline transition:
 | Android current | Chrome | 360×800 and large text | Core journeys pass |
 | Android current | Firefox | 360×800 | Core lesson and audio fallback pass |
 
-The native iOS target additionally requires full Xcode 26.2 or 26.3 on macOS
-15.6 or newer, then XCTest on the oldest supported iOS
-17 simulator, current iPhone and iPad simulators, portrait/landscape, Dynamic Type
-through accessibility sizes, VoiceOver, reduced motion, offline relaunch, and a
-signed staging archive before TestFlight.
+The native iOS target additionally requires a full Xcode version compatible
+with the release macOS and App Store upload rules, then XCTest on the oldest
+supported iOS 17 simulator plus current iPhone and iPad simulators,
+portrait/landscape, Dynamic Type through accessibility sizes, VoiceOver,
+reduced motion, offline relaunch, and a signed staging archive before
+TestFlight. The local release workstation currently uses Xcode 26.6
+(17F113), macOS 26.5.2, and the iOS 26.5 Simulator runtime.
 
 ### Interactive execution — 20 July 2026
 

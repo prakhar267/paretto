@@ -66,8 +66,8 @@ by Cloudflare; do not use `--update-config`, because the source templates must
 remain provider-ID-free:
 
 ```sh
-npx wrangler d1 create pas-a-pas-french-staging --location apac --binding DB
-npx wrangler d1 create pas-a-pas-french-production --location apac --binding DB
+npx wrangler d1 create loquivo-staging --location apac --binding DB
+npx wrangler d1 create loquivo-production --location apac --binding DB
 ```
 
 After `npm run build`, materialize ignored environment-specific configurations:
@@ -76,7 +76,7 @@ After `npm run build`, materialize ignored environment-specific configurations:
 npm run cloudflare:prepare -- \
   --environment staging \
   --account-id <32-character-account-id> \
-  --database-name pas-a-pas-french-staging \
+  --database-name loquivo-staging \
   --database-id <staging-d1-uuid> \
   --admin-email <administrator-email> \
   --turnstile-site-key <staging-turnstile-site-key>
@@ -84,7 +84,7 @@ npm run cloudflare:prepare -- \
 npm run cloudflare:prepare -- \
   --environment production \
   --account-id <32-character-account-id> \
-  --database-name pas-a-pas-french-production \
+  --database-name loquivo-production \
   --database-id <production-d1-uuid> \
   --admin-email <administrator-email> \
   --turnstile-site-key <production-turnstile-site-key>

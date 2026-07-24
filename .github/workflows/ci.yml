@@ -64,16 +64,16 @@ jobs:
           xcodebuild -version
 
       - name: Test the shared learning core
-        run: swift test --package-path ios/PasAPasCore
+        run: swift test --package-path ios/LoquivoCore
 
       - name: Compile and test the native application package
-        run: swift test --package-path ios/PasAPas
+        run: swift test --package-path ios/Loquivo
 
       - name: Test on an iOS Simulator without signing
         run: >-
           xcodebuild
-          -project ios/PasAPas/PasAPas.xcodeproj
-          -scheme PasAPas
+          -project ios/Loquivo/Loquivo.xcodeproj
+          -scheme Loquivo
           -destination 'platform=iOS Simulator,name=iPhone 16 Pro,OS=latest'
           CODE_SIGNING_ALLOWED=NO
           test
@@ -81,8 +81,8 @@ jobs:
       - name: Test the adaptive iPad layout without signing
         run: >-
           xcodebuild
-          -project ios/PasAPas/PasAPas.xcodeproj
-          -scheme PasAPas
+          -project ios/Loquivo/Loquivo.xcodeproj
+          -scheme Loquivo
           -destination 'platform=iOS Simulator,name=iPad Pro 13-inch (M4),OS=latest'
           CODE_SIGNING_ALLOWED=NO
           test

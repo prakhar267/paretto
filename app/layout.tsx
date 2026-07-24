@@ -31,10 +31,10 @@ export async function generateMetadata(): Promise<Metadata> {
 
   return {
     metadataBase,
-    title: "Pas à Pas — Learn French, one region at a time",
+    title: "Loquivo — Learn French, one region at a time",
     description:
       "Build lasting French vocabulary with five-minute lessons, adaptive reviews, pronunciation, and a cultural journey through all 18 regions of France.",
-    applicationName: "Pas à Pas",
+    applicationName: "Loquivo",
     manifest: "/manifest.webmanifest",
     icons: {
       icon: "/favicon.svg",
@@ -43,7 +43,7 @@ export async function generateMetadata(): Promise<Metadata> {
     appleWebApp: {
       capable: true,
       statusBarStyle: "black-translucent",
-      title: "Pas à Pas",
+      title: "Loquivo",
     },
     keywords: [
       "learn French",
@@ -53,10 +53,10 @@ export async function generateMetadata(): Promise<Metadata> {
       "language learning",
     ],
     openGraph: {
-      title: "Pas à Pas — Your five-minute French journey",
+      title: "Loquivo — Your five-minute French journey",
       description:
         "Remember useful French and travel through all 18 regions, one small session at a time.",
-      siteName: "Pas à Pas",
+      siteName: "Loquivo",
       type: "website",
       url: metadataBase,
       images: [
@@ -64,13 +64,13 @@ export async function generateMetadata(): Promise<Metadata> {
           url: socialImage,
           width: 1731,
           height: 909,
-          alt: "Pas à Pas — French, one region at a time.",
+          alt: "Loquivo — French, one region at a time.",
         },
       ],
     },
     twitter: {
       card: "summary_large_image",
-      title: "Pas à Pas — Your five-minute French journey",
+      title: "Loquivo — Your five-minute French journey",
       description:
         "Remember useful French and travel through all 18 regions, one small session at a time.",
       images: [socialImage],

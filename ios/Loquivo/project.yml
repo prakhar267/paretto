@@ -1,0 +1,114 @@
+name: Loquivo
+options:
+  bundleIdPrefix: com.loquivo
+  deploymentTarget:
+    iOS: "17.0"
+  groupSortPosition: top
+packages:
+  LoquivoCore:
+    path: ../LoquivoCore
+configs:
+  Debug: debug
+  Staging: release
+  Release: release
+settings:
+  base:
+    SWIFT_VERSION: 6.0
+    IPHONEOS_DEPLOYMENT_TARGET: 17.0
+    TARGETED_DEVICE_FAMILY: "1,2"
+    MARKETING_VERSION: 1.1.0
+    CURRENT_PROJECT_VERSION: 3
+    CODE_SIGN_STYLE: Automatic
+    DEVELOPMENT_TEAM: ""
+targets:
+  Loquivo:
+    type: application
+    platform: iOS
+    configFiles:
+      Debug: Configuration/Shared.xcconfig
+      Staging: Configuration/Shared.xcconfig
+      Release: Configuration/Shared.xcconfig
+    sources:
+      - path: LoquivoApp
+      - path: ../../public/audio/fr
+        name: FrenchAudio
+        type: folder
+        buildPhase: resources
+    dependencies:
+      - package: LoquivoCore
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.loquivo.app
+        PRODUCT_NAME: Loquivo
+        PRODUCT_MODULE_NAME: Loquivo
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+        ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME: AccentColor
+        CODE_SIGN_ENTITLEMENTS: LoquivoApp/Loquivo.entitlements
+      configs:
+        Debug:
+          SWIFT_ACTIVE_COMPILATION_CONDITIONS: DEBUG
+          LOQUIVO_API_BASE_URL: http:/$()/localhost:3000
+        Staging:
+          SWIFT_ACTIVE_COMPILATION_CONDITIONS: STAGING
+          LOQUIVO_API_BASE_URL: $(LOQUIVO_STAGING_API_BASE_URL)
+        Release:
+          LOQUIVO_API_BASE_URL: $(LOQUIVO_PRODUCTION_API_BASE_URL)
+    info:
+      path: LoquivoApp/Info.plist
+      properties:
+        CFBundleDisplayName: Loquivo
+        CFBundleShortVersionString: $(MARKETING_VERSION)
+        CFBundleVersion: $(CURRENT_PROJECT_VERSION)
+        LSApplicationCategoryType: public.app-category.education
+        LOQUIVO_API_BASE_URL: $(LOQUIVO_API_BASE_URL)
+        ITSAppUsesNonExemptEncryption: false
+        UIApplicationSupportsIndirectInputEvents: true
+        UILaunchScreen:
+          UIColorName: AccentColor
+        UISupportedInterfaceOrientations:
+          - UIInterfaceOrientationPortrait
+          - UIInterfaceOrientationLandscapeLeft
+          - UIInterfaceOrientationLandscapeRight
+        UISupportedInterfaceOrientations~ipad:
+          - UIInterfaceOrientationPortrait
+          - UIInterfaceOrientationPortraitUpsideDown
+          - UIInterfaceOrientationLandscapeLeft
+          - UIInterfaceOrientationLandscapeRight
+        NSAppTransportSecurity:
+          NSAllowsLocalNetworking: true
+    scheme:
+      testTargets:
+        - LoquivoTests
+        - LoquivoUITests
+      gatherCoverageData: true
+  LoquivoTests:
+    type: bundle.unit-test
+    platform: iOS
+    sources: [LoquivoTests]
+    dependencies:
+      - target: Loquivo
+      - package: LoquivoCore
+    settings:
+      base:
+        TEST_HOST: "$(BUILT_PRODUCTS_DIR)/Loquivo.app/Loquivo"
+        BUNDLE_LOADER: "$(TEST_HOST)"
+  LoquivoUITests:
+    type: bundle.ui-testing
+    platform: iOS
+    sources: [LoquivoUITests]
+    dependencies:
+      - target: Loquivo
+schemes:
+  Loquivo-Staging:
+    build:
+      targets:
+        Loquivo: all
+    run:
+      config: Staging
+    test:
+      config: Staging
+      targets:
+        - LoquivoTests
+        - LoquivoUITests
+    archive:
+      config: Staging

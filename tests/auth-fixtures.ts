@@ -54,7 +54,7 @@ export async function createAdminTestAuth(emails: readonly string[]) {
   };
 }
 
-export function successfulTurnstileResponse(hostname = "pas-a-pas.test") {
+export function successfulTurnstileResponse(hostname = "loquivo.test") {
   return new Response(
     JSON.stringify({
       success: true,

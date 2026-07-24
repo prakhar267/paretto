@@ -1,4 +1,4 @@
-# Pas à Pas release evidence template
+# Loquivo release evidence template
 
 Copy this file for each candidate release. Do not record secret values, raw
 authentication headers, learner data, support messages, or administrator email
@@ -23,14 +23,15 @@ addresses in release evidence.
 
 - [ ] CI passed on supported Node 22 and Node 24.
 - [ ] CI passed both Swift package suites and unsigned iOS Simulator XCTest with
-      the pinned Xcode 26.3 toolchain on the required macOS runner.
+      the workflow's pinned, recorded Xcode toolchain.
 - [ ] Install used `npm ci` and the committed lockfile.
 - [ ] `npm run release:verify` passed without retries or local-only changes.
 - [ ] TypeScript and lint passed.
 - [ ] Unit, component, API, accessibility, and rendered-route tests passed.
 - [ ] Production build and audio verification passed.
 - [ ] Swift package tests, Xcode tests, and a signed Release-configuration archive
-      passed for the native candidate using Xcode 26.2 or 26.3 on macOS 15.6+.
+      passed for the native candidate using an App Store-compatible full Xcode
+      toolchain recorded above.
 - [ ] Packaged Worker, Sites metadata, migrations, D1 binding, and Cron passed
       artifact verification.
 - [ ] Fresh SQLite replay reached the advertised schema revision with integrity,

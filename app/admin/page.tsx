@@ -10,7 +10,7 @@ import styles from "./admin.module.css";
 export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
-  title: "Curriculum studio — Pas à Pas",
+  title: "Curriculum studio — Loquivo",
   description: "Secure curriculum and learner-support administration.",
   robots: { index: false, follow: false },
 };
@@ -26,7 +26,7 @@ export default async function AdminPage() {
     return (
       <main className={styles.accessPage}>
         <section className={styles.accessCard}>
-          <p className={styles.eyebrow}>Pas à Pas administration</p>
+          <p className={styles.eyebrow}>Loquivo administration</p>
           <h1>Access unavailable</h1>
           <p>
             Administrator authentication is not configured. Verify the

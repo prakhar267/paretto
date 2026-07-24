@@ -3,8 +3,8 @@ import { loadTurnstilePublicSiteKey } from "../turnstile";
 import SupportForm from "./SupportForm";
 
 export const metadata = {
-  title: "Learner support — Pas à Pas",
-  description: "Contact the Pas à Pas learner-care team securely.",
+  title: "Learner support — Loquivo",
+  description: "Contact the Loquivo learner-care team securely.",
 };
 
 export default async function SupportPage() {

@@ -1,8 +1,8 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
 
-export const LEGAL_EFFECTIVE_DATE = "July 24, 2026";
-export const OPERATOR_NAME = "Pas à Pas";
+export const LEGAL_EFFECTIVE_DATE = "July 25, 2026";
+export const OPERATOR_NAME = "Loquivo";
 export const OPERATOR_POSTAL_ADDRESS =
   "25/38 Kaveri Path, Mansarovar, Jaipur, Rajasthan, India";
 
@@ -30,9 +30,9 @@ export function LegalDocument({
     <main className="legal-page">
       <article className="legal-document">
         <header className="legal-header">
-          <Link className="legal-brand" href="/" aria-label="Pas à Pas home">
-            <span aria-hidden="true">p</span>
-            Pas <em>à</em> Pas
+          <Link className="legal-brand" href="/" aria-label="Loquivo home">
+            <span aria-hidden="true">L</span>
+            Loquivo
           </Link>
           <nav aria-label="Legal and support">
             {LEGAL_LINKS.map(([label, href]) => (

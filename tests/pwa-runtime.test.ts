@@ -65,7 +65,7 @@ describe("production PWA runtime", () => {
 
     runInNewContext(source, {
       self: {
-        location: { origin: "https://pas-a-pas.test" },
+        location: { origin: "https://loquivo.test" },
         clients: { claim: vi.fn(async () => undefined) },
         skipWaiting: vi.fn(),
         addEventListener: (name: string, handler: (event: unknown) => void) => {
@@ -88,7 +88,7 @@ describe("production PWA runtime", () => {
       request: {
         method: "GET",
         mode: "navigate",
-        url: "https://pas-a-pas.test/",
+        url: "https://loquivo.test/",
         headers: new Headers(),
       },
       respondWith: (response: Promise<Response>) => {
@@ -114,7 +114,7 @@ describe("production PWA runtime", () => {
 
     runInNewContext(source, {
       self: {
-        location: { origin: "https://pas-a-pas.test" },
+        location: { origin: "https://loquivo.test" },
         clients: { claim: vi.fn(async () => undefined) },
         skipWaiting: vi.fn(),
         addEventListener: (name: string, handler: (event: unknown) => void) => {
@@ -137,7 +137,7 @@ describe("production PWA runtime", () => {
       request: {
         method: "GET",
         mode: "cors",
-        url: "https://pas-a-pas.test/api/progress",
+        url: "https://loquivo.test/api/progress",
         headers: new Headers(),
       },
       respondWith,

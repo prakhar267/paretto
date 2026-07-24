@@ -292,6 +292,8 @@ async function appleTokenEncryptionKey(secret: string): Promise<CryptoKey> {
   }
   const material = await crypto.subtle.digest(
     "SHA-256",
+    // Stable legacy KDF context: renaming it would invalidate issued refresh
+    // token hashes during the Loquivo brand transition.
     new TextEncoder().encode(`pas-a-pas:apple-refresh-token:v1:${secret}`),
   );
   return crypto.subtle.importKey("raw", material, "AES-GCM", false, [

@@ -1,8 +1,8 @@
 import { LegalDocument, LegalSection } from "../legal-document";
 
 export const metadata = {
-  title: "Cookies & local storage — Pas à Pas",
-  description: "The device storage and necessary authentication used by Pas à Pas.",
+  title: "Cookies & local storage — Loquivo",
+  description: "The device storage and necessary authentication used by Loquivo.",
 };
 
 export default function CookiesPage() {
@@ -13,10 +13,10 @@ export default function CookiesPage() {
     >
       <LegalSection title="What the app uses">
         <p>
-          Pas à Pas stores an offline progress queue and a small set of interface
+          Loquivo stores an offline progress queue and a small set of interface
           preferences in first-party browser storage. This lets a lesson survive
           a refresh or a temporary loss of connectivity. The data is isolated to
-          the Pas à Pas origin and is not available to unrelated websites.
+          the Loquivo origin and is not available to unrelated websites.
         </p>
       </LegalSection>
 

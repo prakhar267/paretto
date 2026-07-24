@@ -1,6 +1,6 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="Pas à Pas">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="Loquivo">
   <rect width="64" height="64" rx="18" fill="#17233b"/>
   <circle cx="47" cy="17" r="7" fill="#e5a11a"/>
-  <path d="M18 47V18h13.5c9.4 0 15.5 5.1 15.5 13.1 0 8.3-6.4 13.6-16.1 13.6h-5V47H18Zm8-9.1h4.4c5.4 0 8.4-2.2 8.4-6.6 0-4.2-2.9-6.3-8.1-6.3H26v12.9Z" fill="#fff8ee"/>
+  <path d="M19 17h9v22h15v8H19V17Z" fill="#fff8ee"/>
   <circle cx="51" cy="49" r="4" fill="#f06449"/>
 </svg>
