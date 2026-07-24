@@ -328,7 +328,14 @@ function decodeBase64Url(value: string): Uint8Array {
   const base64 = value.replaceAll("-", "+").replaceAll("_", "/");
   const padded = base64.padEnd(Math.ceil(base64.length / 4) * 4, "=");
   const decoded = atob(padded);
-  return Uint8Array.from(decoded, (character) => character.charCodeAt(0));
+  const bytes = Uint8Array.from(
+    decoded,
+    (character) => character.charCodeAt(0),
+  );
+  if (encodeBase64Url(bytes) !== value) {
+    throw new Error("Non-canonical base64url");
+  }
+  return bytes;
 }
 
 function encodeBase64Url(bytes: Uint8Array): string {
