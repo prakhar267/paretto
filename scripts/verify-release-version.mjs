@@ -9,9 +9,9 @@ const [packageSource, lockSource, healthSource, xcodegenSource, projectSource] =
     readFile(resolve(root, "package.json"), "utf8"),
     readFile(resolve(root, "package-lock.json"), "utf8"),
     readFile(resolve(root, "app/api/health/route.ts"), "utf8"),
-    readFile(resolve(root, "ios/PasAPas/project.yml"), "utf8"),
+    readFile(resolve(root, "ios/Paretto/project.yml"), "utf8"),
     readFile(
-      resolve(root, "ios/PasAPas/PasAPas.xcodeproj/project.pbxproj"),
+      resolve(root, "ios/Paretto/Paretto.xcodeproj/project.pbxproj"),
       "utf8",
     ),
   ]);

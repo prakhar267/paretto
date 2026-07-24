@@ -1,6 +1,8 @@
-# Pas à Pas
+# Paretto
 
-Pas à Pas is a full-stack French vocabulary app built around short, recall-first lessons and a journey through all 18 administrative regions of France.
+Paretto is a game-inspired language-learning platform launching with a
+full-stack French course built around short, recall-first lessons and a journey
+through all 18 administrative regions of France.
 
 ## Product surface
 
@@ -30,7 +32,10 @@ npm install
 npm run dev
 ```
 
-The local app runs at `http://localhost:3000`. D1 is simulated by Wrangler through the `DB` binding declared in `.openai/hosting.json`.
+The local app runs at `http://localhost:3000`. D1 is simulated by Wrangler
+through the `DB` binding declared in `.openai/hosting.json`; development mode
+also supplies an explicitly local-only learner-identity key so a fresh checkout
+can complete onboarding without production secrets.
 
 For the guarded direct-Cloudflare fallback, start with
 `docs/PRODUCTION-INFRA.md`. Environment-specific Wrangler files are generated
@@ -38,10 +43,10 @@ locally from checked-in templates only after Cloudflare returns real staging and
 production D1 IDs. Bare `wrangler deploy` is intentionally unsupported because
 the normal build artifact contains a Sites-only placeholder binding.
 
-The native project is generated at `ios/PasAPas/PasAPas.xcodeproj`. See
-`ios/PasAPas/README.md` for Xcode, simulator, and environment instructions. Its
+The native project is generated at `ios/Paretto/Paretto.xcodeproj`. See
+`ios/Paretto/README.md` for Xcode, simulator, and environment instructions. Its
 shared learning engine can be verified without Xcode using
-`swift test --package-path ios/PasAPasCore`.
+`swift test --package-path ios/ParettoCore`.
 
 ## Quality checks
 

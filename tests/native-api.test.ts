@@ -21,7 +21,7 @@ describe("native API security contracts", () => {
   it("requires a one-time Apple authorization code at the HTTP boundary", async () => {
     setCloudflareEnv({ NATIVE_API_ENABLED: "true" });
     const response = await APPLE_AUTH_POST(
-      new Request("https://pas-a-pas.test/api/native/auth/apple", {
+      new Request("https://paretto.test/api/native/auth/apple", {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({
@@ -169,7 +169,7 @@ describe("native API security contracts", () => {
     const nonce = base64Url(new Uint8Array(nonceDigest));
     const baseClaims = {
       iss: "https://appleid.apple.com",
-      aud: "com.pasapas.french",
+      aud: "com.paretto.app",
       sub: "apple-user-opaque-subject",
       email: "relay@example.com",
       email_verified: true,
@@ -180,7 +180,7 @@ describe("native API security contracts", () => {
     const token = await signJwt(baseClaims, keys.privateKey);
     await expect(
       verifyAppleIdentityToken(token, rawNonce, {
-        clientId: "com.pasapas.french",
+        clientId: "com.paretto.app",
         now,
         fetcher,
       }),
@@ -190,7 +190,7 @@ describe("native API security contracts", () => {
     });
     await expect(
       verifyAppleIdentityToken(token, `${rawNonce}x`, {
-        clientId: "com.pasapas.french",
+        clientId: "com.paretto.app",
         now,
         fetcher,
       }),
@@ -209,7 +209,7 @@ describe("native API security contracts", () => {
     );
     await expect(
       verifyAppleIdentityToken(expired, rawNonce, {
-        clientId: "com.pasapas.french",
+        clientId: "com.paretto.app",
         now,
         fetcher,
       }),
@@ -243,7 +243,7 @@ describe("native API security contracts", () => {
     }) as typeof fetch;
     await expect(
       verifyAppleIdentityToken(rotated, rawNonce, {
-        clientId: "com.pasapas.french",
+        clientId: "com.paretto.app",
         now: now + 6 * 60_000,
         fetcher: rotationFetcher,
       }),
@@ -263,7 +263,7 @@ describe("native API security contracts", () => {
     )) as CryptoKeyPair;
     const privateKey = await crypto.subtle.exportKey("pkcs8", keys.privateKey);
     const configuration: AppleOAuthConfiguration = {
-      clientId: "com.pasapas.french",
+      clientId: "com.paretto.app",
       teamId: "TEAMID1234",
       keyId: "KEYID12345",
       privateKey: pkcs8Pem(privateKey),
@@ -295,7 +295,7 @@ describe("native API security contracts", () => {
       iat: Math.floor(now / 1000),
       exp: Math.floor(now / 1000) + 300,
       aud: "https://appleid.apple.com",
-      sub: "com.pasapas.french",
+      sub: "com.paretto.app",
     });
     await expect(
       crypto.subtle.verify(

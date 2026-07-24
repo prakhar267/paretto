@@ -52,8 +52,8 @@ if (options.templates === "true") {
       .replace(
         "__D1_DATABASE_NAME__",
         environment === "staging"
-          ? "pas-a-pas-french-staging"
-          : "pas-a-pas-french-production",
+          ? "paretto-staging"
+          : "paretto-production",
       )
       .replace(
         "__D1_DATABASE_ID__",
@@ -98,8 +98,8 @@ console.log(
 function validateConfiguration(configuration, environment, requireProvisioned) {
   const expectedWorkerName =
     environment === "staging"
-      ? "pas-a-pas-french-staging"
-      : "pas-a-pas-french";
+      ? "paretto-staging"
+      : "paretto";
   invariant(
     configuration.name === expectedWorkerName,
     `Worker name must be ${expectedWorkerName}.`,

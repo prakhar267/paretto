@@ -1,4 +1,4 @@
-/** Cloudflare Worker entry point for Pas à Pas. */
+/** Cloudflare Worker entry point for Paretto. */
 import handler from "vinext/server/app-router-entry";
 import { runRetentionMaintenance } from "../app/retention-policy";
 import {

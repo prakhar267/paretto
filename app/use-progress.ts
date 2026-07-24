@@ -31,6 +31,8 @@ type ProgressCache = {
   dirty: boolean;
 };
 
+// Stable legacy storage identity: changing this during the Paretto rebrand
+// would strand existing anonymous-browser progress.
 const DEFAULT_STORAGE_KEY = "pas-a-pas-progress-v1:anonymous-browser";
 
 export function useProgress(storageKey = DEFAULT_STORAGE_KEY): {

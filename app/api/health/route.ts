@@ -6,7 +6,7 @@ import { getDatabase } from "@/db";
 
 export const dynamic = "force-dynamic";
 
-const SERVICE_VERSION = "1.0.1";
+const SERVICE_VERSION = "1.2.0";
 const SCHEMA_REVISION = "0007";
 
 const REQUIRED_SCHEMA = {
@@ -198,7 +198,7 @@ export async function GET() {
     return healthResponse(
       {
         status: "degraded",
-        service: "pas-a-pas-web",
+        service: "paretto-web",
         version: SERVICE_VERSION,
         schemaRevision: SCHEMA_REVISION,
         productionReady: false,
@@ -224,7 +224,7 @@ export async function GET() {
     return healthResponse(
       {
         status: "degraded",
-        service: "pas-a-pas-web",
+        service: "paretto-web",
         version: SERVICE_VERSION,
         schemaRevision: SCHEMA_REVISION,
         productionReady: false,
@@ -248,7 +248,7 @@ export async function GET() {
   return healthResponse(
     {
       status: serviceReady ? "ok" : "degraded",
-      service: "pas-a-pas-web",
+      service: "paretto-web",
       version: SERVICE_VERSION,
       schemaRevision: SCHEMA_REVISION,
       productionReady,

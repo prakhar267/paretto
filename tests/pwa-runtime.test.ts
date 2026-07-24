@@ -7,6 +7,17 @@ import { describe, expect, it, vi } from "vitest";
 import { scheduleServiceWorkerRegistration } from "../app/PwaRegistration";
 
 describe("production PWA runtime", () => {
+  it("keeps the offline shell on the current Paretto brand", async () => {
+    const source = await readFile(
+      resolve(import.meta.dirname, "../public/offline.html"),
+      "utf8",
+    );
+
+    expect(source).toContain("<title>Reconnect to Paretto</title>");
+    expect(source).toContain('<span class="mark" aria-hidden="true">P</span>');
+    expect(source).not.toMatch(/Loquivo|class="mark"[^>]*>L</i);
+  });
+
   it("registers immediately when hydration runs after window load", () => {
     const register = vi.fn(async () => undefined);
     const addLoadListener = vi.fn();
@@ -65,7 +76,7 @@ describe("production PWA runtime", () => {
 
     runInNewContext(source, {
       self: {
-        location: { origin: "https://pas-a-pas.test" },
+        location: { origin: "https://paretto.test" },
         clients: { claim: vi.fn(async () => undefined) },
         skipWaiting: vi.fn(),
         addEventListener: (name: string, handler: (event: unknown) => void) => {
@@ -88,7 +99,7 @@ describe("production PWA runtime", () => {
       request: {
         method: "GET",
         mode: "navigate",
-        url: "https://pas-a-pas.test/",
+        url: "https://paretto.test/",
         headers: new Headers(),
       },
       respondWith: (response: Promise<Response>) => {
@@ -114,7 +125,7 @@ describe("production PWA runtime", () => {
 
     runInNewContext(source, {
       self: {
-        location: { origin: "https://pas-a-pas.test" },
+        location: { origin: "https://paretto.test" },
         clients: { claim: vi.fn(async () => undefined) },
         skipWaiting: vi.fn(),
         addEventListener: (name: string, handler: (event: unknown) => void) => {
@@ -137,7 +148,7 @@ describe("production PWA runtime", () => {
       request: {
         method: "GET",
         mode: "cors",
-        url: "https://pas-a-pas.test/api/progress",
+        url: "https://paretto.test/api/progress",
         headers: new Headers(),
       },
       respondWith,

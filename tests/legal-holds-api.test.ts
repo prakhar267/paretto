@@ -147,11 +147,11 @@ function compareHolds(left: Hold, right: Hold): number {
   return left.id < right.id ? 1 : -1;
 }
 
-const EMAIL = "admin@pas-a-pas.test";
+const EMAIL = "admin@paretto.test";
 let adminCookie = "";
 
 function adminRequest(path: string, init: RequestInit = {}) {
-  return new Request(`https://pas-a-pas.test${path}`, {
+  return new Request(`https://paretto.test${path}`, {
     ...init,
     headers: {
       cookie: adminCookie,

@@ -196,7 +196,7 @@ describe("native account deletion", () => {
 });
 
 function accountRequest() {
-  return new Request("https://pas-a-pas.test/api/native/account", {
+  return new Request("https://paretto.test/api/native/account", {
     method: "DELETE",
     headers: { authorization: `Bearer ${"A".repeat(43)}` },
   });
@@ -212,7 +212,7 @@ async function testConfiguration() {
   const encoded = Buffer.from(privateKey).toString("base64");
   const lines = encoded.match(/.{1,64}/g)?.join("\n") ?? encoded;
   return {
-    APPLE_CLIENT_ID: "com.pasapas.french",
+    APPLE_CLIENT_ID: "com.paretto.app",
     APPLE_TEAM_ID: "TEAMID1234",
     APPLE_KEY_ID: "KEYID12345",
     APPLE_PRIVATE_KEY: `-----BEGIN PRIVATE KEY-----\n${lines}\n-----END PRIVATE KEY-----`,

@@ -195,7 +195,7 @@ class MemoryStatement {
 const authenticatedHeaders = learnerCookieHeaders();
 
 function request(init: RequestInit = {}) {
-  return new Request("https://pas-a-pas.test/api/progress", init);
+  return new Request("https://paretto.test/api/progress", init);
 }
 
 describe("progress API", () => {
@@ -203,7 +203,7 @@ describe("progress API", () => {
 
   beforeEach(async () => {
     database = new MemoryD1();
-    const adminAuth = await createAdminTestAuth(["admin@pas-a-pas.test"]);
+    const adminAuth = await createAdminTestAuth(["admin@paretto.test"]);
     setCloudflareEnv({
       DB: database,
       USER_KEY_SECRET: "qa-only-secret-with-at-least-thirty-two-characters",
@@ -345,7 +345,7 @@ describe("progress API", () => {
 
   it("reports missing runtime configuration and incomplete migrations", async () => {
     const database = new MemoryD1();
-    setCloudflareEnv({ DB: database, ADMIN_EMAILS: "admin@pas-a-pas.test" });
+    setCloudflareEnv({ DB: database, ADMIN_EMAILS: "admin@paretto.test" });
     const missingSecret = await HEALTH_GET();
     expect(missingSecret.status).toBe(503);
     expect(await missingSecret.json()).toMatchObject({
@@ -355,7 +355,7 @@ describe("progress API", () => {
     });
 
     database.schemaComplete = false;
-    const adminAuth = await createAdminTestAuth(["admin@pas-a-pas.test"]);
+    const adminAuth = await createAdminTestAuth(["admin@paretto.test"]);
     setCloudflareEnv({
       DB: database,
       USER_KEY_SECRET: "qa-only-secret-with-at-least-thirty-two-characters",

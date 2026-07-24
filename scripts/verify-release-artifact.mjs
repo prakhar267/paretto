@@ -29,6 +29,7 @@ const [
   sourceHostingText,
   builtHostingText,
   wranglerText,
+  workerBundleText,
   webManifestText,
   staticHeadersText,
 ] =
@@ -36,6 +37,7 @@ const [
     readFile(sourceHostingPath, "utf8"),
     readFile(builtHostingPath, "utf8"),
     readFile(resolve(dist, "server/wrangler.json"), "utf8"),
+    readFile(resolve(dist, "server/index.js"), "utf8"),
     readFile(resolve(dist, "client/manifest.webmanifest"), "utf8"),
     readFile(resolve(dist, "client/_headers"), "utf8"),
   ]);
@@ -69,6 +71,12 @@ invariant(
 );
 
 const wrangler = JSON.parse(wranglerText);
+for (const artifact of [wranglerText, workerBundleText]) {
+  invariant(
+    !artifact.includes("local-only-paretto-user-key-secret-never-deploy"),
+    "The local-only learner identity key must never enter a release artifact.",
+  );
+}
 invariant(wrangler.main === "index.js", "The Worker entry point must be index.js.");
 invariant(
   wrangler.observability?.enabled === true,

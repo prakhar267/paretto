@@ -1,6 +1,6 @@
 {
-  "name": "pas-a-pas-french",
-  "version": "1.0.1",
+  "name": "paretto",
+  "version": "1.2.0",
   "private": true,
   "engines": {
     "node": "^22.13.0 || >=24"

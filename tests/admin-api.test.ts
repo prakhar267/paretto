@@ -845,8 +845,8 @@ function publicSupportRow(row: StoredSupportRow): SupportRow {
   };
 }
 
-const ADMIN_EMAIL = "editor@pas-a-pas.test";
-const REVIEWER_EMAIL = "reviewer@pas-a-pas.test";
+const ADMIN_EMAIL = "editor@paretto.test";
+const REVIEWER_EMAIL = "reviewer@paretto.test";
 let adminCookie = "";
 let reviewerCookie = "";
 const ADMIN_HEADERS = {
@@ -857,7 +857,7 @@ const LEARNER_HEADERS = {
 };
 
 function adminRequest(path: string, init: RequestInit = {}) {
-  return new Request(`https://pas-a-pas.test${path}`, {
+  return new Request(`https://paretto.test${path}`, {
     ...init,
     headers: {
       ...ADMIN_HEADERS,
@@ -868,7 +868,7 @@ function adminRequest(path: string, init: RequestInit = {}) {
 }
 
 function reviewerRequest(path: string, init: RequestInit = {}) {
-  return new Request(`https://pas-a-pas.test${path}`, {
+  return new Request(`https://paretto.test${path}`, {
     ...init,
     headers: {
       ...ADMIN_HEADERS,
@@ -878,10 +878,10 @@ function reviewerRequest(path: string, init: RequestInit = {}) {
   });
 }
 
-function learnerRequest(body: object, email = "learner@pas-a-pas.test") {
+function learnerRequest(body: object, email = "learner@paretto.test") {
   const token =
-    email === "learner@pas-a-pas.test" ? "L".repeat(43) : "S".repeat(43);
-  return new Request("https://pas-a-pas.test/api/support", {
+    email === "learner@paretto.test" ? "L".repeat(43) : "S".repeat(43);
+  return new Request("https://paretto.test/api/support", {
     method: "POST",
     headers: { ...LEARNER_HEADERS, ...learnerCookieHeaders(token) },
     body: JSON.stringify({
@@ -969,12 +969,12 @@ describe("admin CMS and support APIs", () => {
 
   it("authorizes every admin operation and strictly validates draft creation", async () => {
     const anonymous = await CONTENT_LIST(
-      new Request("https://pas-a-pas.test/api/admin/content"),
+      new Request("https://paretto.test/api/admin/content"),
     );
     expect(anonymous.status).toBe(401);
 
     const forbidden = await CONTENT_LIST(
-      new Request("https://pas-a-pas.test/api/admin/content", {
+      new Request("https://paretto.test/api/admin/content", {
         headers: { cookie: "__Host-admin-session=invalid" },
       }),
     );
@@ -1326,7 +1326,7 @@ describe("admin CMS and support APIs", () => {
     expect(await json(publishedEdit)).toMatchObject({ code: "STATUS_CONFLICT" });
 
     const curriculum = await CURRICULUM_GET(
-      new Request("https://pas-a-pas.test/api/curriculum"),
+      new Request("https://paretto.test/api/curriculum"),
     );
     expect(curriculum.status).toBe(200);
     expect(curriculum.headers.get("cache-control")).toMatch(/public/);
@@ -1346,7 +1346,7 @@ describe("admin CMS and support APIs", () => {
       ],
     });
     const notModified = await CURRICULUM_GET(
-      new Request("https://pas-a-pas.test/api/curriculum", {
+      new Request("https://paretto.test/api/curriculum", {
         headers: { "if-none-match": String(etag) },
       }),
     );
@@ -1435,7 +1435,7 @@ describe("admin CMS and support APIs", () => {
           title: "Another editor won",
           revision: row.revision + 1,
           updated_at: row.updated_at + 1,
-          updated_by_email: "other-editor@pas-a-pas.test",
+          updated_by_email: "other-editor@paretto.test",
         });
       }
     };
@@ -1768,7 +1768,7 @@ describe("admin CMS and support APIs", () => {
     expect(thirdContent.entries).toHaveLength(51);
 
     const curriculum = await CURRICULUM_GET(
-      new Request("https://pas-a-pas.test/api/curriculum"),
+      new Request("https://paretto.test/api/curriculum"),
     );
     const curriculumBody = await json<{ records: ContentRow[] }>(curriculum);
     expect(curriculumBody.records).toHaveLength(251);
@@ -1838,7 +1838,7 @@ describe("admin CMS and support APIs", () => {
 
   it("creates privacy-safe learner support requests, rate limits abuse, and audits status changes", async () => {
     const anonymous = await SUPPORT_CREATE(
-      new Request("https://pas-a-pas.test/api/support", {
+      new Request("https://paretto.test/api/support", {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({
@@ -1862,7 +1862,7 @@ describe("admin CMS and support APIs", () => {
     const stored = database.support.get(createdBody.request.id);
     expect(stored?.reply_email).toBeNull();
     expect(stored?.user_key).toMatch(/^[0-9a-f]{64}$/);
-    expect(stored?.user_key).not.toContain("learner@pas-a-pas.test");
+    expect(stored?.user_key).not.toContain("learner@paretto.test");
 
     const explicitReply = await SUPPORT_CREATE(
       learnerRequest({
@@ -1870,7 +1870,7 @@ describe("admin CMS and support APIs", () => {
         category: "content",
         subject: "French example question",
         body: "The example translation may need another look.",
-      }, "second-learner@pas-a-pas.test"),
+      }, "second-learner@paretto.test"),
     );
     expect(explicitReply.status).toBe(201);
     const explicitBody = await json<{ request: { id: string } }>(explicitReply);
@@ -1961,7 +1961,7 @@ describe("admin CMS and support APIs", () => {
     vi.spyOn(console, "error").mockImplementation(() => {});
 
     const response = await CURRICULUM_GET(
-      new Request("https://pas-a-pas.test/api/curriculum"),
+      new Request("https://paretto.test/api/curriculum"),
     );
     expect(response.status).toBe(200);
     expect(response.headers.get("cache-control")).toContain("max-age=15");

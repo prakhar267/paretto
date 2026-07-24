@@ -1,6 +1,0 @@
-// Safe tracked defaults for every app build configuration. A developer or CI
-// environment may provide real deployment origins in the ignored local file.
-PASAPAS_STAGING_API_BASE_URL =
-PASAPAS_PRODUCTION_API_BASE_URL =
-
-#include? "Local.xcconfig"

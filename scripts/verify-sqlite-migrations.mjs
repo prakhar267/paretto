@@ -12,7 +12,7 @@ const journalPath = resolve(drizzleDirectory, "meta/_journal.json");
 const schemaPath = resolve(root, "db/schema.ts");
 const healthPath = resolve(root, "app/api/health/route.ts");
 const temporaryDirectory = await mkdtemp(
-  join(tmpdir(), "pas-a-pas-migration-replay-"),
+  join(tmpdir(), "paretto-migration-replay-"),
 );
 const databasePath = join(temporaryDirectory, "replay.sqlite");
 let database;

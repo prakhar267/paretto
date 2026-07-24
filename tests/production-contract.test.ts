@@ -164,8 +164,8 @@ describe("mobile, PWA, security, and launch contracts", () => {
     ]) {
       expect(template).toContain(
         environment === "staging"
-          ? '"name": "pas-a-pas-french-staging"'
-          : '"name": "pas-a-pas-french"',
+          ? '"name": "paretto-staging"'
+          : '"name": "paretto"',
       );
       expect(template).toContain('"main": "dist/server/index.js"');
       expect(template).toContain('"ADMIN_EMAILS": "__ADMIN_EMAIL__"');

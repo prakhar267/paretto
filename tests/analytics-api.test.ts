@@ -126,7 +126,7 @@ class AnalyticsStatement {
   }
 }
 
-const EMAIL = "admin@pas-a-pas.test";
+const EMAIL = "admin@paretto.test";
 const SECRET = "analytics-test-secret-with-at-least-thirty-two-characters";
 
 describe("privacy-aware analytics", () => {
@@ -192,7 +192,7 @@ describe("privacy-aware analytics", () => {
       }).ok,
     ).toBe(false);
     const response = await EVENT_POST(
-      new Request("https://pas-a-pas.test/api/events", {
+      new Request("https://paretto.test/api/events", {
         method: "POST",
         headers: {
           "content-type": "application/json",
@@ -212,7 +212,7 @@ describe("privacy-aware analytics", () => {
     expect(JSON.stringify(database.events[0])).not.toContain(EMAIL);
 
     const rejected = await EVENT_POST(
-      new Request("https://pas-a-pas.test/api/events", {
+      new Request("https://paretto.test/api/events", {
         method: "POST",
         headers: {
           "content-type": "application/json",
@@ -232,7 +232,7 @@ describe("privacy-aware analytics", () => {
   it("enforces the saved analytics opt-in on the server", async () => {
     database.analyticsEnabled = false;
     const response = await EVENT_POST(
-      new Request("https://pas-a-pas.test/api/events", {
+      new Request("https://paretto.test/api/events", {
         method: "POST",
         headers: {
           "content-type": "application/json",
@@ -252,7 +252,7 @@ describe("privacy-aware analytics", () => {
 
   it("returns aggregate admin reporting without raw identities", async () => {
     await EVENT_POST(
-      new Request("https://pas-a-pas.test/api/events", {
+      new Request("https://paretto.test/api/events", {
         method: "POST",
         headers: {
           "content-type": "application/json",
@@ -268,7 +268,7 @@ describe("privacy-aware analytics", () => {
     );
 
     const response = await ANALYTICS_GET(
-      new Request("https://pas-a-pas.test/api/admin/analytics?days=30", {
+      new Request("https://paretto.test/api/admin/analytics?days=30", {
         headers: { cookie: adminCookie },
       }),
     );

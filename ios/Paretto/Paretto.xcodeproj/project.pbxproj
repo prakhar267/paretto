@@ -1,0 +1,849 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 77;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		0731E0BC4292B7F9387C0C43 /* AppModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = C99D7501B36692052D346EF1 /* AppModel.swift */; };
+		0ED6B36EE16084E81C17C69E /* ProfileView.swift in Sources */ = {isa = PBXBuildFile; fileRef = E7F1F9A1175B44D5DB0EB65D /* ProfileView.swift */; };
+		15C974ABC354425AAE9E57C0 /* OnboardingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3DF12C17561D6D22408E9637 /* OnboardingView.swift */; };
+		1BDAB84701964CDC17288539 /* DiceView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 09DED6884459784A6342F151 /* DiceView.swift */; };
+		255962AAE2C058C0C4533ACE /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = 71FA457D88EF15459FD98099 /* PrivacyInfo.xcprivacy */; };
+		2D0DBB1B874281FD1599C02F /* AppDependencies.swift in Sources */ = {isa = PBXBuildFile; fileRef = A53854D11B8ED616480AC3E9 /* AppDependencies.swift */; };
+		50D84535E48293B2E7485B26 /* Theme.swift in Sources */ = {isa = PBXBuildFile; fileRef = 83B7BC9E24F9D223BB08B464 /* Theme.swift */; };
+		578E93AE4069491E81DCFD36 /* JourneyView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 47491D3A37BA63F00C6DE79E /* JourneyView.swift */; };
+		7706383D55B8CD7E0CA451AD /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 5B8590039A5DCDA4E441AB56 /* Assets.xcassets */; };
+		7BDEF1AD6F7ADEEF0DCB3DD0 /* ChallengeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1568934ED146E9C5D9F0DAF4 /* ChallengeView.swift */; };
+		83E8F60AC27B04675804D8A3 /* AppEnvironment.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0CBF46BEEB9B7564EB20CFB1 /* AppEnvironment.swift */; };
+		8419053F35242E2FB293AFF7 /* APIClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = ED560D9EEC345C3580E99CED /* APIClient.swift */; };
+		9293315E182F5D28D1962239 /* ReminderScheduler.swift in Sources */ = {isa = PBXBuildFile; fileRef = 81D6084A7B809F0C7325E412 /* ReminderScheduler.swift */; };
+		97BB383DF38C47AFC659C529 /* FrenchAudio in Resources */ = {isa = PBXBuildFile; fileRef = F5FDD1D033CBCCB85B3CDC79 /* FrenchAudio */; };
+		A34265A94CEC1230D5CF9319 /* TodayView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C365ECFD6D9C89F765FFF6A6 /* TodayView.swift */; };
+		A37B4DBE56393E5E680F1135 /* CollectiblesView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 571EEB1B58A7F2997EFCFBFE /* CollectiblesView.swift */; };
+		A5FC2FB17AE2CD48ACD87D35 /* AdaptiveRootView.swift in Sources */ = {isa = PBXBuildFile; fileRef = BF4D7297C7D6FD6A293092E2 /* AdaptiveRootView.swift */; };
+		A6B67768CCEA94247C0D4314 /* ParettoCore in Frameworks */ = {isa = PBXBuildFile; productRef = 845A3C8CC1700544BC58DC74 /* ParettoCore */; };
+		AED2C822923A8911750B599E /* ParettoUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 109CB0D5493E2BBF2AF8D38B /* ParettoUITests.swift */; };
+		B0AA850D8B351C1496A5FF8A /* ParettoApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8A0AA547D747F28BA371D259 /* ParettoApp.swift */; };
+		B4AAFFEEC913E0CFC6E2902D /* ReviewView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 68ECD1E784B62366296FEF50 /* ReviewView.swift */; };
+		C3D199D67A52E6CC9F39752C /* ParettoTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5E012E81D5BC54780262FF0B /* ParettoTests.swift */; };
+		D30BD9A490D176D4B495D4BC /* AppEntryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 02FC4165DF11AB1CB654EE49 /* AppEntryView.swift */; };
+		D3DF05C4F28090A1E025DA0F /* KeychainSessionStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4D9419B03551518E3A451714 /* KeychainSessionStore.swift */; };
+		DAC51F0355E59ED37430FFA5 /* WordbookView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5CA6609886384BD3B6A57C42 /* WordbookView.swift */; };
+		DE40BA9735972C9512C4409D /* SecureAppleSignInButton.swift in Sources */ = {isa = PBXBuildFile; fileRef = B835B5342508F39F2DA8C810 /* SecureAppleSignInButton.swift */; };
+		E7F8913A2F5BB33AA9B34BF5 /* AppleSignInNonce.swift in Sources */ = {isa = PBXBuildFile; fileRef = EDA6FBB6B457009583B36BB5 /* AppleSignInNonce.swift */; };
+		EDACA29020566E1DBA3EBB3D /* FrenchAudioPlayer.swift in Sources */ = {isa = PBXBuildFile; fileRef = D21AA42EB9E9F80198189906 /* FrenchAudioPlayer.swift */; };
+		F1DB3043D49F3D8A700306F1 /* LessonFlowView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 283AE2B21D322CD17A7E11B5 /* LessonFlowView.swift */; };
+		F7EE35E930CED16939F97F8D /* ParettoCore in Frameworks */ = {isa = PBXBuildFile; productRef = FA37B9FD655C6F40C7834E27 /* ParettoCore */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXContainerItemProxy section */
+		7224010A05347882085E4D00 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 8CF59D25CF02C6DCC94FCD03 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 78CC926B1A544D8449C6888E;
+			remoteInfo = Paretto;
+		};
+		877588E4CAC6970DA8AE632A /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 8CF59D25CF02C6DCC94FCD03 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 78CC926B1A544D8449C6888E;
+			remoteInfo = Paretto;
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXFileReference section */
+		02FC4165DF11AB1CB654EE49 /* AppEntryView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppEntryView.swift; sourceTree = "<group>"; };
+		09DED6884459784A6342F151 /* DiceView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DiceView.swift; sourceTree = "<group>"; };
+		0CBF46BEEB9B7564EB20CFB1 /* AppEnvironment.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppEnvironment.swift; sourceTree = "<group>"; };
+		109CB0D5493E2BBF2AF8D38B /* ParettoUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ParettoUITests.swift; sourceTree = "<group>"; };
+		1568934ED146E9C5D9F0DAF4 /* ChallengeView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChallengeView.swift; sourceTree = "<group>"; };
+		283AE2B21D322CD17A7E11B5 /* LessonFlowView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LessonFlowView.swift; sourceTree = "<group>"; };
+		3D1EAC1789DDBF4286441134 /* Paretto.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = Paretto.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		3DF12C17561D6D22408E9637 /* OnboardingView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnboardingView.swift; sourceTree = "<group>"; };
+		40784D8B4906F0DE88E8FBAF /* ParettoCore */ = {isa = PBXFileReference; lastKnownFileType = folder; name = ParettoCore; path = ../ParettoCore; sourceTree = SOURCE_ROOT; };
+		42EA4C3A98110771CE59EB55 /* Paretto.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = Paretto.entitlements; sourceTree = "<group>"; };
+		47491D3A37BA63F00C6DE79E /* JourneyView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = JourneyView.swift; sourceTree = "<group>"; };
+		4D9419B03551518E3A451714 /* KeychainSessionStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KeychainSessionStore.swift; sourceTree = "<group>"; };
+		571EEB1B58A7F2997EFCFBFE /* CollectiblesView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CollectiblesView.swift; sourceTree = "<group>"; };
+		5B8590039A5DCDA4E441AB56 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		5CA6609886384BD3B6A57C42 /* WordbookView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WordbookView.swift; sourceTree = "<group>"; };
+		5E012E81D5BC54780262FF0B /* ParettoTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ParettoTests.swift; sourceTree = "<group>"; };
+		68ECD1E784B62366296FEF50 /* ReviewView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReviewView.swift; sourceTree = "<group>"; };
+		71FA457D88EF15459FD98099 /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; path = PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
+		77EEE659378ACC0597A354F2 /* Shared.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Shared.xcconfig; sourceTree = "<group>"; };
+		80778FB6A3E2BC1278563BE9 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
+		81D6084A7B809F0C7325E412 /* ReminderScheduler.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReminderScheduler.swift; sourceTree = "<group>"; };
+		83B7BC9E24F9D223BB08B464 /* Theme.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Theme.swift; sourceTree = "<group>"; };
+		8A0AA547D747F28BA371D259 /* ParettoApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ParettoApp.swift; sourceTree = "<group>"; };
+		A53854D11B8ED616480AC3E9 /* AppDependencies.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppDependencies.swift; sourceTree = "<group>"; };
+		B835B5342508F39F2DA8C810 /* SecureAppleSignInButton.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SecureAppleSignInButton.swift; sourceTree = "<group>"; };
+		BF4D7297C7D6FD6A293092E2 /* AdaptiveRootView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AdaptiveRootView.swift; sourceTree = "<group>"; };
+		C365ECFD6D9C89F765FFF6A6 /* TodayView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TodayView.swift; sourceTree = "<group>"; };
+		C99D7501B36692052D346EF1 /* AppModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppModel.swift; sourceTree = "<group>"; };
+		D21AA42EB9E9F80198189906 /* FrenchAudioPlayer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FrenchAudioPlayer.swift; sourceTree = "<group>"; };
+		E7F1F9A1175B44D5DB0EB65D /* ProfileView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProfileView.swift; sourceTree = "<group>"; };
+		ED560D9EEC345C3580E99CED /* APIClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = APIClient.swift; sourceTree = "<group>"; };
+		EDA6FBB6B457009583B36BB5 /* AppleSignInNonce.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppleSignInNonce.swift; sourceTree = "<group>"; };
+		F41E8259C784B193EDC7D88C /* ParettoTests.xctest */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.cfbundle; path = ParettoTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		F5FDD1D033CBCCB85B3CDC79 /* FrenchAudio */ = {isa = PBXFileReference; lastKnownFileType = folder; name = FrenchAudio; path = ../../public/audio/fr; sourceTree = SOURCE_ROOT; };
+		F68044B78180D3A273FE74CE /* ParettoUITests.xctest */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.cfbundle; path = ParettoUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+/* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		644D498BF83C138A0158B40E /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				A6B67768CCEA94247C0D4314 /* ParettoCore in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		F1D9FD5D1391AD779A15EDE5 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				F7EE35E930CED16939F97F8D /* ParettoCore in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		0E5C57C2DDA97F5F5A78898C /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				3D1EAC1789DDBF4286441134 /* Paretto.app */,
+				F41E8259C784B193EDC7D88C /* ParettoTests.xctest */,
+				F68044B78180D3A273FE74CE /* ParettoUITests.xctest */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		25B56565C5B3632B082DC1ED /* App */ = {
+			isa = PBXGroup;
+			children = (
+				02FC4165DF11AB1CB654EE49 /* AppEntryView.swift */,
+				0CBF46BEEB9B7564EB20CFB1 /* AppEnvironment.swift */,
+				C99D7501B36692052D346EF1 /* AppModel.swift */,
+				8A0AA547D747F28BA371D259 /* ParettoApp.swift */,
+			);
+			path = App;
+			sourceTree = "<group>";
+		};
+		32AB99CA2F539E421F5AB13C /* Configuration */ = {
+			isa = PBXGroup;
+			children = (
+				77EEE659378ACC0597A354F2 /* Shared.xcconfig */,
+			);
+			path = Configuration;
+			sourceTree = "<group>";
+		};
+		4A139F9146B3C018E946A6AB /* ParettoTests */ = {
+			isa = PBXGroup;
+			children = (
+				5E012E81D5BC54780262FF0B /* ParettoTests.swift */,
+			);
+			path = ParettoTests;
+			sourceTree = "<group>";
+		};
+		5456B044A691192512BFCB1B = {
+			isa = PBXGroup;
+			children = (
+				32AB99CA2F539E421F5AB13C /* Configuration */,
+				93FD0965EDA0A653B7058351 /* Packages */,
+				D415335F65AD996ADCB235CC /* ParettoApp */,
+				4A139F9146B3C018E946A6AB /* ParettoTests */,
+				726AC5DDCC28222ADFC91C61 /* ParettoUITests */,
+				F5FDD1D033CBCCB85B3CDC79 /* FrenchAudio */,
+				0E5C57C2DDA97F5F5A78898C /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		726AC5DDCC28222ADFC91C61 /* ParettoUITests */ = {
+			isa = PBXGroup;
+			children = (
+				109CB0D5493E2BBF2AF8D38B /* ParettoUITests.swift */,
+			);
+			path = ParettoUITests;
+			sourceTree = "<group>";
+		};
+		839816A24DEDD8642ADC2E1D /* Services */ = {
+			isa = PBXGroup;
+			children = (
+				ED560D9EEC345C3580E99CED /* APIClient.swift */,
+				A53854D11B8ED616480AC3E9 /* AppDependencies.swift */,
+				D21AA42EB9E9F80198189906 /* FrenchAudioPlayer.swift */,
+				81D6084A7B809F0C7325E412 /* ReminderScheduler.swift */,
+			);
+			path = Services;
+			sourceTree = "<group>";
+		};
+		93FD0965EDA0A653B7058351 /* Packages */ = {
+			isa = PBXGroup;
+			children = (
+				40784D8B4906F0DE88E8FBAF /* ParettoCore */,
+			);
+			name = Packages;
+			sourceTree = "<group>";
+		};
+		964784D56D0C19CE90C5EAA8 /* DesignSystem */ = {
+			isa = PBXGroup;
+			children = (
+				83B7BC9E24F9D223BB08B464 /* Theme.swift */,
+			);
+			path = DesignSystem;
+			sourceTree = "<group>";
+		};
+		AFD0F1289180A81E9550B7C3 /* Auth */ = {
+			isa = PBXGroup;
+			children = (
+				EDA6FBB6B457009583B36BB5 /* AppleSignInNonce.swift */,
+				4D9419B03551518E3A451714 /* KeychainSessionStore.swift */,
+				B835B5342508F39F2DA8C810 /* SecureAppleSignInButton.swift */,
+			);
+			path = Auth;
+			sourceTree = "<group>";
+		};
+		D415335F65AD996ADCB235CC /* ParettoApp */ = {
+			isa = PBXGroup;
+			children = (
+				25B56565C5B3632B082DC1ED /* App */,
+				AFD0F1289180A81E9550B7C3 /* Auth */,
+				964784D56D0C19CE90C5EAA8 /* DesignSystem */,
+				D67DDF14130A007A5D167CFA /* Features */,
+				839816A24DEDD8642ADC2E1D /* Services */,
+				5B8590039A5DCDA4E441AB56 /* Assets.xcassets */,
+				80778FB6A3E2BC1278563BE9 /* Info.plist */,
+				42EA4C3A98110771CE59EB55 /* Paretto.entitlements */,
+				71FA457D88EF15459FD98099 /* PrivacyInfo.xcprivacy */,
+			);
+			path = ParettoApp;
+			sourceTree = "<group>";
+		};
+		D67DDF14130A007A5D167CFA /* Features */ = {
+			isa = PBXGroup;
+			children = (
+				BF4D7297C7D6FD6A293092E2 /* AdaptiveRootView.swift */,
+				1568934ED146E9C5D9F0DAF4 /* ChallengeView.swift */,
+				571EEB1B58A7F2997EFCFBFE /* CollectiblesView.swift */,
+				09DED6884459784A6342F151 /* DiceView.swift */,
+				47491D3A37BA63F00C6DE79E /* JourneyView.swift */,
+				283AE2B21D322CD17A7E11B5 /* LessonFlowView.swift */,
+				3DF12C17561D6D22408E9637 /* OnboardingView.swift */,
+				E7F1F9A1175B44D5DB0EB65D /* ProfileView.swift */,
+				68ECD1E784B62366296FEF50 /* ReviewView.swift */,
+				C365ECFD6D9C89F765FFF6A6 /* TodayView.swift */,
+				5CA6609886384BD3B6A57C42 /* WordbookView.swift */,
+			);
+			path = Features;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		2BA2F109A5E5826B798C4D91 /* ParettoUITests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 8855F0FD03BADCDEEF685B12 /* Build configuration list for PBXNativeTarget "ParettoUITests" */;
+			buildPhases = (
+				124E716590ADF1B706EFA7A2 /* Sources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				6CFE4D48C4B4327F4B30E665 /* PBXTargetDependency */,
+			);
+			name = ParettoUITests;
+			packageProductDependencies = (
+			);
+			productName = ParettoUITests;
+			productReference = F68044B78180D3A273FE74CE /* ParettoUITests.xctest */;
+			productType = "com.apple.product-type.bundle.ui-testing";
+		};
+		407FB22ABAE2B2AB3B58978C /* ParettoTests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 6E05FD9AE2DAD6765A2F563F /* Build configuration list for PBXNativeTarget "ParettoTests" */;
+			buildPhases = (
+				4E16D8A981A1953B607988C4 /* Sources */,
+				644D498BF83C138A0158B40E /* Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				0E6ABDB0FC4C87226B69E02F /* PBXTargetDependency */,
+			);
+			name = ParettoTests;
+			packageProductDependencies = (
+				845A3C8CC1700544BC58DC74 /* ParettoCore */,
+			);
+			productName = ParettoTests;
+			productReference = F41E8259C784B193EDC7D88C /* ParettoTests.xctest */;
+			productType = "com.apple.product-type.bundle.unit-test";
+		};
+		78CC926B1A544D8449C6888E /* Paretto */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 67D8DEE9E34A4FCED4A363F1 /* Build configuration list for PBXNativeTarget "Paretto" */;
+			buildPhases = (
+				A4F4A0B1DBC359E5C433F382 /* Sources */,
+				654CB31BD5D472E75A3AAEE8 /* Resources */,
+				F1D9FD5D1391AD779A15EDE5 /* Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = Paretto;
+			packageProductDependencies = (
+				FA37B9FD655C6F40C7834E27 /* ParettoCore */,
+			);
+			productName = Paretto;
+			productReference = 3D1EAC1789DDBF4286441134 /* Paretto.app */;
+			productType = "com.apple.product-type.application";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		8CF59D25CF02C6DCC94FCD03 /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				BuildIndependentTargetsInParallel = YES;
+				LastUpgradeCheck = 1430;
+				TargetAttributes = {
+					2BA2F109A5E5826B798C4D91 = {
+						DevelopmentTeam = "";
+						ProvisioningStyle = Automatic;
+						TestTargetID = 78CC926B1A544D8449C6888E;
+					};
+					407FB22ABAE2B2AB3B58978C = {
+						DevelopmentTeam = "";
+						ProvisioningStyle = Automatic;
+					};
+					78CC926B1A544D8449C6888E = {
+						DevelopmentTeam = "";
+						ProvisioningStyle = Automatic;
+					};
+				};
+			};
+			buildConfigurationList = A6A8BD3EF4C73B22DCB480F5 /* Build configuration list for PBXProject "Paretto" */;
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				Base,
+				en,
+			);
+			mainGroup = 5456B044A691192512BFCB1B;
+			minimizedProjectReferenceProxies = 1;
+			packageReferences = (
+				88E00C14DDCBBD2BAFA095AA /* XCLocalSwiftPackageReference "../ParettoCore" */,
+			);
+			preferredProjectObjectVersion = 77;
+			productRefGroup = 0E5C57C2DDA97F5F5A78898C /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				78CC926B1A544D8449C6888E /* Paretto */,
+				407FB22ABAE2B2AB3B58978C /* ParettoTests */,
+				2BA2F109A5E5826B798C4D91 /* ParettoUITests */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		654CB31BD5D472E75A3AAEE8 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				7706383D55B8CD7E0CA451AD /* Assets.xcassets in Resources */,
+				255962AAE2C058C0C4533ACE /* PrivacyInfo.xcprivacy in Resources */,
+				97BB383DF38C47AFC659C529 /* FrenchAudio in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		124E716590ADF1B706EFA7A2 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				AED2C822923A8911750B599E /* ParettoUITests.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		4E16D8A981A1953B607988C4 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				C3D199D67A52E6CC9F39752C /* ParettoTests.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		A4F4A0B1DBC359E5C433F382 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				8419053F35242E2FB293AFF7 /* APIClient.swift in Sources */,
+				A5FC2FB17AE2CD48ACD87D35 /* AdaptiveRootView.swift in Sources */,
+				2D0DBB1B874281FD1599C02F /* AppDependencies.swift in Sources */,
+				D30BD9A490D176D4B495D4BC /* AppEntryView.swift in Sources */,
+				83E8F60AC27B04675804D8A3 /* AppEnvironment.swift in Sources */,
+				0731E0BC4292B7F9387C0C43 /* AppModel.swift in Sources */,
+				E7F8913A2F5BB33AA9B34BF5 /* AppleSignInNonce.swift in Sources */,
+				7BDEF1AD6F7ADEEF0DCB3DD0 /* ChallengeView.swift in Sources */,
+				A37B4DBE56393E5E680F1135 /* CollectiblesView.swift in Sources */,
+				1BDAB84701964CDC17288539 /* DiceView.swift in Sources */,
+				EDACA29020566E1DBA3EBB3D /* FrenchAudioPlayer.swift in Sources */,
+				578E93AE4069491E81DCFD36 /* JourneyView.swift in Sources */,
+				D3DF05C4F28090A1E025DA0F /* KeychainSessionStore.swift in Sources */,
+				F1DB3043D49F3D8A700306F1 /* LessonFlowView.swift in Sources */,
+				15C974ABC354425AAE9E57C0 /* OnboardingView.swift in Sources */,
+				B0AA850D8B351C1496A5FF8A /* ParettoApp.swift in Sources */,
+				0ED6B36EE16084E81C17C69E /* ProfileView.swift in Sources */,
+				9293315E182F5D28D1962239 /* ReminderScheduler.swift in Sources */,
+				B4AAFFEEC913E0CFC6E2902D /* ReviewView.swift in Sources */,
+				DE40BA9735972C9512C4409D /* SecureAppleSignInButton.swift in Sources */,
+				50D84535E48293B2E7485B26 /* Theme.swift in Sources */,
+				A34265A94CEC1230D5CF9319 /* TodayView.swift in Sources */,
+				DAC51F0355E59ED37430FFA5 /* WordbookView.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		0E6ABDB0FC4C87226B69E02F /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 78CC926B1A544D8449C6888E /* Paretto */;
+			targetProxy = 7224010A05347882085E4D00 /* PBXContainerItemProxy */;
+		};
+		6CFE4D48C4B4327F4B30E665 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 78CC926B1A544D8449C6888E /* Paretto */;
+			targetProxy = 877588E4CAC6970DA8AE632A /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
+
+/* Begin XCBuildConfiguration section */
+		04550C929A302D0547DD5668 /* Release */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = 77EEE659378ACC0597A354F2 /* Shared.xcconfig */;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_ENTITLEMENTS = ParettoApp/Paretto.entitlements;
+				CODE_SIGN_IDENTITY = "iPhone Developer";
+				INFOPLIST_FILE = ParettoApp/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				PARETTO_API_BASE_URL = "$(PARETTO_PRODUCTION_API_BASE_URL)";
+				PRODUCT_BUNDLE_IDENTIFIER = com.paretto.app;
+				PRODUCT_MODULE_NAME = Paretto;
+				PRODUCT_NAME = Paretto;
+				SDKROOT = iphoneos;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Release;
+		};
+		21A30374A441889DBE5BA4AE /* Staging */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.paretto.ParettoUITests;
+				SDKROOT = iphoneos;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_TARGET_NAME = Paretto;
+			};
+			name = Staging;
+		};
+		3664A932E0FB2282E9DB23F4 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				CODE_SIGN_STYLE = Automatic;
+				COPY_PHASE_STRIP = NO;
+				CURRENT_PROJECT_VERSION = 4;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				DEVELOPMENT_TEAM = "";
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"$(inherited)",
+					"DEBUG=1",
+				);
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				MARKETING_VERSION = 1.2.0;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				MTL_FAST_MATH = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+				SWIFT_VERSION = 6.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		6AF74A3A0DDEB4EB40D92AA9 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.paretto.ParettoTests;
+				SDKROOT = iphoneos;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/Paretto.app/Paretto";
+			};
+			name = Release;
+		};
+		6C5545872492BF9C72A84E7A /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.paretto.ParettoUITests;
+				SDKROOT = iphoneos;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_TARGET_NAME = Paretto;
+			};
+			name = Debug;
+		};
+		7FBDB61FF60FBCBE794AD8A3 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				CODE_SIGN_STYLE = Automatic;
+				COPY_PHASE_STRIP = NO;
+				CURRENT_PROJECT_VERSION = 4;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				DEVELOPMENT_TEAM = "";
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				MARKETING_VERSION = 1.2.0;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				MTL_FAST_MATH = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SWIFT_COMPILATION_MODE = wholemodule;
+				SWIFT_OPTIMIZATION_LEVEL = "-O";
+				SWIFT_VERSION = 6.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Release;
+		};
+		803A60A3B0B5B626A36F82CD /* Staging */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.paretto.ParettoTests;
+				SDKROOT = iphoneos;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/Paretto.app/Paretto";
+			};
+			name = Staging;
+		};
+		878D633C35F80C56756907B8 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = 77EEE659378ACC0597A354F2 /* Shared.xcconfig */;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_ENTITLEMENTS = ParettoApp/Paretto.entitlements;
+				CODE_SIGN_IDENTITY = "iPhone Developer";
+				INFOPLIST_FILE = ParettoApp/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				PARETTO_API_BASE_URL = "http:/$()/localhost:3000";
+				PRODUCT_BUNDLE_IDENTIFIER = com.paretto.app;
+				PRODUCT_MODULE_NAME = Paretto;
+				PRODUCT_NAME = Paretto;
+				SDKROOT = iphoneos;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		8C30FD8BF24D61D96A3E5F2E /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.paretto.ParettoTests;
+				SDKROOT = iphoneos;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/Paretto.app/Paretto";
+			};
+			name = Debug;
+		};
+		997351A44412362BB1E13901 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.paretto.ParettoUITests;
+				SDKROOT = iphoneos;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_TARGET_NAME = Paretto;
+			};
+			name = Release;
+		};
+		A2909EDFEE894EA2BD022F07 /* Staging */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				CODE_SIGN_STYLE = Automatic;
+				COPY_PHASE_STRIP = NO;
+				CURRENT_PROJECT_VERSION = 4;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				DEVELOPMENT_TEAM = "";
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				MARKETING_VERSION = 1.2.0;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				MTL_FAST_MATH = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SWIFT_COMPILATION_MODE = wholemodule;
+				SWIFT_OPTIMIZATION_LEVEL = "-O";
+				SWIFT_VERSION = 6.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Staging;
+		};
+		BA716A4FB4A931087FE18F18 /* Staging */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = 77EEE659378ACC0597A354F2 /* Shared.xcconfig */;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_ENTITLEMENTS = ParettoApp/Paretto.entitlements;
+				CODE_SIGN_IDENTITY = "iPhone Developer";
+				INFOPLIST_FILE = ParettoApp/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				PARETTO_API_BASE_URL = "$(PARETTO_STAGING_API_BASE_URL)";
+				PRODUCT_BUNDLE_IDENTIFIER = com.paretto.app;
+				PRODUCT_MODULE_NAME = Paretto;
+				PRODUCT_NAME = Paretto;
+				SDKROOT = iphoneos;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = STAGING;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Staging;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		67D8DEE9E34A4FCED4A363F1 /* Build configuration list for PBXNativeTarget "Paretto" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				878D633C35F80C56756907B8 /* Debug */,
+				04550C929A302D0547DD5668 /* Release */,
+				BA716A4FB4A931087FE18F18 /* Staging */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		6E05FD9AE2DAD6765A2F563F /* Build configuration list for PBXNativeTarget "ParettoTests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				8C30FD8BF24D61D96A3E5F2E /* Debug */,
+				6AF74A3A0DDEB4EB40D92AA9 /* Release */,
+				803A60A3B0B5B626A36F82CD /* Staging */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		8855F0FD03BADCDEEF685B12 /* Build configuration list for PBXNativeTarget "ParettoUITests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				6C5545872492BF9C72A84E7A /* Debug */,
+				997351A44412362BB1E13901 /* Release */,
+				21A30374A441889DBE5BA4AE /* Staging */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		A6A8BD3EF4C73B22DCB480F5 /* Build configuration list for PBXProject "Paretto" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				3664A932E0FB2282E9DB23F4 /* Debug */,
+				7FBDB61FF60FBCBE794AD8A3 /* Release */,
+				A2909EDFEE894EA2BD022F07 /* Staging */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+/* End XCConfigurationList section */
+
+/* Begin XCLocalSwiftPackageReference section */
+		88E00C14DDCBBD2BAFA095AA /* XCLocalSwiftPackageReference "../ParettoCore" */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = ../ParettoCore;
+		};
+/* End XCLocalSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		845A3C8CC1700544BC58DC74 /* ParettoCore */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = ParettoCore;
+		};
+		FA37B9FD655C6F40C7834E27 /* ParettoCore */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = ParettoCore;
+		};
+/* End XCSwiftPackageProductDependency section */
+	};
+	rootObject = 8CF59D25CF02C6DCC94FCD03 /* Project object */;
+}
