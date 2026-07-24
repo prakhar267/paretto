@@ -13,7 +13,7 @@ addresses in release evidence.
 - Release owner:
 - Independent reviewer:
 - CI run URL:
-- Sites version/deployment URL:
+- Hosting version/deployment URL:
 - Native marketing/build version:
 - macOS and full Xcode version/build:
 - Signed staging archive or TestFlight URL:
@@ -57,30 +57,35 @@ addresses in release evidence.
 
 ## Production configuration
 
-- [ ] Sites project and D1 binding are assigned.
+- [ ] The selected hosting project, Worker/static-assets deployment, and D1
+      binding are assigned and verified. Record direct Cloudflare or Sites.
 - [ ] `USER_KEY_SECRET` is present, random, at least 32 characters, and stored
       only in the hosted secret manager. Record presence only, never the value.
 - [ ] `ADMIN_EMAILS` contains the approved least-privilege allowlist. Record the
       approver, not the addresses.
-- [ ] `APPLE_CLIENT_ID` exactly matches the production Apple identifier used by
-      the signed native application.
-- [ ] `APPLE_TEAM_ID`, `APPLE_KEY_ID`, and the managed-secret `APPLE_PRIVATE_KEY`
-      are the active Sign in with Apple server credentials. Record identifiers
-      only; never copy the private key into release evidence.
-- [ ] `APPLE_TOKEN_ENCRYPTION_SECRET` is present, random, independent, at least
-      32 characters, and its restore/rotation procedure is documented.
-- [ ] `NATIVE_SESSION_SECRET` is present, random, independent from other secrets,
-      at least 32 characters, and stored only in the hosted secret manager.
+- [ ] If the native API is enabled, `APPLE_CLIENT_ID` exactly matches the
+      production Apple identifier used by the signed native application.
+- [ ] If the native API is enabled, `APPLE_TEAM_ID`, `APPLE_KEY_ID`, and the
+      managed-secret `APPLE_PRIVATE_KEY` are the active Sign in with Apple server
+      credentials. Record identifiers only; never copy the private key into
+      release evidence.
+- [ ] If the native API is enabled, `APPLE_TOKEN_ENCRYPTION_SECRET` is present,
+      random, independent, at least 32 characters, and its restore/rotation
+      procedure is documented.
+- [ ] If the native API is enabled, `NATIVE_SESSION_SECRET` is present, random,
+      independent from other secrets, at least 32 characters, and stored only in
+      the hosted secret manager.
 - [ ] `/api/health` returns HTTP 200 and `productionReady: true`.
-- [ ] Hosting strips client-supplied identity headers and injects authenticated
-      identity as expected.
+- [ ] Hosting strips retired client-supplied identity headers, and the selected
+      anonymous-web or authenticated identity mechanism is verified.
 - Configuration approver:
 - Health evidence URL/time:
 
 ## Deployment and production smoke
 
 - [ ] Deployed version matches the validated Git SHA.
-- [ ] Sign-in and sign-out passed.
+- [ ] Anonymous learner-session creation and administrator sign-in/sign-out
+      passed. Record native sign-in separately when the native API is enabled.
 - [ ] First lesson, pronunciation, progress sync, conflict recovery, export, and
       deletion passed.
 - [ ] The signed native staging/TestFlight build passed Apple sign-in/sign-out,
