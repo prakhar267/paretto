@@ -104,6 +104,7 @@ export async function POST(request: Request, context: RouteContext) {
           admin.email,
           auditAction,
           JSON.stringify({
+            courseId: existing.course_id,
             fromReviewStatus: existing.review_status,
             toReviewStatus: transition.nextStatus,
             note: parsed.value.note,

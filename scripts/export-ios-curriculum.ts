@@ -3,6 +3,7 @@ import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { CURRICULUM_PLAN, REGIONS, WORDS } from "../app/learning-data";
+import { DEFAULT_COURSE } from "../app/course-catalog";
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const audioManifest = JSON.parse(
@@ -21,6 +22,17 @@ const output = resolve(
 const curriculum = {
   schemaVersion: 1,
   revision: "compiled-v1",
+  course: {
+    id: DEFAULT_COURSE.id,
+    sourceLanguageName: DEFAULT_COURSE.sourceLanguageName,
+    targetLanguageName: DEFAULT_COURSE.targetLanguageName,
+    sourceLocale: DEFAULT_COURSE.sourceLocale,
+    targetLocale: DEFAULT_COURSE.targetLocale,
+    initialContextId: DEFAULT_COURSE.initialContextId,
+    audioLocale: DEFAULT_COURSE.audio.locale,
+    audioAssetPrefix: DEFAULT_COURSE.audio.assetPrefix,
+    taxonomy: DEFAULT_COURSE.taxonomy,
+  },
   audioAssetVersion: audioManifest.assetVersion,
   audioAttributionPath: audioManifest.attribution.path,
   regions: REGIONS.map((region) => ({ ...region })),

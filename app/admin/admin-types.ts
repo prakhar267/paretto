@@ -1,3 +1,12 @@
+import {
+  CEFR_LEVELS,
+  type CefrLevel,
+} from "../curriculum-metadata";
+import type { CourseId } from "../course-catalog";
+
+export { CEFR_LEVELS };
+export type { CefrLevel };
+
 export const CONTENT_KINDS = ["vocabulary", "lesson"] as const;
 export const CONTENT_STATUSES = ["draft", "published"] as const;
 export const CONTENT_REVIEW_STATUSES = [
@@ -42,8 +51,8 @@ export type VocabularyContent = {
   regionId: string;
   exampleFr: string;
   exampleEn: string;
-  cefr: "A1" | "A2";
-  lesson: 1 | 2 | 3;
+  cefr: CefrLevel;
+  lesson: number;
   topic: string;
   emoji: string;
   sensitive: boolean;
@@ -58,8 +67,8 @@ export type LessonBlock = {
 export type LessonContent = {
   summary: string;
   regionId: string;
-  cefr: "A1" | "A2";
-  lesson: 1 | 2 | 3;
+  cefr: CefrLevel;
+  lesson: number;
   topic: string;
   sensitive: boolean;
   introduction: string;
@@ -72,6 +81,7 @@ export type CmsContentPayload = VocabularyContent | LessonContent;
 
 export type CmsContentSummary = {
   id: string;
+  courseId: CourseId;
   kind: ContentKind;
   slug: string;
   stableKey: string;
@@ -96,6 +106,7 @@ export type CmsContentRecord = CmsContentSummary & {
 };
 
 export type CmsContentRevision = {
+  courseId: CourseId;
   contentId: string;
   revision: number;
   kind: ContentKind;
@@ -148,6 +159,16 @@ export type OperationsSummary = {
   configuration: {
     database: boolean;
     userKeySecret: boolean;
+    supportRateLimitSecret: boolean;
+    learnerAuthRateLimitSecret: boolean;
+    learnerAuthentication: boolean;
+    learnerAuthOrigin: boolean;
+    learnerEmailAccountCreation: boolean;
+    learnerEmailVerification: boolean;
+    learnerPasswordReset: boolean;
+    learnerGoogleAuth: boolean;
+    learnerAppleAuth: boolean;
+    supportNotifications: boolean;
     adminAllowlist: boolean;
     appleClientId: boolean;
     appleServerCredentials: boolean;
@@ -156,8 +177,28 @@ export type OperationsSummary = {
   };
   content: { published: number; drafts: number };
   support: { open: number };
-  retentionDue: { productEvents: number; supportRequests: number; auditEvents: number };
+  retentionDue: {
+    productEvents: number;
+    supportRequests: number;
+    auditEvents: number;
+    adminLoginAttempts: number;
+    learnerSessions: number;
+    learnerVerifications: number;
+    learnerAuthRateLimits: number;
+    supportRateLimits: number;
+  };
   activeLegalHolds: number;
+  accountDeletionQueue: {
+    pending: number;
+    held: number;
+    withErrors: number;
+    oldestUpdatedAt: string | null;
+  };
+  supportNotificationQueue: {
+    pending: number;
+    failed: number;
+    oldestCreatedAt: string | null;
+  };
   retentionBatchLimit: number;
 };
 

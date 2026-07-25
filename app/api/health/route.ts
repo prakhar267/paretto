@@ -2,15 +2,68 @@ import {
   getRuntimeConfigurationReadiness,
   type RuntimeConfigurationReadiness,
 } from "@/app/server-auth";
+import { readScheduledRetentionStatus } from "@/app/retention-policy";
 import { getDatabase } from "@/db";
 
 export const dynamic = "force-dynamic";
 
-const SERVICE_VERSION = "1.2.0";
-const SCHEMA_REVISION = "0007";
+const SERVICE_VERSION = "1.3.0";
+const SCHEMA_REVISION = "0012";
+const QUEUE_STALE_AFTER_MS = 60 * 60 * 1000;
+const QUEUE_COUNT_REPORT_LIMIT = 1_000;
 
 const REQUIRED_SCHEMA = {
   learning_state: ["user_key", "revision", "payload", "updated_at"],
+  learner_progress_generations: ["user_key", "generation", "updated_at"],
+  learner_user: [
+    "id",
+    "name",
+    "email",
+    "email_verified",
+    "image",
+    "created_at",
+    "updated_at",
+  ],
+  learner_session: [
+    "id",
+    "expires_at",
+    "token",
+    "created_at",
+    "updated_at",
+    "ip_address",
+    "user_agent",
+    "user_id",
+  ],
+  learner_account: [
+    "id",
+    "account_id",
+    "provider_id",
+    "user_id",
+    "access_token",
+    "refresh_token",
+    "id_token",
+    "access_token_expires_at",
+    "refresh_token_expires_at",
+    "scope",
+    "password",
+    "created_at",
+    "updated_at",
+  ],
+  learner_verification: [
+    "id",
+    "identifier",
+    "value",
+    "expires_at",
+    "created_at",
+    "updated_at",
+  ],
+  learner_auth_rate_limits: [
+    "bucket_hash",
+    "request_count",
+    "last_request_at",
+    "updated_at",
+  ],
+  learner_identity_links: ["anonymous_user_key", "account_id", "linked_at"],
   admin_login_attempts: [
     "ip_hash",
     "window_started_at",
@@ -20,6 +73,7 @@ const REQUIRED_SCHEMA = {
   ],
   cms_content: [
     "id",
+    "course_id",
     "kind",
     "slug",
     "stable_key",
@@ -38,12 +92,14 @@ const REQUIRED_SCHEMA = {
     "updated_by_email",
   ],
   cms_vocabulary_aliases: [
+    "course_id",
     "alias",
     "content_id",
     "stable_key",
     "created_at",
   ],
   cms_slug_tombstones: [
+    "course_id",
     "kind",
     "slug",
     "stable_key",
@@ -52,6 +108,7 @@ const REQUIRED_SCHEMA = {
     "retired_by_email",
   ],
   cms_content_revisions: [
+    "course_id",
     "content_id",
     "revision",
     "kind",
@@ -74,6 +131,29 @@ const REQUIRED_SCHEMA = {
     "body",
     "status",
     "revision",
+    "created_at",
+    "updated_at",
+  ],
+  support_rate_limits: [
+    "bucket_hash",
+    "window_started_at",
+    "request_count",
+    "last_reservation_id",
+    "updated_at",
+  ],
+  support_notification_jobs: [
+    "id",
+    "support_request_id",
+    "event_type",
+    "support_revision",
+    "support_status",
+    "recipient_email",
+    "status",
+    "attempts",
+    "available_at",
+    "lease_expires_at",
+    "last_error",
+    "completed_at",
     "created_at",
     "updated_at",
   ],
@@ -105,6 +185,11 @@ const REQUIRED_SCHEMA = {
     "created_at",
     "updated_at",
   ],
+  native_learner_links: [
+    "native_account_id",
+    "learner_user_id",
+    "linked_at",
+  ],
   native_sessions: [
     "token_hash",
     "id",
@@ -113,7 +198,9 @@ const REQUIRED_SCHEMA = {
     "created_at",
     "revoked_at",
   ],
-  native_learning_state: ["account_id", "revision", "payload", "updated_at"],
+  native_learning_state: [
+    "account_id", "revision", "reset_generation", "payload", "updated_at",
+  ],
   native_apple_credentials: [
     "account_id",
     "refresh_token_ciphertext",
@@ -124,6 +211,17 @@ const REQUIRED_SCHEMA = {
     "exchange_id",
     "expires_at",
     "used_at",
+  ],
+  learner_deletion_jobs: [
+    "user_id",
+    "user_key",
+    "native_account_id",
+    "status",
+    "requested_at",
+    "completed_at",
+    "attempts",
+    "last_error",
+    "updated_at",
   ],
   retention_legal_holds: [
     "id",
@@ -136,9 +234,33 @@ const REQUIRED_SCHEMA = {
     "released_by_email",
     "released_at",
   ],
+  retention_schedule_state: [
+    "job_name",
+    "status",
+    "monitoring_started_at",
+    "run_id",
+    "scheduled_at",
+    "started_at",
+    "completed_at",
+    "last_succeeded_at",
+    "last_failed_at",
+    "last_error",
+    "last_result",
+    "updated_at",
+  ],
 } as const;
 
 const REQUIRED_INDEXES = [
+  "learner_user_email_unique",
+  "learner_session_token_unique",
+  "learner_session_user_idx",
+  "learner_session_expiry_idx",
+  "learner_account_user_idx",
+  "learner_account_provider_unique",
+  "learner_verification_identifier_idx",
+  "learner_verification_expiry_idx",
+  "learner_auth_rate_limits_updated_idx",
+  "learner_identity_links_account_idx",
   "admin_login_attempts_updated_idx",
   "cms_content_kind_slug_unique",
   "cms_content_kind_stable_key_unique",
@@ -149,28 +271,55 @@ const REQUIRED_INDEXES = [
   "cms_content_revisions_created_idx",
   "support_requests_user_created_idx",
   "support_requests_status_updated_idx",
+  "support_rate_limits_updated_idx",
+  "support_notification_jobs_event_unique",
+  "support_notification_jobs_delivery_idx",
   "admin_audit_entity_created_idx",
   "admin_audit_created_idx",
   "product_events_name_occurred_idx",
   "product_events_user_occurred_idx",
   "product_events_received_idx",
   "native_accounts_apple_subject_unique",
+  "native_learner_links_user_unique",
   "native_sessions_id_unique",
   "native_sessions_account_idx",
   "native_sessions_expiry_idx",
   "native_identity_token_uses_expiry_idx",
+  "learner_deletion_jobs_status_updated_idx",
   "retention_legal_holds_status_class_idx",
 ] as const;
 
 type SchemaColumn = { name: string };
 type SchemaIndex = { name: string };
+type DeletionQueueRow = {
+  pending: number | null;
+  held: number | null;
+  with_errors: number | null;
+  oldest_pending_at: number | null;
+};
+type SupportQueueRow = {
+  open_jobs: number | null;
+  failed_jobs: number | null;
+  oldest_open_at: number | null;
+};
 
 export async function GET() {
   const startedAt = Date.now();
   const checkedAt = new Date().toISOString();
   const developmentPreview = process.env.NODE_ENV === "development";
-  let configuration = {
+  let configuration: RuntimeConfigurationReadiness = {
+    launchMode: null,
     userKeySecret: false,
+    supportRateLimitSecret: false,
+    learnerAuthRateLimitSecret: false,
+    learnerAuthentication: false,
+    learnerAuthOrigin: false,
+    learnerEmailAccountCreation: false,
+    learnerEmailVerification: false,
+    learnerPasswordReset: false,
+    learnerGoogleAuth: false,
+    learnerAppleAuth: false,
+    supportNotifications: false,
     adminAllowlist: false,
     adminAuthentication: false,
     turnstileSiteKey: false,
@@ -209,6 +358,7 @@ export async function GET() {
         checks: {
           database: "unavailable",
           schema: "unknown",
+          retentionSchedule: "unknown",
           ...configurationCheckStatuses(configuration),
         },
         database: "unavailable",
@@ -235,6 +385,7 @@ export async function GET() {
         checks: {
           database: "ready",
           schema: "incomplete",
+          retentionSchedule: "unknown",
           ...configurationCheckStatuses(configuration),
         },
         database: "ready",
@@ -243,8 +394,115 @@ export async function GET() {
     );
   }
 
-  const { productionReady, webReady, nativeReady } = runtimeReadiness;
-  const serviceReady = productionReady || developmentPreview;
+  let retentionSchedule: Awaited<
+    ReturnType<typeof readScheduledRetentionStatus>
+  >;
+  try {
+    retentionSchedule = await readScheduledRetentionStatus(database);
+  } catch (error) {
+    logHealthFailure("health_retention_schedule_check_failed", error);
+    return healthResponse(
+      {
+        status: "degraded",
+        service: "paretto-web",
+        version: SERVICE_VERSION,
+        schemaRevision: SCHEMA_REVISION,
+        productionReady: false,
+        webReady: runtimeReadiness.webReady,
+        nativeReady: runtimeReadiness.nativeReady,
+        checkedAt,
+        latencyMs: Date.now() - startedAt,
+        checks: {
+          database: "ready",
+          schema: "ready",
+          retentionSchedule: "unavailable",
+          ...configurationCheckStatuses(configuration),
+        },
+        database: "ready",
+      },
+      503,
+    );
+  }
+
+  let queueReadiness: Awaited<ReturnType<typeof readQueueReadiness>>;
+  try {
+    queueReadiness = await readQueueReadiness(database);
+  } catch (error) {
+    logHealthFailure("health_queue_check_failed", error);
+    return healthResponse(
+      {
+        status: "degraded",
+        service: "paretto-web",
+        version: SERVICE_VERSION,
+        schemaRevision: SCHEMA_REVISION,
+        productionReady: false,
+        webReady: runtimeReadiness.webReady,
+        nativeReady: runtimeReadiness.nativeReady,
+        checkedAt,
+        latencyMs: Date.now() - startedAt,
+        checks: {
+          database: "ready",
+          schema: "ready",
+          retentionSchedule: retentionSchedule.health,
+          accountDeletionQueue: "unavailable",
+          supportNotificationQueue: "unavailable",
+          ...configurationCheckStatuses(configuration),
+        },
+        database: "ready",
+      },
+      503,
+    );
+  }
+
+  const { webReady, nativeReady } = runtimeReadiness;
+  const productionReady =
+    runtimeReadiness.productionReady &&
+    retentionSchedule.healthy &&
+    queueReadiness.healthy;
+  const controlledBetaReady =
+    configuration.launchMode === "controlled-beta" &&
+    webReady &&
+    retentionSchedule.healthy &&
+    queueReadiness.healthy;
+  const serviceReady =
+    productionReady || controlledBetaReady || developmentPreview;
+  const warnings = [
+    ...(configuration.launchMode === "controlled-beta"
+      ? [
+          "Controlled beta mode is operational but is not approved for a broad public launch.",
+          ...(!configuration.learnerPasswordReset
+            ? [
+                "Transactional email is not configured; email registration, verification, and password recovery remain unavailable.",
+              ]
+            : []),
+          ...(!configuration.supportNotifications
+            ? [
+                "Operator support email delivery is not configured; tickets remain stored for authenticated administrator follow-up.",
+              ]
+            : []),
+        ]
+      : []),
+    ...(configuration.launchMode === null && !developmentPreview
+      ? ["LAUNCH_MODE is missing or invalid."]
+      : []),
+    ...(developmentPreview
+      ? [
+        ...(!runtimeReadiness.productionReady
+          ? [
+              "Development preview is available, but production runtime bindings remain incomplete.",
+            ]
+          : []),
+        ...(!retentionSchedule.healthy
+          ? [
+              `Scheduled retention health is ${retentionSchedule.health}.`,
+            ]
+          : []),
+        ...(!queueReadiness.healthy
+          ? ["A durable operations queue requires attention."]
+          : []),
+        ]
+      : []),
+  ];
   return healthResponse(
     {
       status: serviceReady ? "ok" : "degraded",
@@ -254,24 +512,167 @@ export async function GET() {
       productionReady,
       webReady,
       nativeReady,
+      launchMode: configuration.launchMode,
       environment: developmentPreview ? "development-preview" : "production",
-      warnings:
-        developmentPreview && !productionReady
-          ? [
-              "Development preview is available, but production runtime bindings remain incomplete.",
-            ]
-          : [],
+      warnings,
       checkedAt,
       latencyMs: Date.now() - startedAt,
       checks: {
         database: "ready",
         schema: "ready",
+        retentionSchedule: retentionSchedule.health,
+        accountDeletionQueue: queueReadiness.accountDeletion.status,
+        supportNotificationQueue:
+          queueReadiness.supportNotifications.status,
         ...configurationCheckStatuses(configuration),
+      },
+      queues: {
+        accountDeletion: queueReadiness.accountDeletion,
+        supportNotifications: queueReadiness.supportNotifications,
+      },
+      retentionSchedule: {
+        status: retentionSchedule.health,
+        missed: retentionSchedule.missed,
+        monitoringStartedAt: retentionSchedule.monitoringStartedAt,
+        scheduledAt: retentionSchedule.scheduledAt,
+        startedAt: retentionSchedule.startedAt,
+        completedAt: retentionSchedule.completedAt,
+        lastSucceededAt: retentionSchedule.lastSucceededAt,
+        lastFailedAt: retentionSchedule.lastFailedAt,
+        nextExpectedAt: retentionSchedule.nextExpectedAt,
       },
       database: "ready",
     },
     serviceReady ? 200 : 503,
   );
+}
+
+export async function readQueueReadiness(
+  database: D1Database,
+  now = Date.now(),
+) {
+  const [deletion, support] = await Promise.all([
+    database
+      .prepare(
+        `SELECT
+           (SELECT COUNT(*) FROM (
+             SELECT 1 FROM learner_deletion_jobs AS jobs
+             WHERE jobs.status = 'pending'
+             LIMIT ?
+           )) AS pending,
+           (SELECT COUNT(*) FROM (
+             SELECT 1 FROM learner_deletion_jobs AS jobs
+             WHERE jobs.status = 'held'
+             LIMIT ?
+           )) AS held,
+           (SELECT COUNT(*) FROM (
+             SELECT 1 FROM learner_deletion_jobs AS jobs
+             WHERE jobs.status IN ('pending', 'held')
+               AND jobs.last_error IS NOT NULL
+             LIMIT ?
+           )) AS with_errors,
+           (SELECT jobs.updated_at
+            FROM learner_deletion_jobs AS jobs
+            WHERE jobs.status = 'pending'
+            ORDER BY jobs.updated_at ASC, jobs.user_id ASC
+            LIMIT 1) AS oldest_pending_at`,
+      )
+      .bind(
+        QUEUE_COUNT_REPORT_LIMIT + 1,
+        QUEUE_COUNT_REPORT_LIMIT + 1,
+        QUEUE_COUNT_REPORT_LIMIT + 1,
+      )
+      .first<DeletionQueueRow>(),
+    database
+      .prepare(
+        `SELECT
+           (SELECT COUNT(*) FROM (
+             SELECT 1 FROM support_notification_jobs AS jobs
+             WHERE jobs.status IN ('pending', 'processing', 'failed')
+             LIMIT ?
+           )) AS open_jobs,
+           (SELECT COUNT(*) FROM (
+             SELECT 1 FROM support_notification_jobs AS jobs
+             WHERE jobs.status = 'failed'
+             LIMIT ?
+           )) AS failed_jobs,
+           (SELECT jobs.updated_at
+            FROM support_notification_jobs AS jobs
+            WHERE jobs.status IN ('pending', 'processing', 'failed')
+            ORDER BY jobs.updated_at ASC, jobs.id ASC
+            LIMIT 1) AS oldest_open_at`,
+      )
+      .bind(
+        QUEUE_COUNT_REPORT_LIMIT + 1,
+        QUEUE_COUNT_REPORT_LIMIT + 1,
+      )
+      .first<SupportQueueRow>(),
+  ]);
+  const pending = Number(deletion?.pending ?? 0);
+  const held = Number(deletion?.held ?? 0);
+  const deletionErrors = Number(deletion?.with_errors ?? 0);
+  const oldestPendingAt =
+    typeof deletion?.oldest_pending_at === "number"
+      ? deletion.oldest_pending_at
+      : null;
+  const deletionStalled =
+    oldestPendingAt !== null &&
+    oldestPendingAt < now - QUEUE_STALE_AFTER_MS;
+  const accountDeletionStatus = deletionErrors > 0
+    ? "failed"
+    : deletionStalled
+      ? "stalled"
+      : held > 0
+        ? "legal-hold"
+        : "ready";
+
+  const supportOpen = Number(support?.open_jobs ?? 0);
+  const supportFailed = Number(support?.failed_jobs ?? 0);
+  const oldestSupportAt =
+    typeof support?.oldest_open_at === "number"
+      ? support.oldest_open_at
+      : null;
+  const supportStalled =
+    oldestSupportAt !== null &&
+    oldestSupportAt < now - QUEUE_STALE_AFTER_MS;
+  const supportStatus = supportFailed > 0
+    ? "failed"
+    : supportStalled
+      ? "stalled"
+      : "ready";
+
+  return {
+    healthy:
+      accountDeletionStatus !== "failed" &&
+      accountDeletionStatus !== "stalled" &&
+      supportStatus === "ready",
+    accountDeletion: {
+      status: accountDeletionStatus,
+      pending,
+      held,
+      withErrors: deletionErrors,
+      countCapped:
+        pending > QUEUE_COUNT_REPORT_LIMIT ||
+        held > QUEUE_COUNT_REPORT_LIMIT ||
+        deletionErrors > QUEUE_COUNT_REPORT_LIMIT,
+      oldestPendingAt:
+        oldestPendingAt === null
+          ? null
+          : new Date(oldestPendingAt).toISOString(),
+    },
+    supportNotifications: {
+      status: supportStatus,
+      open: supportOpen,
+      failed: supportFailed,
+      countCapped:
+        supportOpen > QUEUE_COUNT_REPORT_LIMIT ||
+        supportFailed > QUEUE_COUNT_REPORT_LIMIT,
+      oldestOpenAt:
+        oldestSupportAt === null
+          ? null
+          : new Date(oldestSupportAt).toISOString(),
+    },
+  };
 }
 
 function evaluateRuntimeReadiness(
@@ -283,6 +684,10 @@ function evaluateRuntimeReadiness(
 } {
   const webReady =
     configuration.userKeySecret &&
+    configuration.supportRateLimitSecret &&
+    configuration.learnerAuthRateLimitSecret &&
+    configuration.learnerAuthentication &&
+    configuration.learnerAuthOrigin &&
     configuration.adminAllowlist &&
     configuration.adminAuthentication &&
     configuration.turnstileSiteKey &&
@@ -297,7 +702,11 @@ function evaluateRuntimeReadiness(
     webReady,
     nativeReady,
     productionReady:
-      webReady && (!configuration.nativeApiEnabled || nativeReady),
+      configuration.launchMode === "public" &&
+      webReady &&
+      configuration.learnerPasswordReset &&
+      configuration.supportNotifications &&
+      (!configuration.nativeApiEnabled || nativeReady),
   };
 }
 
@@ -314,6 +723,37 @@ function configurationCheckStatuses(
     userKeySecret: configuration.userKeySecret
       ? "ready"
       : "misconfigured",
+    supportRateLimitSecret: configuration.supportRateLimitSecret
+      ? "ready"
+      : "misconfigured",
+    learnerAuthRateLimitSecret:
+      configuration.learnerAuthRateLimitSecret
+        ? "ready"
+        : "misconfigured",
+    learnerAuthentication: configuration.learnerAuthentication
+      ? "ready"
+      : "misconfigured",
+    learnerAuthOrigin: configuration.learnerAuthOrigin
+      ? "ready"
+      : "misconfigured",
+    learnerEmailAccountCreation: configuration.learnerEmailAccountCreation
+      ? "ready"
+      : "disabled",
+    learnerEmailVerification: configuration.learnerEmailVerification
+      ? "ready"
+      : "not-configured",
+    learnerPasswordReset: configuration.learnerPasswordReset
+      ? "ready"
+      : "not-configured",
+    learnerGoogleAuth: configuration.learnerGoogleAuth
+      ? "ready"
+      : "optional-not-configured",
+    learnerAppleAuth: configuration.learnerAppleAuth
+      ? "ready"
+      : "optional-not-configured",
+    supportNotifications: configuration.supportNotifications
+      ? "ready"
+      : "not-configured",
     adminAllowlist: configuration.adminAllowlist
       ? "ready"
       : "misconfigured",

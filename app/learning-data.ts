@@ -1,3 +1,11 @@
+import {
+  CEFR_LEVELS,
+  type CefrLevel,
+} from "./curriculum-metadata";
+
+export { CEFR_LEVELS };
+export type { CefrLevel };
+
 export type Region = {
   id: string;
   name: string;
@@ -19,8 +27,12 @@ export type PartOfSpeech =
   | "adverb"
   | "phrase";
 
-export type CefrLevel = "A1" | "A2";
-export type CurriculumLessonNumber = 1 | 2 | 3;
+/**
+ * Lesson numbering is intentionally open-ended. The checked-in French
+ * foundation currently has three lessons per region, while CMS-authored
+ * courses may add later CEFR stages without a schema or type migration.
+ */
+export type CurriculumLessonNumber = number;
 
 export type Word = {
   id: string;
@@ -251,11 +263,7 @@ export type CurriculumLessonPlan = {
   cefr: CefrLevel;
 };
 
-export type RegionCurriculumPlan = readonly [
-  CurriculumLessonPlan,
-  CurriculumLessonPlan,
-  CurriculumLessonPlan,
-];
+export type RegionCurriculumPlan = readonly CurriculumLessonPlan[];
 
 export const CURRICULUM_PLAN = {
   "ile-de-france": [
@@ -1561,7 +1569,7 @@ const FOUNDATION_WORDS = [
 type CurriculumEntry = readonly [
   id: string,
   regionId: RegionId,
-  lesson: 2 | 3,
+  lesson: CurriculumLessonNumber,
   french: string,
   search: string,
   english: string,
@@ -1792,13 +1800,28 @@ const CURRICULUM_EXPANSION = [
 ] as const satisfies readonly CurriculumEntry[];
 
 const foundationWordsWithMetadata: Word[] = FOUNDATION_WORDS.map((word) => {
-  const plan = CURRICULUM_PLAN[word.regionId][0];
-  return { ...word, lesson: 1, cefr: plan.cefr, topic: plan.topic };
+  const plan = [...CURRICULUM_PLAN[word.regionId]].sort(
+    (first, second) => first.lesson - second.lesson,
+  )[0];
+  if (!plan) {
+    throw new Error(`Missing curriculum plan for ${word.regionId}.`);
+  }
+  return {
+    ...word,
+    lesson: plan.lesson,
+    cefr: plan.cefr,
+    topic: plan.topic,
+  };
 });
 
 const expansionWordsWithMetadata: Word[] = CURRICULUM_EXPANSION.map(
   ([id, regionId, lesson, french, search, english, ipa, partOfSpeech, gender, emoji, exampleFr, exampleEn]) => {
-    const plan = CURRICULUM_PLAN[regionId][lesson - 1];
+    const plan = CURRICULUM_PLAN[regionId].find(
+      (candidate) => candidate.lesson === lesson,
+    );
+    if (!plan) {
+      throw new Error(`Missing curriculum plan for ${regionId} lesson ${lesson}.`);
+    }
     return { id, regionId, lesson, french, search, english, ipa, partOfSpeech, gender, emoji, exampleFr, exampleEn, cefr: plan.cefr, topic: plan.topic };
   },
 );

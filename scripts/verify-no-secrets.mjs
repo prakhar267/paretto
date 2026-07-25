@@ -50,6 +50,10 @@ const credentialPatterns = [
     "admin password verifier",
     /\bADMIN_PASSWORD_VERIFIER\s*=\s*sha256\$[A-Za-z0-9_-]{43}\b/,
   ],
+  [
+    "administrator password verifier map",
+    /\bADMIN_PASSWORD_VERIFIERS\s*=\s*\{[^\r\n}]*sha256\$[A-Za-z0-9_-]{43}\b/,
+  ],
 ];
 
 const findings = [];

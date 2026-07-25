@@ -48,5 +48,7 @@ export async function POST(request: Request) {
     accessToken: exchange.accessToken,
     expiresAt: exchange.expiresAt.toISOString(),
     displayName: exchange.displayName,
+    syncScope: exchange.syncScope,
+    accountScope: exchange.accountScope,
   });
 }

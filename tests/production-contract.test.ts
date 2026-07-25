@@ -47,6 +47,31 @@ function contrastRatio(foreground: string, background: string): number {
 }
 
 describe("mobile, PWA, security, and launch contracts", () => {
+  it("keeps scheduled retention heartbeat schema in migration and local development", async () => {
+    const [migration, localDatabase, worker] = await Promise.all([
+      readFile(
+        resolve(ROOT, "drizzle/0009_thick_hercules.sql"),
+        "utf8",
+      ),
+      readFile(resolve(ROOT, "db/index.ts"), "utf8"),
+      readFile(resolve(ROOT, "worker/index.ts"), "utf8"),
+    ]);
+    for (const source of [migration, localDatabase]) {
+      expect(source).toContain("retention_schedule_state");
+      expect(source).toContain("monitoring_started_at");
+      expect(source).toContain("scheduled_retention");
+    }
+    expect(migration).toContain(
+      "CAST(unixepoch('now') AS INTEGER) * 1000",
+    );
+    expect(localDatabase).toContain(
+      "INSERT OR IGNORE INTO retention_schedule_state",
+    );
+    expect(worker).toContain(
+      "runScheduledRetentionMaintenance as runRetentionMaintenance",
+    );
+  });
+
   it("ships an installable iOS/Android web app without caching private routes", async () => {
     const [manifestText, serviceWorker, staticHeaders, css, worker, viteConfig] =
       await Promise.all([
@@ -72,16 +97,25 @@ describe("mobile, PWA, security, and launch contracts", () => {
     expect(serviceWorker).toMatch(/STATIC_ASSETS\s*=\s*\[\s*OFFLINE_SHELL_PATH/);
     expect(serviceWorker).toContain("networkNavigationWithOfflineShell");
     expect(serviceWorker).toContain('url.pathname.startsWith("/api/")');
-    expect(serviceWorker).toContain('url.pathname.startsWith("/audio/")');
+    expect(serviceWorker).toContain("PUBLIC_AUDIO_PATH.test(url.pathname)");
+    expect(serviceWorker).toContain('url.search === ""');
+    expect(serviceWorker).toContain('credentials: "omit"');
     expect(serviceWorker).toContain("AUDIO_CACHE");
     expect(serviceWorker).toContain('request.headers.has("range")');
     expect(serviceWorker).toContain("response.status === 200");
     expect(serviceWorker).toContain("cache write skipped");
     expect(worker).toContain("async scheduled(");
+    expect(worker).toContain(
+      "runScheduledRetentionMaintenance as runRetentionMaintenance",
+    );
     expect(worker).toContain("runRetentionMaintenance");
+    expect(worker).toContain("runId: result.runId");
+    expect(worker).toContain("throw error");
     expect(viteConfig).toContain('crons: ["17 3 * * *"]');
     expect(viteConfig).toContain('migrations_dir: "drizzle"');
-    expect(viteConfig).toMatch(/assets:\s*\{\s*binding:\s*"ASSETS"/);
+    expect(viteConfig).toMatch(
+      /assets:\s*\{\s*binding:\s*"ASSETS",\s*html_handling:\s*"none"/,
+    );
     expect(staticHeaders).toMatch(
       /\/service-worker\.js[\s\S]*Cache-Control: no-cache, no-store, must-revalidate/,
     );
@@ -144,6 +178,9 @@ describe("mobile, PWA, security, and launch contracts", () => {
       verifier,
       preparer,
       secretVerifier,
+      secretMaterializer,
+      deployWorkflow,
+      viteConfiguration,
       packageSource,
     ] = await Promise.all([
       readFile(resolve(ROOT, "worker/index.ts"), "utf8"),
@@ -152,6 +189,12 @@ describe("mobile, PWA, security, and launch contracts", () => {
       readFile(resolve(ROOT, "scripts/verify-cloudflare-config.mjs"), "utf8"),
       readFile(resolve(ROOT, "scripts/prepare-cloudflare-config.mjs"), "utf8"),
       readFile(resolve(ROOT, "scripts/verify-cloudflare-secrets.mjs"), "utf8"),
+      readFile(
+        resolve(ROOT, "scripts/materialize-cloudflare-secrets.mjs"),
+        "utf8",
+      ),
+      readFile(resolve(ROOT, ".github/workflows/deploy.yml"), "utf8"),
+      readFile(resolve(ROOT, "vite.config.ts"), "utf8"),
       readFile(resolve(ROOT, "package.json"), "utf8"),
     ]);
 
@@ -168,28 +211,36 @@ describe("mobile, PWA, security, and launch contracts", () => {
           : '"name": "paretto"',
       );
       expect(template).toContain('"main": "dist/server/index.js"');
-      expect(template).toContain('"ADMIN_EMAILS": "__ADMIN_EMAIL__"');
+      expect(template).toContain('"ADMIN_EMAILS": "__ADMIN_EMAILS__"');
+      expect(template).toContain('"LAUNCH_MODE": "__LAUNCH_MODE__"');
       expect(template).toContain('"NATIVE_API_ENABLED": "false"');
       expect(template).toContain(
         '"TURNSTILE_SITE_KEY": "__TURNSTILE_SITE_KEY__"',
       );
       expect(JSON.parse(template).secrets.required).toEqual([
         "USER_KEY_SECRET",
-        "ADMIN_PASSWORD_VERIFIER",
+        "SUPPORT_RATE_LIMIT_SECRET",
+        "BETTER_AUTH_RATE_LIMIT_SECRET",
+        "BETTER_AUTH_SECRET",
+        "__ADMIN_PASSWORD_SECRET_NAME__",
         "ADMIN_SESSION_SECRET",
         "TURNSTILE_SECRET",
       ]);
       expect(template).toContain('"directory": "dist/client"');
       expect(template).toContain('"binding": "ASSETS"');
+      expect(JSON.parse(template).assets.html_handling).toBe("none");
       expect(JSON.parse(template).assets.run_worker_first).toEqual([
         "/",
         "/accessibility",
         "/admin",
         "/admin/*",
         "/api/*",
+        "/auth/*",
         "/attributions",
         "/cookies",
         "/privacy",
+        "/reset-password",
+        "/sign-in",
         "/support",
         "/terms",
       ]);
@@ -203,12 +254,74 @@ describe("mobile, PWA, security, and launch contracts", () => {
     }
     expect(verifier).toContain("FREE_MAX_ASSET_FILES = 20_000");
     expect(verifier).toContain("FREE_MAX_ASSET_BYTES = 25 * 1024 * 1024");
+    expect(verifier).toContain(
+      "FREE_MAX_COMPRESSED_WORKER_MODULE_BYTES = 3_000_000",
+    );
+    expect(verifier).toContain("gzipSync(await readFile(path)");
     expect(verifier).toContain("database.migrations_dir === \"drizzle\"");
     expect(preparer).toContain("isPlaceholderDatabaseId");
     expect(secretVerifier).toContain(
       '"ADMIN_PASSWORD_VERIFIER"',
     );
+    expect(secretVerifier).toContain(
+      '"ADMIN_PASSWORD_VERIFIERS"',
+    );
+    expect(secretVerifier).toContain(
+      "verifyAdminPasswordVerifierMap",
+    );
+    expect(secretVerifier).toContain(
+      'launchMode === "public" ? OPTIONAL_SECRETS : []',
+    );
+    expect(secretVerifier).toContain('"SUPPORT_RATE_LIMIT_SECRET"');
+    expect(secretVerifier).toContain(
+      '"BETTER_AUTH_RATE_LIMIT_SECRET"',
+    );
     expect(secretVerifier).toContain("metadata.mode & 0o077");
+    expect(secretMaterializer).toContain(
+      "Paretto Staging Support Rate Limit Secret",
+    );
+    expect(secretMaterializer).toContain(
+      "Paretto Production Support Rate Limit Secret",
+    );
+    expect(secretMaterializer).toContain(
+      "Paretto Staging Better Auth Rate Limit Secret",
+    );
+    expect(secretMaterializer).toContain(
+      "Paretto Production Better Auth Rate Limit Secret",
+    );
+    expect(secretMaterializer).toContain(
+      "Paretto Staging Admin Password Verifiers",
+    );
+    expect(secretMaterializer).toContain(
+      "Paretto Production Admin Password Verifiers",
+    );
+    expect(deployWorkflow).toContain(
+      "SUPPORT_RATE_LIMIT_SECRET: ${{ secrets.SUPPORT_RATE_LIMIT_SECRET }}",
+    );
+    expect(deployWorkflow).toContain(
+      "BETTER_AUTH_RATE_LIMIT_SECRET: ${{ secrets.BETTER_AUTH_RATE_LIMIT_SECRET }}",
+    );
+    expect(deployWorkflow).toContain(
+      "ADMIN_PASSWORD_VERIFIERS: ${{ secrets.ADMIN_PASSWORD_VERIFIERS }}",
+    );
+    expect(deployWorkflow).toContain(
+      "vars.ADMIN_EMAILS || vars.ADMIN_EMAIL",
+    );
+    expect(deployWorkflow).toContain(
+      "default: controlled-beta",
+    );
+    expect(deployWorkflow).toContain(
+      'npm run smoke:deployment --',
+    );
+    expect(deployWorkflow).toContain(
+      '--mode "$LAUNCH_MODE"',
+    );
+    expect(viteConfiguration).toContain(
+      "local-only-paretto-support-rate-limit-secret-never-deploy",
+    );
+    expect(viteConfiguration).toContain(
+      "local-only-paretto-better-auth-rate-limit-secret-never-deploy",
+    );
     expect(packageSource).toContain('"cloudflare:dry-run:staging"');
     expect(packageSource).toContain('"cloudflare:dry-run:production"');
     expect(packageSource).toContain('"cloudflare:deploy:staging"');

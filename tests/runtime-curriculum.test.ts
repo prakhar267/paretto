@@ -27,7 +27,7 @@ const RECORDS: PublishedRecordInput[] = [
       exampleEn: "I take the Paris metro.",
       cefr: "A1",
       lesson: 1,
-      topic: "transport",
+      topic: "city landmarks",
       emoji: "🚇",
       sensitive: false,
       tags: ["transport"],
@@ -53,7 +53,7 @@ const RECORDS: PublishedRecordInput[] = [
       exampleEn: "Hello team, shall we begin?",
       cefr: "A2",
       lesson: 3,
-      topic: "work",
+      topic: "neighbourhood life",
       emoji: "👋",
       sensitive: false,
       tags: ["work"],
@@ -72,11 +72,17 @@ const RECORDS: PublishedRecordInput[] = [
       regionId: "ile-de-france",
       cefr: "A2",
       lesson: 3,
-      topic: "work",
+      topic: "neighbourhood life",
       sensitive: false,
       introduction: "Use a warm greeting before making a practical suggestion.",
       estimatedMinutes: 6,
-      vocabularyIds: ["cms-idf-metro", "cms-bonjour-equipe-v1"],
+      vocabularyIds: [
+        "idf-quartier",
+        "idf-boulangerie",
+        "idf-terrasse",
+        "idf-louer",
+        "cms-bonjour-equipe-v1",
+      ],
       blocks: [{ type: "tip", content: "Bonjour works throughout the day." }],
     },
   },
@@ -85,23 +91,69 @@ const RECORDS: PublishedRecordInput[] = [
 describe("runtime CMS curriculum", () => {
   it("publishes compiled overrides, new words, and lesson ordering end to end", () => {
     const runtime = buildRuntimeCurriculum(RECORDS);
-    expect(runtime.words).toHaveLength(271);
+    expect(runtime.words).toHaveLength(270);
     expect(runtime.words.find((word) => word.id === "idf-metro")).toMatchObject({
       french: "le métro parisien",
       cefr: "A1",
       lesson: 1,
-      topic: "transport",
+      topic: "city landmarks",
     });
     expect(runtime.words.find((word) => word.id === "cms-bonjour-equipe")).toMatchObject({
       partOfSpeech: "phrase",
       cefr: "A2",
       lesson: 3,
-      topic: "work",
+      topic: "neighbourhood life",
     });
     expect(lessonVocabulary(runtime.lessons[0], runtime.words).map((word) => word.id)).toEqual([
-      "idf-metro",
+      "idf-quartier",
+      "idf-boulangerie",
+      "idf-terrasse",
+      "idf-louer",
       "cms-bonjour-equipe",
     ]);
+  });
+
+  it("keeps staged vocabulary out of the learner runtime until a valid five-card lesson activates it", () => {
+    const stagedVocabulary = RECORDS[1];
+    const invalidOneCardLesson: PublishedRecordInput = {
+      ...RECORDS[2],
+      id: "10000000-0000-4000-8000-000000000004",
+      content: {
+        ...RECORDS[2].content,
+        vocabularyIds: ["cms-bonjour-equipe"],
+      },
+    };
+
+    const stagedOnly = buildRuntimeCurriculum([stagedVocabulary]);
+    expect(stagedOnly.words.some((word) => word.id === "cms-bonjour-equipe")).toBe(false);
+    expect(stagedOnly.lessons).toEqual([]);
+
+    const invalidLesson = buildRuntimeCurriculum([
+      stagedVocabulary,
+      invalidOneCardLesson,
+    ]);
+    expect(invalidLesson.words.some((word) => word.id === "cms-bonjour-equipe")).toBe(false);
+    expect(invalidLesson.lessons).toEqual([]);
+  });
+
+  it("ignores compiled overrides that try to move an existing learning identity", () => {
+    const movedOverride: PublishedRecordInput = {
+      ...RECORDS[0],
+      content: {
+        ...RECORDS[0].content,
+        regionId: "hauts-de-france",
+        lesson: 2,
+        topic: "market day",
+      },
+    };
+
+    const runtime = buildRuntimeCurriculum([movedOverride]);
+    expect(runtime.words.find((word) => word.id === "idf-metro")).toMatchObject({
+      regionId: "ile-de-france",
+      lesson: 1,
+      topic: "city landmarks",
+      french: "le métro",
+    });
   });
 
   it("preserves safely named CMS word progress while rejecting arbitrary keys", () => {

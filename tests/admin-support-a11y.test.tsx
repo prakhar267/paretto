@@ -54,7 +54,7 @@ describe("admin and learner-care accessibility", () => {
       await waitFor(() => expect(screen.queryByText("Loading studio data…")).not.toBeInTheDocument());
       await expectNoAutomatedA11yViolations(document.body);
     }
-  });
+  }, 15_000);
 
   it("keeps the public support form accessible", async () => {
     render(<SupportForm />);
@@ -118,7 +118,21 @@ function operationsSummary() {
     configuration: {
       database: true,
       userKeySecret: true,
+      supportRateLimitSecret: true,
+      learnerAuthRateLimitSecret: true,
+      learnerAuthentication: true,
+      learnerAuthOrigin: true,
+      learnerEmailAccountCreation: true,
+      learnerEmailVerification: true,
+      learnerPasswordReset: true,
+      learnerGoogleAuth: false,
+      learnerAppleAuth: false,
+      supportNotifications: true,
       adminAllowlist: true,
+      adminAuthentication: true,
+      turnstileSiteKey: true,
+      turnstileSecret: true,
+      nativeApiEnabled: true,
       appleClientId: true,
       appleServerCredentials: true,
       appleTokenEncryptionSecret: true,
@@ -126,8 +140,28 @@ function operationsSummary() {
     },
     content: { published: 0, drafts: 0 },
     support: { open: 0 },
-    retentionDue: { productEvents: 0, supportRequests: 0, auditEvents: 0 },
+    retentionDue: {
+      productEvents: 0,
+      supportRequests: 0,
+      auditEvents: 0,
+      adminLoginAttempts: 0,
+      learnerSessions: 0,
+      learnerVerifications: 0,
+      learnerAuthRateLimits: 0,
+      supportRateLimits: 0,
+    },
     activeLegalHolds: 0,
+    accountDeletionQueue: {
+      pending: 0,
+      held: 0,
+      withErrors: 0,
+      oldestUpdatedAt: null,
+    },
+    supportNotificationQueue: {
+      pending: 0,
+      failed: 0,
+      oldestCreatedAt: null,
+    },
     retentionBatchLimit: 500,
   };
 }

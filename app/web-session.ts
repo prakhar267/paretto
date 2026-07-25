@@ -5,6 +5,11 @@ const SESSION_MAX_AGE_SECONDS = 365 * 24 * 60 * 60;
 
 const LEARNER_SESSION_PATHS = new Set([
   "/",
+  "/.rsc",
+  "/sign-in",
+  "/auth/connected",
+  "/api/account/browser-profile",
+  "/api/account/claim",
   "/api/events",
   "/api/progress",
   "/api/support",
@@ -72,6 +77,22 @@ export function readLearnerSessionToken(request: Request): string | null {
   return token && SESSION_TOKEN_PATTERN.test(token) ? token : null;
 }
 
+export function rotateLearnerSessionCookie(
+  request: Request,
+  randomBytes: () => Uint8Array = secureRandomBytes,
+): string {
+  const url = new URL(request.url);
+  const productionCookie = isProductionCookieContext(url);
+  const cookieName = productionCookie
+    ? PRODUCTION_COOKIE_NAME
+    : DEVELOPMENT_COOKIE_NAME;
+  return serializeSessionCookie(
+    cookieName,
+    encodeSessionToken(randomBytes()),
+    productionCookie,
+  );
+}
+
 export function appendSetCookie(response: Response, cookie: string | null): Response {
   if (!cookie) return response;
   const headers = new Headers(response.headers);
@@ -92,10 +113,14 @@ export function rejectUnsafeCrossOriginWebApiRequest(
   request: Request,
 ): Response | null {
   const url = new URL(request.url);
+  const method = request.method.toUpperCase();
   if (
     !url.pathname.startsWith("/api/") ||
     url.pathname.startsWith("/api/native/") ||
-    !["POST", "PUT", "PATCH", "DELETE"].includes(request.method.toUpperCase())
+    !["POST", "PUT", "PATCH", "DELETE"].includes(method) ||
+    // Apple returns OAuth authorization results with a cross-origin form POST.
+    // Keep the exemption exact; Better Auth validates the callback state.
+    (method === "POST" && url.pathname === "/api/auth/callback/apple")
   ) {
     return null;
   }

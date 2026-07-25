@@ -6,6 +6,25 @@ final class ParettoUITests: XCTestCase {
     }
 
     @MainActor
+    func testConfiguredBuildReachesAValidEntryScreen() throws {
+        let app = XCUIApplication()
+        app.launchArguments = ["-ui-testing", "-reset-state"]
+        app.launch()
+
+        let onboardingName = app.textFields["First name"]
+        let appleSignIn = app.buttons.matching(
+            NSPredicate(format: "label CONTAINS[c] %@", "Apple")
+        ).firstMatch
+        let reachedOnboarding = onboardingName.waitForExistence(timeout: 5)
+        let reachedSecureSignIn = appleSignIn.waitForExistence(timeout: 2)
+
+        XCTAssertTrue(
+            reachedOnboarding || reachedSecureSignIn,
+            "The configured app must reach guest onboarding or secure Apple sign-in."
+        )
+    }
+
+    @MainActor
     func testOnboardingAndFirstLessonEntry() throws {
         let app = XCUIApplication()
         app.launchArguments = ["-ui-testing", "-reset-state"]

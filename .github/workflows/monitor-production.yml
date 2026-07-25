@@ -1,0 +1,117 @@
+name: Monitor production health
+
+on:
+  schedule:
+    - cron: "7 */6 * * *"
+  workflow_dispatch:
+    inputs:
+      origin_override:
+        description: Optional exact HTTPS origin for an operator test
+        required: false
+        type: string
+      simulate_failure:
+        description: Exercise incident creation without contacting production
+        required: false
+        default: false
+        type: boolean
+
+permissions:
+  contents: read
+  issues: write
+
+concurrency:
+  group: production-health-monitor
+  cancel-in-progress: false
+
+jobs:
+  probe:
+    name: Independent production readiness probe
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - name: Check out the monitoring script
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Use Node.js 24
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 24.x
+
+      - name: Probe production readiness
+        id: health
+        continue-on-error: true
+        shell: bash
+        env:
+          CONFIGURED_ORIGIN: ${{ vars.PRODUCTION_APP_ORIGIN }}
+          CONFIGURED_LAUNCH_MODE: ${{ vars.PRODUCTION_LAUNCH_MODE }}
+          ORIGIN_OVERRIDE: ${{ inputs.origin_override }}
+          SIMULATE_FAILURE: ${{ inputs.simulate_failure }}
+        run: |
+          set -euo pipefail
+          if [[ "$SIMULATE_FAILURE" == "true" ]]; then
+            echo "A monitored failure was requested by an operator." >&2
+            exit 1
+          fi
+          origin="${ORIGIN_OVERRIDE:-$CONFIGURED_ORIGIN}"
+          if [[ -z "$origin" ]]; then
+            echo "Repository variable PRODUCTION_APP_ORIGIN is not configured." >&2
+            exit 1
+          fi
+          launch_mode="${CONFIGURED_LAUNCH_MODE:-public}"
+          node scripts/monitor-production-health.mjs \
+            "$origin" \
+            --mode "$launch_mode"
+
+      - name: Open or update the production incident
+        if: ${{ steps.health.outcome == 'failure' }}
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          title="[monitor] Production health check failing"
+          run_url="${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
+          issue_number="$(
+            gh issue list \
+              --state open \
+              --search "\"$title\" in:title" \
+              --json number \
+              --jq '.[0].number // empty'
+          )"
+          message="The independent readiness probe failed at $(date -u +'%Y-%m-%dT%H:%M:%SZ'). [Inspect the workflow run]($run_url)."
+          if [[ -n "$issue_number" ]]; then
+            gh issue comment "$issue_number" --body "$message"
+          else
+            gh issue create \
+              --title "$title" \
+              --body "$message This issue remains open until a later successful probe confirms recovery."
+          fi
+
+      - name: Close a recovered production incident
+        if: ${{ steps.health.outcome == 'success' }}
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          title="[monitor] Production health check failing"
+          run_url="${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
+          issue_number="$(
+            gh issue list \
+              --state open \
+              --search "\"$title\" in:title" \
+              --json number \
+              --jq '.[0].number // empty'
+          )"
+          if [[ -n "$issue_number" ]]; then
+            gh issue close "$issue_number" \
+              --comment "Recovery confirmed at $(date -u +'%Y-%m-%dT%H:%M:%SZ'). [Successful probe]($run_url)."
+          fi
+
+      - name: Fail the workflow after recording the incident
+        if: ${{ steps.health.outcome == 'failure' }}
+        run: exit 1

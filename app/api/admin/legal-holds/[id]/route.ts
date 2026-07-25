@@ -68,6 +68,13 @@ export async function DELETE(
           admin.email,
           now,
         ),
+      database
+        .prepare(
+          `UPDATE learner_deletion_jobs
+           SET status = 'pending', updated_at = ?
+           WHERE status = 'held'`,
+        )
+        .bind(now),
     ]);
     if (Number(released.meta.changes ?? 0) !== 1) {
       return apiError(404, "Active legal hold not found.");

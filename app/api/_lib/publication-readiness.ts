@@ -3,9 +3,14 @@ import type {
   VocabularyContent,
 } from "@/app/admin/admin-types";
 import {
-  hasFrenchAudioAsset,
-  isFrenchAudioDistributionReady,
+  hasCourseAudioAsset,
+  isCourseAudioDistributionReady,
 } from "@/app/audio/french-audio-manifest";
+import {
+  COURSE_CATALOG,
+  DEFAULT_COURSE_ID,
+  type CourseId,
+} from "@/app/course-catalog";
 import {
   vocabularyPublicId,
   vocabularyReferenceKey,
@@ -46,7 +51,9 @@ export async function checkPublicationReadiness(
   database: D1Database,
   row: ContentRow,
 ): Promise<PublicationReadiness> {
-  const parsed = parsePublishableStoredContent(row.kind, row.content);
+  const courseId = row.course_id ?? DEFAULT_COURSE_ID;
+  const course = COURSE_CATALOG[courseId];
+  const parsed = parsePublishableStoredContent(row.kind, row.content, courseId);
   if (!parsed.ok) {
     return {
       ok: false,
@@ -57,29 +64,44 @@ export async function checkPublicationReadiness(
 
   if (row.kind === "vocabulary") {
     const vocabulary = parsed.value as VocabularyContent;
-    const publicId = vocabularyPublicId(row.stable_key);
+    const publicId = vocabularyPublicId(row.stable_key, courseId);
+    const compiled =
+      courseId === DEFAULT_COURSE_ID ? COMPILED_WORDS.get(publicId) : undefined;
+    if (compiled) {
+      const mismatch = compiledOverrideMismatch(vocabulary, compiled);
+      if (mismatch) {
+        return {
+          ok: false,
+          code: "VOCABULARY_METADATA_MISMATCH",
+          message: `Compiled vocabulary overrides must preserve their original ${mismatch}. Create a new stable vocabulary item and a reviewed five-card lesson for a curriculum move.`,
+        };
+      }
+    }
     if (
-      !isFrenchAudioDistributionReady() ||
-      !hasFrenchAudioAsset(publicId, vocabulary.french)
+      !isCourseAudioDistributionReady(courseId) ||
+      !hasCourseAudioAsset(courseId, publicId, vocabulary.french)
     ) {
       return {
         ok: false,
         code: "AUDIO_NOT_PACKAGED",
-        message: `Package reviewed French audio for ${publicId} before approval.`,
+        message: `Package reviewed ${course.targetLanguageName} audio for ${publicId} before approval.`,
       };
     }
     return { ok: true, dependencies: [] };
   }
 
   const lesson = parsed.value as LessonContent;
-  return checkLessonVocabulary(database, lesson);
+  return checkLessonVocabulary(database, lesson, courseId);
 }
 
 async function checkLessonVocabulary(
   database: D1Database,
   lesson: LessonContent,
+  courseId: CourseId,
 ): Promise<PublicationReadiness> {
-  const referenceKeys = lesson.vocabularyIds.map(vocabularyReferenceKey);
+  const referenceKeys = lesson.vocabularyIds.map((reference) =>
+    vocabularyReferenceKey(reference, courseId),
+  );
   if (referenceKeys.some((key) => key === null)) {
     return {
       ok: false,
@@ -89,7 +111,7 @@ async function checkLessonVocabulary(
   }
 
   const keys = [...new Set(referenceKeys as string[])];
-  const cmsByAlias = await readCmsVocabulary(database, keys);
+  const cmsByAlias = await readCmsVocabulary(database, keys, courseId);
   const dependencies = new Map<string, PublicationDependency>();
 
   for (let index = 0; index < lesson.vocabularyIds.length; index += 1) {
@@ -98,9 +120,10 @@ async function checkLessonVocabulary(
     const discoveredCmsRow = cmsByAlias.get(key);
     const cmsRow =
       discoveredCmsRow?.status === "published" ? discoveredCmsRow : undefined;
-    const compiled = COMPILED_WORDS.get(key);
+    const compiled =
+      courseId === DEFAULT_COURSE_ID ? COMPILED_WORDS.get(key) : undefined;
     const canonicalId = cmsRow
-      ? vocabularyPublicId(cmsRow.stable_key)
+      ? vocabularyPublicId(cmsRow.stable_key, courseId)
       : compiled
         ? key
         : null;
@@ -117,7 +140,11 @@ async function checkLessonVocabulary(
     }
 
     if (cmsRow) {
-      const parsed = parsePublishableStoredContent("vocabulary", cmsRow.content);
+      const parsed = parsePublishableStoredContent(
+        "vocabulary",
+        cmsRow.content,
+        courseId,
+      );
       if (!parsed.ok || !("french" in parsed.value)) {
         return {
           ok: false,
@@ -126,8 +153,8 @@ async function checkLessonVocabulary(
         };
       }
       if (
-        !isFrenchAudioDistributionReady() ||
-        !hasFrenchAudioAsset(canonicalId, parsed.value.french)
+        !isCourseAudioDistributionReady(courseId) ||
+        !hasCourseAudioAsset(courseId, canonicalId, parsed.value.french)
       ) {
         return {
           ok: false,
@@ -147,8 +174,8 @@ async function checkLessonVocabulary(
 
     if (!compiled) return missingVocabulary(reference);
     if (
-      !isFrenchAudioDistributionReady() ||
-      !hasFrenchAudioAsset(compiled.id, compiled.french)
+      !isCourseAudioDistributionReady(courseId) ||
+      !hasCourseAudioAsset(courseId, compiled.id, compiled.french)
     ) {
       return {
         ok: false,
@@ -166,6 +193,7 @@ async function checkLessonVocabulary(
 async function readCmsVocabulary(
   database: D1Database,
   aliases: string[],
+  courseId: CourseId,
 ): Promise<Map<string, AliasedVocabularyRow>> {
   if (aliases.length === 0) return new Map();
   const placeholders = aliases.map(() => "?").join(", ");
@@ -173,11 +201,14 @@ async function readCmsVocabulary(
     .prepare(
       `SELECT vocabulary_alias.alias AS matched_alias, ${QUALIFIED_CONTENT_COLUMNS}
        FROM cms_vocabulary_aliases AS vocabulary_alias
-       JOIN cms_content AS content ON content.id = vocabulary_alias.content_id
-       WHERE vocabulary_alias.alias IN (${placeholders})
+       JOIN cms_content AS content
+         ON content.id = vocabulary_alias.content_id
+        AND content.course_id = vocabulary_alias.course_id
+       WHERE vocabulary_alias.course_id = ?
+         AND vocabulary_alias.alias IN (${placeholders})
          AND content.kind = 'vocabulary'`,
     )
-    .bind(...aliases)
+    .bind(courseId, ...aliases)
     .all<AliasedVocabularyRow>();
   return new Map(result.results.map((row) => [row.matched_alias, row] as const));
 }
@@ -202,6 +233,17 @@ function vocabularyMismatch(
   ) {
     return "sensitive-content flag";
   }
+  return null;
+}
+
+function compiledOverrideMismatch(
+  vocabulary: VocabularyContent,
+  compiled: Word,
+): string | null {
+  if (vocabulary.regionId !== compiled.regionId) return "region";
+  if (vocabulary.cefr !== compiled.cefr) return "CEFR level";
+  if (vocabulary.lesson !== compiled.lesson) return "lesson number";
+  if (normalize(vocabulary.topic) !== normalize(compiled.topic)) return "topic";
   return null;
 }
 

@@ -1,7 +1,10 @@
 import { apiError, apiJson, isRecord, logApiError, readJsonBody } from "@/app/api/_lib/api-utils";
 import {
+  ADMIN_LOGIN_ATTEMPT_RETENTION_MS,
+  AUTH_TRANSIENT_RETENTION_MS,
   MAX_RETENTION_BATCH_LIMIT,
   RETENTION_BATCH_LIMIT,
+  readScheduledRetentionStatus,
   retentionCutoffs,
   runRetentionMaintenance,
 } from "@/app/retention-policy";
@@ -20,7 +23,19 @@ type OperationsRow = {
   expired_events: number;
   expired_support: number;
   expired_audits: number;
+  expired_admin_login_attempts: number;
+  expired_learner_sessions: number;
+  expired_learner_verifications: number;
+  expired_learner_auth_rate_limits: number;
+  expired_support_rate_limits: number;
   active_holds: number;
+  pending_deletion_jobs: number;
+  held_deletion_jobs: number;
+  deletion_jobs_with_errors: number;
+  oldest_deletion_job_updated_at: number | null;
+  pending_support_notification_jobs: number;
+  failed_support_notification_jobs: number;
+  oldest_support_notification_job_created_at: number | null;
 };
 
 export async function GET(request: Request) {
@@ -55,15 +70,49 @@ export async function GET(request: Request) {
               WHERE holds.status = 'active' AND holds.data_class = 'admin_audit_log'
                 AND (holds.record_key IS NULL OR holds.record_key = CAST(audit.id AS TEXT) OR holds.record_key = audit.entity_id)
             )) AS expired_audits,
-          (SELECT COUNT(*) FROM retention_legal_holds WHERE status = 'active') AS active_holds`,
+          (SELECT COUNT(*) FROM admin_login_attempts
+            WHERE updated_at < ?) AS expired_admin_login_attempts,
+          (SELECT COUNT(*) FROM learner_session
+            WHERE expires_at < ?) AS expired_learner_sessions,
+          (SELECT COUNT(*) FROM learner_verification
+            WHERE expires_at < ?) AS expired_learner_verifications,
+          (SELECT COUNT(*) FROM learner_auth_rate_limits
+            WHERE updated_at < ?) AS expired_learner_auth_rate_limits,
+          (SELECT COUNT(*) FROM support_rate_limits
+            WHERE updated_at < ?) AS expired_support_rate_limits,
+          (SELECT COUNT(*) FROM retention_legal_holds WHERE status = 'active') AS active_holds,
+          (SELECT COUNT(*) FROM learner_deletion_jobs
+            WHERE status = 'pending') AS pending_deletion_jobs,
+          (SELECT COUNT(*) FROM learner_deletion_jobs
+            WHERE status = 'held') AS held_deletion_jobs,
+          (SELECT COUNT(*) FROM learner_deletion_jobs
+            WHERE status IN ('pending', 'held')
+              AND last_error IS NOT NULL) AS deletion_jobs_with_errors,
+          (SELECT MIN(updated_at) FROM learner_deletion_jobs
+            WHERE status IN ('pending', 'held')) AS oldest_deletion_job_updated_at,
+          (SELECT COUNT(*) FROM support_notification_jobs
+            WHERE status IN ('pending', 'processing')) AS pending_support_notification_jobs,
+          (SELECT COUNT(*) FROM support_notification_jobs
+            WHERE status = 'failed') AS failed_support_notification_jobs,
+          (SELECT MIN(created_at) FROM support_notification_jobs
+            WHERE status IN ('pending', 'processing', 'failed')) AS oldest_support_notification_job_created_at`,
       )
       .bind(
         cutoffs.productEvents,
         cutoffs.operationalRecords,
         cutoffs.operationalRecords,
+        cutoffs.adminLoginAttempts,
+        now,
+        now,
+        cutoffs.learnerAuthRateLimits,
+        cutoffs.supportRateLimits,
       )
       .first<OperationsRow>();
     const configuration = await getRuntimeConfigurationReadiness();
+    const scheduledRetention = await readScheduledRetentionStatus(
+      database,
+      now,
+    );
     return apiJson({
       checkedAt: new Date(now).toISOString(),
       service: { status: "ready", healthPath: "/api/health" },
@@ -80,9 +129,44 @@ export async function GET(request: Request) {
         productEvents: Number(row?.expired_events ?? 0),
         supportRequests: Number(row?.expired_support ?? 0),
         auditEvents: Number(row?.expired_audits ?? 0),
+        adminLoginAttempts: Number(
+          row?.expired_admin_login_attempts ?? 0,
+        ),
+        learnerSessions: Number(row?.expired_learner_sessions ?? 0),
+        learnerVerifications: Number(
+          row?.expired_learner_verifications ?? 0,
+        ),
+        learnerAuthRateLimits: Number(
+          row?.expired_learner_auth_rate_limits ?? 0,
+        ),
+        supportRateLimits: Number(row?.expired_support_rate_limits ?? 0),
       },
       activeLegalHolds: Number(row?.active_holds ?? 0),
+      accountDeletionQueue: {
+        pending: Number(row?.pending_deletion_jobs ?? 0),
+        held: Number(row?.held_deletion_jobs ?? 0),
+        withErrors: Number(row?.deletion_jobs_with_errors ?? 0),
+        oldestUpdatedAt:
+          typeof row?.oldest_deletion_job_updated_at === "number"
+            ? new Date(row.oldest_deletion_job_updated_at).toISOString()
+            : null,
+      },
+      supportNotificationQueue: {
+        pending: Number(row?.pending_support_notification_jobs ?? 0),
+        failed: Number(row?.failed_support_notification_jobs ?? 0),
+        oldestCreatedAt:
+          typeof row?.oldest_support_notification_job_created_at === "number"
+            ? new Date(
+                row.oldest_support_notification_job_created_at,
+              ).toISOString()
+            : null,
+      },
       retentionBatchLimit: RETENTION_BATCH_LIMIT,
+      adminLoginAttemptRetentionHours:
+        ADMIN_LOGIN_ATTEMPT_RETENTION_MS / (60 * 60 * 1000),
+      authTransientRetentionHours:
+        AUTH_TRANSIENT_RETENTION_MS / (60 * 60 * 1000),
+      scheduledRetention,
     });
   } catch (error) {
     logApiError("admin_operations_failed", error);

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useLayoutEffect, useRef, useState } from "react";
 
 import styles from "../admin.module.css";
 
@@ -9,16 +9,41 @@ export default function AdminLoginForm() {
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  const [hydrated, setHydrated] = useState(false);
+  const formRef = useRef<HTMLFormElement>(null);
+
+  useLayoutEffect(() => {
+    const fields = formRef.current?.elements;
+    if (fields) {
+      const emailField = fields.namedItem("email");
+      const passwordField = fields.namedItem("password");
+      if (emailField instanceof HTMLInputElement && emailField.value) {
+        setEmail(emailField.value);
+      }
+      if (passwordField instanceof HTMLInputElement && passwordField.value) {
+        setPassword(passwordField.value);
+      }
+    }
+    setHydrated(true);
+  }, []);
 
   async function submit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    const submitted = new FormData(event.currentTarget);
+    const submittedEmail = String(submitted.get("email") ?? "");
+    const submittedPassword = String(submitted.get("password") ?? "");
+    setEmail(submittedEmail);
+    setPassword(submittedPassword);
     setSubmitting(true);
     setError("");
     try {
       const response = await fetch("/api/admin/session", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ email, password }),
+        body: JSON.stringify({
+          email: submittedEmail,
+          password: submittedPassword,
+        }),
         credentials: "same-origin",
       });
       if (!response.ok) {
@@ -39,10 +64,11 @@ export default function AdminLoginForm() {
   }
 
   return (
-    <form className={styles.loginForm} onSubmit={submit}>
+    <form ref={formRef} className={styles.loginForm} onSubmit={submit}>
       <label>
         <span>Email</span>
         <input
+          name="email"
           type="email"
           value={email}
           onChange={(event) => setEmail(event.target.value)}
@@ -54,6 +80,7 @@ export default function AdminLoginForm() {
       <label>
         <span>Admin access key</span>
         <input
+          name="password"
           type="password"
           value={password}
           onChange={(event) => setPassword(event.target.value)}
@@ -68,7 +95,7 @@ export default function AdminLoginForm() {
           {error}
         </p>
       )}
-      <button type="submit" disabled={submitting}>
+      <button type="submit" disabled={!hydrated || submitting}>
         {submitting ? "Signing in…" : "Sign in securely"}
       </button>
     </form>

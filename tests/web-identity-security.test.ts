@@ -15,6 +15,7 @@ import {
 import {
   prepareWebRequest,
   rejectUnsafeCrossOriginWebApiRequest,
+  rotateLearnerSessionCookie,
 } from "../app/web-session";
 import {
   createAdminTestAuth,
@@ -65,6 +66,39 @@ describe("direct web identity security", () => {
     await expect(resolveRequestIdentity(repeated.request)).resolves.toEqual(
       identity,
     );
+
+    const rotated = rotateLearnerSessionCookie(
+      repeated.request,
+      () => Uint8Array.from({ length: 32 }, () => 255),
+    );
+    expect(rotated).toMatch(
+      /^__Host-learner-session=[A-Za-z0-9_-]{43}; Path=\//,
+    );
+    expect(rotated).not.toContain(
+      prepared.request.headers.get("cookie")!.split("=", 2)[1],
+    );
+  });
+
+  it("provisions an anonymous session for Vinext client navigation only on its exact RSC endpoint", () => {
+    const prepared = prepareWebRequest(
+      new Request("https://learn.example/.rsc?_rsc=route-payload"),
+      () => Uint8Array.from({ length: 32 }, (_, index) => index + 1),
+    );
+
+    expect(prepared.request.headers.get("cookie")).toMatch(
+      /^__Host-learner-session=[A-Za-z0-9_-]{43}$/,
+    );
+    expect(prepared.setCookie).toMatch(
+      /^__Host-learner-session=[A-Za-z0-9_-]{43}; Path=\//,
+    );
+
+    for (const path of ["/.rsc-extra", "/nested/.rsc"]) {
+      const unrelated = prepareWebRequest(
+        new Request(`https://learn.example${path}`),
+      );
+      expect(unrelated.request.headers.get("cookie")).toBeNull();
+      expect(unrelated.setCookie).toBeNull();
+    }
   });
 
   it("rejects unsafe cross-origin web mutations but leaves native bearer APIs alone", () => {
@@ -96,6 +130,34 @@ describe("direct web identity security", () => {
         }),
       ),
     ).toBeNull();
+  });
+
+  it("allows only Apple's exact cross-origin form-post callback", () => {
+    expect(
+      rejectUnsafeCrossOriginWebApiRequest(
+        new Request("https://learn.example/api/auth/callback/apple", {
+          method: "POST",
+          headers: { origin: "https://appleid.apple.com" },
+        }),
+      ),
+    ).toBeNull();
+
+    for (const request of [
+      new Request("https://learn.example/api/auth/callback/google", {
+        method: "POST",
+        headers: { origin: "https://accounts.google.com" },
+      }),
+      new Request("https://learn.example/api/auth/callback/apple/extra", {
+        method: "POST",
+        headers: { origin: "https://appleid.apple.com" },
+      }),
+      new Request("https://learn.example/api/auth/callback/apple", {
+        method: "PUT",
+        headers: { origin: "https://appleid.apple.com" },
+      }),
+    ]) {
+      expect(rejectUnsafeCrossOriginWebApiRequest(request)?.status).toBe(403);
+    }
   });
 
   it("verifies generated admin access keys and rejects tampered or expired sessions", async () => {

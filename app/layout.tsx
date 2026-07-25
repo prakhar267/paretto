@@ -27,7 +27,7 @@ export async function generateMetadata(): Promise<Metadata> {
     .split(",")[0]
     .trim();
   const metadataBase = new URL(`${protocol}://${host}`);
-  const socialImage = new URL("/og.png", metadataBase).toString();
+  const socialImage = new URL("/og-v2.png", metadataBase).toString();
 
   return {
     metadataBase,
@@ -62,8 +62,8 @@ export async function generateMetadata(): Promise<Metadata> {
       images: [
         {
           url: socialImage,
-          width: 1731,
-          height: 909,
+          width: 1200,
+          height: 630,
           alt: "Paretto — French, one region at a time.",
         },
       ],

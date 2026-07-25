@@ -6,10 +6,23 @@ import { resolve } from "node:path";
 const root = process.cwd();
 const options = parseArguments(process.argv.slice(2));
 const environment = options.environment;
+const launchMode = options["launch-mode"];
+const COMMON_REQUIRED_SECRETS = [
+  "USER_KEY_SECRET",
+  "SUPPORT_RATE_LIMIT_SECRET",
+  "BETTER_AUTH_RATE_LIMIT_SECRET",
+  "BETTER_AUTH_SECRET",
+  "ADMIN_SESSION_SECRET",
+  "TURNSTILE_SECRET",
+];
 
 invariant(
   environment === "staging" || environment === "production",
   "Use --environment staging or --environment production.",
+);
+invariant(
+  launchMode === "controlled-beta" || launchMode === "public",
+  "Use --launch-mode controlled-beta or --launch-mode public.",
 );
 invariant(
   typeof options["account-id"] === "string" &&
@@ -32,11 +45,26 @@ invariant(
     ),
   "Use --database-name with a 1-64 character D1 name containing letters, numbers, hyphens, or underscores.",
 );
-invariant(
-  typeof options["admin-email"] === "string" &&
-    normalizeEmail(options["admin-email"]) !== null,
-  "Use --admin-email with the single production administrator email.",
+const adminEmails = normalizeAdminEmails(
+  options["admin-emails"] ?? options["admin-email"],
 );
+invariant(
+  adminEmails !== null,
+  "Use --admin-emails with 1–25 unique administrator emails separated by commas (legacy --admin-email remains supported for one administrator).",
+);
+invariant(
+  !options["admin-emails"] || !options["admin-email"],
+  "Use either --admin-emails or --admin-email, not both.",
+);
+const adminPasswordSecretName =
+  adminEmails.length === 1
+    ? "ADMIN_PASSWORD_VERIFIER"
+    : "ADMIN_PASSWORD_VERIFIERS";
+const requiredSecrets = [
+  ...COMMON_REQUIRED_SECRETS.slice(0, 4),
+  adminPasswordSecretName,
+  ...COMMON_REQUIRED_SECRETS.slice(4),
+];
 invariant(
   typeof options["turnstile-site-key"] === "string" &&
     options["turnstile-site-key"].length >= 20 &&
@@ -44,6 +72,27 @@ invariant(
     !/\s/.test(options["turnstile-site-key"]),
   "Use --turnstile-site-key with the provisioned Cloudflare Turnstile site key.",
 );
+invariant(
+  validHttpsOrigin(options["auth-url"]),
+  "Use --auth-url with the exact HTTPS origin for this Worker.",
+);
+if (launchMode === "public") {
+  invariant(
+    validSender(options["auth-email-from"]),
+    "Public launch requires --auth-email-from with a verified sender such as Paretto <accounts@example.com>.",
+  );
+  invariant(
+    typeof options["support-notification-email"] === "string" &&
+      normalizeEmail(options["support-notification-email"]) !== null,
+    "Public launch requires --support-notification-email with the working operator mailbox.",
+  );
+} else {
+  invariant(
+    options["auth-email-from"] === undefined &&
+      options["support-notification-email"] === undefined,
+    "Controlled-beta configuration must omit --auth-email-from and --support-notification-email so unavailable delivery cannot look configured.",
+  );
+}
 
 const templatePath = resolve(
   root,
@@ -69,22 +118,54 @@ source = replaceExactlyOnce(
 );
 source = replaceExactlyOnce(
   source,
-  "__ADMIN_EMAIL__",
-  normalizeEmail(options["admin-email"]),
+  "__ADMIN_EMAILS__",
+  adminEmails.join(","),
+);
+source = replaceExactlyOnce(
+  source,
+  "__ADMIN_PASSWORD_SECRET_NAME__",
+  adminPasswordSecretName,
 );
 source = replaceExactlyOnce(
   source,
   "__TURNSTILE_SITE_KEY__",
   options["turnstile-site-key"],
 );
+source = replaceExactlyOnce(
+  source,
+  "__BETTER_AUTH_URL__",
+  new URL(options["auth-url"]).origin,
+);
+source = replaceExactlyOnce(source, "__LAUNCH_MODE__", launchMode);
+source = replaceExactlyOnce(
+  source,
+  "__AUTH_EMAIL_FROM__",
+  launchMode === "public" ? options["auth-email-from"].trim() : "",
+);
+source = replaceExactlyOnce(
+  source,
+  "__SUPPORT_NOTIFICATION_EMAIL__",
+  launchMode === "public"
+    ? normalizeEmail(options["support-notification-email"])
+    : "",
+);
 
-JSON.parse(source);
+const configuration = JSON.parse(source);
+invariant(
+  Array.isArray(configuration.secrets?.required) &&
+    configuration.secrets.required.length === requiredSecrets.length &&
+    configuration.secrets.required.every(
+      (name, index) => name === requiredSecrets[index],
+    ),
+  `Template secrets must be exactly ${requiredSecrets.join(", ")}.`,
+);
 await writeFile(outputPath, source, { encoding: "utf8", mode: 0o600 });
 
 console.log(
   `Prepared ignored ${environment} Wrangler configuration for ` +
-    `${options["database-name"]}. Run the matching cloudflare:verify:${environment} ` +
-    "gate before any migration or deployment.",
+    `${options["database-name"]} with ${adminEmails.length} administrator` +
+    `${adminEmails.length === 1 ? "" : "s"}. Run the matching cloudflare:verify:${environment} ` +
+    `gate before any ${launchMode} migration or deployment.`,
 );
 
 function parseArguments(argumentsList) {
@@ -118,12 +199,49 @@ function isPlaceholderDatabaseId(value) {
 }
 
 function normalizeEmail(value) {
+  if (typeof value !== "string") return null;
   const email = value.trim().toLowerCase();
   return email.length >= 3 &&
     email.length <= 254 &&
     /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)
     ? email
     : null;
+}
+
+function normalizeAdminEmails(value) {
+  if (typeof value !== "string") return null;
+  const rawEntries = value.split(",");
+  if (rawEntries.length < 1 || rawEntries.length > 25) return null;
+  const emails = rawEntries.map((entry) => normalizeEmail(entry));
+  if (emails.some((email) => email === null)) return null;
+  const normalized = emails;
+  return new Set(normalized).size === normalized.length
+    ? normalized
+    : null;
+}
+
+function validHttpsOrigin(value) {
+  if (typeof value !== "string") return false;
+  try {
+    const url = new URL(value);
+    return (
+      url.protocol === "https:" &&
+      url.origin === value &&
+      url.pathname === "/" &&
+      !url.username &&
+      !url.password
+    );
+  } catch {
+    return false;
+  }
+}
+
+function validSender(value) {
+  return (
+    typeof value === "string" &&
+    value.length <= 320 &&
+    /<[^<>\s@]+@[^<>\s@]+\.[^<>\s@]+>$/.test(value.trim())
+  );
 }
 
 function invariant(condition, message) {

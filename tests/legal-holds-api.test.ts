@@ -129,6 +129,9 @@ class LegalHoldStatement {
       });
       return { meta: { changes: 1 } };
     }
+    if (this.sql.startsWith("UPDATE LEARNER_DELETION_JOBS")) {
+      return { meta: { changes: 0 } };
+    }
     throw new Error(`Unexpected run SQL: ${this.sql}`);
   }
 }

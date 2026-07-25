@@ -1,13 +1,38 @@
 import Foundation
 import ParettoCore
 
+struct LocalProgressSnapshot: Equatable, Sendable {
+    let state: LearningState
+    let accountScope: String?
+    let serverGeneration: Int?
+}
+
 protocol ProgressStoring: Sendable {
-    func load() async throws -> LearningState?
-    func save(_ state: LearningState) async throws
+    func loadProgress() async throws -> LocalProgressSnapshot?
+    func saveProgress(_ progress: LocalProgressSnapshot) async throws
     func delete() async throws
 }
 
-extension ProgressRepository: ProgressStoring {}
+extension ProgressRepository: ProgressStoring {
+    func loadProgress() async throws -> LocalProgressSnapshot? {
+        guard let stored = try loadStoredProgress() else { return nil }
+        return LocalProgressSnapshot(
+            state: stored.state,
+            accountScope: stored.accountScope,
+            serverGeneration: stored.serverGeneration
+        )
+    }
+
+    func saveProgress(_ progress: LocalProgressSnapshot) async throws {
+        try saveStoredProgress(
+            StoredLearningProgress(
+                accountScope: progress.accountScope,
+                serverGeneration: progress.serverGeneration,
+                state: progress.state
+            )
+        )
+    }
+}
 
 struct AuthenticationSessionStore {
     let load: @MainActor () throws -> AuthSession?
@@ -32,6 +57,7 @@ protocol NativeAPIProviding: Sendable {
     func saveProgress(
         _ state: LearningState,
         revision: Int,
+        generation: Int,
         accessToken: String
     ) async throws -> ProgressEnvelope
     func revokeSession(accessToken: String) async throws

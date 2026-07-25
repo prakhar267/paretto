@@ -1,22 +1,30 @@
 /** Cloudflare Worker entry point for Paretto. */
 import handler from "vinext/server/app-router-entry";
-import { runRetentionMaintenance } from "../app/retention-policy";
+import {
+  runScheduledRetentionMaintenance as runRetentionMaintenance,
+} from "../app/retention-policy";
 import {
   appendSetCookie,
   prepareWebRequest,
   rejectUnsafeCrossOriginWebApiRequest,
 } from "../app/web-session";
+import { createHealthResponseCache } from "./health-cache";
 
 interface Env {
   ASSETS: Fetcher;
   DB: D1Database;
   USER_KEY_SECRET?: string;
+  SUPPORT_RATE_LIMIT_SECRET?: string;
+  BETTER_AUTH_RATE_LIMIT_SECRET?: string;
+  BETTER_AUTH_SECRET?: string;
+  BETTER_AUTH_URL?: string;
   ADMIN_EMAILS?: string;
   ADMIN_PASSWORD_VERIFIER?: string;
   ADMIN_PASSWORD_VERIFIERS?: string;
   ADMIN_SESSION_SECRET?: string;
   TURNSTILE_SITE_KEY?: string;
   TURNSTILE_SECRET?: string;
+  LAUNCH_MODE?: string;
   NATIVE_API_ENABLED?: string;
   APPLE_CLIENT_ID?: string;
   APPLE_TEAM_ID?: string;
@@ -24,12 +32,21 @@ interface Env {
   APPLE_PRIVATE_KEY?: string;
   APPLE_TOKEN_ENCRYPTION_SECRET?: string;
   NATIVE_SESSION_SECRET?: string;
+  GOOGLE_CLIENT_ID?: string;
+  GOOGLE_CLIENT_SECRET?: string;
+  APPLE_WEB_CLIENT_ID?: string;
+  APPLE_WEB_CLIENT_SECRET?: string;
+  RESEND_API_KEY?: string;
+  AUTH_EMAIL_FROM?: string;
+  SUPPORT_NOTIFICATION_EMAIL?: string;
 }
 
 interface ExecutionContext {
   waitUntil(promise: Promise<unknown>): void;
   passThroughOnException(): void;
 }
+
+const cachedHealthResponse = createHealthResponseCache();
 
 const worker = {
   async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
@@ -41,9 +58,19 @@ const worker = {
 
     const rejectedMutation =
       rejectUnsafeCrossOriginWebApiRequest(webRequest);
-    const response =
-      rejectedMutation ??
-      (await handler.fetch(webRequest, env, ctx));
+    const isHealthProbe =
+      url.pathname === "/api/health" &&
+      (webRequest.method === "GET" || webRequest.method === "HEAD");
+    const response = rejectedMutation ??
+      (isHealthProbe
+        ? await cachedHealthResponse({
+            request: webRequest,
+            fetchResponse: () =>
+              handler.fetch(asCanonicalHealthGet(webRequest), env, ctx),
+            edgeCache: defaultEdgeCache(),
+            waitUntil: (promise) => ctx.waitUntil(promise),
+          })
+        : await handler.fetch(webRequest, env, ctx));
 
     const securedResponse = appendSetCookie(
       withSecurityHeaders(response, webRequest, requestId),
@@ -69,14 +96,19 @@ const worker = {
     env: Env,
     ctx: ExecutionContext,
   ): Promise<void> {
+    const runId = crypto.randomUUID();
     ctx.waitUntil(
-      runRetentionMaintenance(env.DB)
-        .then((deleted) => {
+      runRetentionMaintenance(env.DB, controller.scheduledTime, { runId })
+        .then((result) => {
           console.info(
             JSON.stringify({
               event: "scheduled_retention_completed",
               scheduledAt: new Date(controller.scheduledTime).toISOString(),
-              deleted,
+              runId: result.runId,
+              startedAt: new Date(result.startedAt).toISOString(),
+              completedAt: new Date(result.completedAt).toISOString(),
+              pagesProcessed: result.pagesProcessed,
+              deleted: result.deleted,
             }),
           );
         })
@@ -84,14 +116,26 @@ const worker = {
           console.error(
             JSON.stringify({
               event: "scheduled_retention_failed",
+              runId,
               message: error instanceof Error ? error.message : "unknown error",
               scheduledAt: new Date(controller.scheduledTime).toISOString(),
             }),
           );
+          throw error;
         }),
     );
   },
 };
+
+function asCanonicalHealthGet(request: Request): Request {
+  if (request.method === "GET") return request;
+  return new Request(request, { method: "GET" });
+}
+
+function defaultEdgeCache(): Cache | undefined {
+  if (typeof caches === "undefined") return undefined;
+  return (caches as CacheStorage & { default?: Cache }).default;
+}
 
 function withSecurityHeaders(
   response: Response,

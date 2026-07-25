@@ -53,10 +53,11 @@ class NativeSessionStatement {
     }
     return {
       account_id: session.accountId,
-      email: "relay@example.com",
-      display_name: "Camille",
-      expires_at: session.expiresAt,
-    } as T;
+        email: "relay@example.com",
+        display_name: "Camille",
+        expires_at: session.expiresAt,
+        created_at: Date.UTC(2026, 6, 25),
+      } as T;
   }
 
   async run() {

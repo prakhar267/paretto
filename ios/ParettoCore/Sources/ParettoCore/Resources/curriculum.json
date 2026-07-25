@@ -1,6 +1,24 @@
 {
   "schemaVersion": 1,
   "revision": "compiled-v1",
+  "course": {
+    "id": "french-from-english",
+    "sourceLanguageName": "English",
+    "targetLanguageName": "French",
+    "sourceLocale": "en",
+    "targetLocale": "fr-FR",
+    "initialContextId": "ile-de-france",
+    "audioLocale": "fr-FR",
+    "audioAssetPrefix": "/audio/fr",
+    "taxonomy": {
+      "contextKey": "region",
+      "contextIdField": "regionId",
+      "contextSingular": "region",
+      "contextPlural": "regions",
+      "journeyLabel": "Journey",
+      "wordCollectionLabel": "Wordbook"
+    }
+  },
   "audioAssetVersion": "v1",
   "audioAttributionPath": "/audio/fr/ATTRIBUTION.md",
   "regions": [

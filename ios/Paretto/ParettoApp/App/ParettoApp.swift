@@ -1,3 +1,4 @@
+import AuthenticationServices
 import SwiftUI
 
 @main
@@ -10,6 +11,14 @@ struct ParettoApp: App {
                 .environmentObject(model)
                 .tint(.parettoBlue)
                 .task { await model.load() }
+                .onReceive(
+                    NotificationCenter.default.publisher(
+                        for: ASAuthorizationAppleIDProvider
+                            .credentialRevokedNotification
+                    )
+                ) { _ in
+                    Task { await model.handleAppleCredentialRevocation() }
+                }
         }
     }
 }

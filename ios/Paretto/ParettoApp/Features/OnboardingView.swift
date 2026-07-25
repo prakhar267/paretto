@@ -43,6 +43,9 @@ struct OnboardingView: View {
                     .buttonStyle(PrimaryActionStyle())
                     .disabled(name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
                 }
+                .frame(maxWidth: .infinity)
+                .frame(maxWidth: 760)
+                .frame(maxWidth: .infinity)
                 .padding(22)
             }
             .navigationTitle("Your journey")

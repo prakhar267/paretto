@@ -1,8 +1,10 @@
-const STATIC_CACHE = "paretto-static-v4";
+const STATIC_CACHE = "paretto-static-v6";
 // Keep the legacy audio cache identity so existing installs do not redownload
 // the complete French pronunciation library during the brand transition.
 const AUDIO_CACHE = "pas-a-pas-audio-v1";
 const OFFLINE_SHELL_PATH = "/offline.html";
+const PUBLIC_AUDIO_PATH =
+  /^\/audio\/fr\/[a-z0-9]+(?:-[a-z0-9]+)*\/[a-z0-9]+(?:-[a-z0-9]+)*\.wav$/;
 const STATIC_ASSETS = [
   OFFLINE_SHELL_PATH,
   "/favicon.svg",
@@ -14,7 +16,17 @@ const STATIC_ASSETS = [
 
 self.addEventListener("install", (event) => {
   event.waitUntil(
-    caches.open(STATIC_CACHE).then((cache) => cache.addAll(STATIC_ASSETS)),
+    caches.open(STATIC_CACHE).then((cache) =>
+      cache.addAll(
+        STATIC_ASSETS.map(
+          (path) =>
+            new Request(new URL(path, self.location.origin), {
+              cache: "reload",
+              credentials: "omit",
+            }),
+        ),
+      ),
+    ),
   );
   self.skipWaiting();
 });
@@ -55,13 +67,31 @@ self.addEventListener("fetch", (event) => {
     return;
   }
 
-  if (url.pathname.startsWith("/audio/")) {
-    event.respondWith(cacheFirst(request, AUDIO_CACHE));
+  // Keep Cache Storage identity-free: only immutable, versioned production
+  // pronunciation assets without query data are eligible.
+  if (PUBLIC_AUDIO_PATH.test(url.pathname) && url.search === "") {
+    event.respondWith(
+      cacheFirst(
+        new Request(url.toString(), {
+          cache: "no-cache",
+          credentials: "omit",
+        }),
+        AUDIO_CACHE,
+      ),
+    );
     return;
   }
 
-  if (STATIC_ASSETS.includes(url.pathname)) {
-    event.respondWith(cacheFirst(request, STATIC_CACHE));
+  if (STATIC_ASSETS.includes(url.pathname) && url.search === "") {
+    event.respondWith(
+      cacheFirst(
+        new Request(url.toString(), {
+          cache: "no-cache",
+          credentials: "omit",
+        }),
+        STATIC_CACHE,
+      ),
+    );
   }
 });
 

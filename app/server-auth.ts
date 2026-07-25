@@ -3,8 +3,24 @@ import {
   adminAuthConfiguration,
   verifyAdminSession,
 } from "@/app/admin-auth";
+import {
+  getLearnerAuth,
+  learnerAuthReadiness,
+} from "@/app/learner-auth";
+import { validBetterAuthRateLimitSecret } from "@/app/learner-auth-rate-limit";
+import {
+  scopedProgressStorageKey,
+  selectProgressCacheBootIdentity,
+  type ProgressCacheBootIdentity,
+} from "@/app/progress-cache-identity";
+import { validSupportRateLimitSecret } from "@/app/support-rate-limit";
+import {
+  supportOperatorEmail,
+  transactionalEmailConfigured,
+} from "@/app/transactional-email";
 import { turnstileConfiguration } from "@/app/turnstile";
 import { readLearnerSessionToken } from "@/app/web-session";
+import { getDatabase } from "@/db";
 
 type AuthFailureReason =
   | "missing_identity"
@@ -13,15 +29,39 @@ type AuthFailureReason =
   | "misconfigured";
 
 export type RequestIdentityResult =
-  | { ok: true; userKey: string }
+  | {
+      ok: true;
+      userKey: string;
+      kind: "account" | "anonymous";
+      accountId: string | null;
+      progressStorageKey: string;
+    }
   | { ok: false; status: 401 | 503; reason: AuthFailureReason };
 
 export type AdminAuthorizationResult =
   | { ok: true; email: string }
   | { ok: false; status: 401 | 403 | 503; reason: AuthFailureReason };
 
+export type BrowserProgressCacheIdentityResult =
+  | { ok: true; identity: ProgressCacheBootIdentity }
+  | {
+      ok: false;
+      reason: "missing_identity" | "identity_unavailable";
+    };
+
 export type RuntimeConfigurationReadiness = {
+  launchMode: "controlled-beta" | "public" | null;
   userKeySecret: boolean;
+  supportRateLimitSecret: boolean;
+  learnerAuthRateLimitSecret: boolean;
+  learnerAuthentication: boolean;
+  learnerAuthOrigin: boolean;
+  learnerEmailAccountCreation: boolean;
+  learnerEmailVerification: boolean;
+  learnerPasswordReset: boolean;
+  learnerGoogleAuth: boolean;
+  learnerAppleAuth: boolean;
+  supportNotifications: boolean;
   adminAllowlist: boolean;
   adminAuthentication: boolean;
   turnstileSiteKey: boolean;
@@ -36,10 +76,31 @@ export type RuntimeConfigurationReadiness = {
 export async function getRuntimeConfigurationReadiness(): Promise<RuntimeConfigurationReadiness> {
   const bindings = await serverBindings();
   const turnstile = turnstileConfiguration(bindings);
+  const learnerAuth = await learnerAuthReadiness();
   return {
+    launchMode:
+      bindings.LAUNCH_MODE === "controlled-beta" ||
+      bindings.LAUNCH_MODE === "public"
+        ? bindings.LAUNCH_MODE
+        : null,
     userKeySecret:
       typeof bindings.USER_KEY_SECRET === "string" &&
       bindings.USER_KEY_SECRET.length >= 32,
+    supportRateLimitSecret:
+      validSupportRateLimitSecret(bindings.SUPPORT_RATE_LIMIT_SECRET) &&
+      bindings.SUPPORT_RATE_LIMIT_SECRET !== bindings.USER_KEY_SECRET,
+    learnerAuthRateLimitSecret:
+      validBetterAuthRateLimitSecret(bindings),
+    learnerAuthentication: learnerAuth.configured,
+    learnerAuthOrigin: learnerAuth.canonicalOrigin,
+    learnerEmailAccountCreation: learnerAuth.emailAccountCreation,
+    learnerEmailVerification: learnerAuth.emailVerification,
+    learnerPasswordReset: learnerAuth.passwordReset,
+    learnerGoogleAuth: learnerAuth.google,
+    learnerAppleAuth: learnerAuth.apple,
+    supportNotifications:
+      transactionalEmailConfigured(bindings) &&
+      supportOperatorEmail(bindings) !== null,
     adminAllowlist: parseAdminAllowlist(bindings.ADMIN_EMAILS).size > 0,
     adminAuthentication: Boolean(adminAuthConfiguration(bindings)),
     turnstileSiteKey: Boolean(turnstile?.siteKey),
@@ -66,22 +127,275 @@ export async function getRuntimeConfigurationReadiness(): Promise<RuntimeConfigu
 export async function resolveRequestIdentity(
   request: Request,
 ): Promise<RequestIdentityResult> {
+  const bindings = await serverBindings();
+  const accountSession = await resolveLearnerAccountSession(request);
+  if ("error" in accountSession) {
+    return { ok: false, status: 503, reason: "misconfigured" };
+  }
+  if (accountSession.session) {
+    if (
+      typeof bindings.USER_KEY_SECRET !== "string" ||
+      bindings.USER_KEY_SECRET.length < 32
+    ) {
+      return { ok: false, status: 503, reason: "misconfigured" };
+    }
+    const deletion = await (await getDatabase())
+      .prepare(
+        `SELECT user_id FROM learner_deletion_jobs
+         WHERE user_id = ?`,
+      )
+      .bind(accountSession.session.user.id)
+      .first<{ user_id: string }>();
+    if (deletion) {
+      return { ok: false, status: 401, reason: "invalid_identity" };
+    }
+    return {
+      ok: true,
+      userKey: await accountUserKey(
+        bindings.USER_KEY_SECRET,
+        accountSession.session.user.id,
+      ),
+      kind: "account",
+      accountId: accountSession.session.user.id,
+      progressStorageKey: scopedProgressStorageKey(
+        "account",
+        await progressCacheScope(
+          bindings.USER_KEY_SECRET,
+          "account",
+          accountSession.session.user.id,
+        ),
+      ),
+    };
+  }
+
   const sessionToken = readLearnerSessionToken(request);
   if (!sessionToken) {
     return { ok: false, status: 401, reason: "missing_identity" };
   }
 
-  const bindings = await serverBindings();
   if (typeof bindings.USER_KEY_SECRET === "string" && bindings.USER_KEY_SECRET.length >= 32) {
     return {
       ok: true,
-      userKey: await hmacSha256(
-        bindings.USER_KEY_SECRET,
-        `web-anon:v1:${sessionToken}`,
+      userKey: await anonymousUserKey(bindings.USER_KEY_SECRET, sessionToken),
+      kind: "anonymous",
+      accountId: null,
+      progressStorageKey: scopedProgressStorageKey(
+        "anonymous",
+        await progressCacheScope(
+          bindings.USER_KEY_SECRET,
+          "anonymous",
+          sessionToken,
+        ),
       ),
     };
   }
   return { ok: false, status: 503, reason: "misconfigured" };
+}
+
+export async function resolveBrowserProgressCacheIdentity(
+  request: Request,
+): Promise<BrowserProgressCacheIdentityResult> {
+  let bindings: Awaited<ReturnType<typeof serverBindings>>;
+  try {
+    bindings = await serverBindings();
+  } catch (error) {
+    console.error(
+      JSON.stringify({
+        event: "learner_cache_identity_configuration_failed",
+        message: error instanceof Error ? error.message : "unknown error",
+        timestamp: new Date().toISOString(),
+      }),
+    );
+    return { ok: false, reason: "identity_unavailable" };
+  }
+  if (
+    typeof bindings.USER_KEY_SECRET !== "string" ||
+    bindings.USER_KEY_SECRET.length < 32
+  ) {
+    return { ok: false, reason: "identity_unavailable" };
+  }
+
+  const accountSession = await resolveLearnerAccountSession(request);
+  if ("error" in accountSession) {
+    return { ok: false, reason: "identity_unavailable" };
+  }
+
+  const anonymousToken = readLearnerSessionToken(request);
+  if (!anonymousToken) {
+    return { ok: false, reason: "missing_identity" };
+  }
+
+  const anonymousUserKeyValue = await anonymousUserKey(
+    bindings.USER_KEY_SECRET,
+    anonymousToken,
+  );
+  const anonymousScope = await progressCacheScope(
+    bindings.USER_KEY_SECRET,
+    "anonymous",
+    anonymousToken,
+  );
+  const accountId = accountSession.session?.user.id ?? null;
+  const accountScope = accountId
+    ? await progressCacheScope(
+        bindings.USER_KEY_SECRET,
+        "account",
+        accountId,
+      )
+    : null;
+
+  let anonymousIdentityClaimed = false;
+  if (accountId) {
+    try {
+      const deletion = await (await getDatabase())
+        .prepare(
+          `SELECT user_id FROM learner_deletion_jobs
+           WHERE user_id = ?`,
+        )
+        .bind(accountId)
+        .first<{ user_id: string }>();
+      if (deletion) {
+        return { ok: false, reason: "identity_unavailable" };
+      }
+    } catch (error) {
+      console.error(
+        JSON.stringify({
+          event: "learner_cache_deletion_guard_failed",
+          message: error instanceof Error ? error.message : "unknown error",
+          timestamp: new Date().toISOString(),
+        }),
+      );
+      return { ok: false, reason: "identity_unavailable" };
+    }
+  } else {
+    try {
+      const link = await (await getDatabase())
+        .prepare(
+          "SELECT account_id FROM learner_identity_links WHERE anonymous_user_key = ?",
+        )
+        .bind(anonymousUserKeyValue)
+        .first<{ account_id: string }>();
+      anonymousIdentityClaimed = Boolean(link);
+    } catch (error) {
+      console.error(
+        JSON.stringify({
+          event: "learner_cache_identity_link_check_failed",
+          message: error instanceof Error ? error.message : "unknown error",
+          timestamp: new Date().toISOString(),
+        }),
+      );
+      return { ok: false, reason: "identity_unavailable" };
+    }
+  }
+
+  return {
+    ok: true,
+    identity: selectProgressCacheBootIdentity({
+      accountId,
+      accountScope,
+      anonymousScope,
+      anonymousIdentityClaimed,
+    }),
+  };
+}
+
+export async function resolveLearnerAccountSession(
+  request: Request,
+): Promise<
+  | {
+      session: {
+        session: { id: string; expiresAt: Date };
+        user: { id: string; email: string; name: string; image?: string | null };
+      } | null;
+    }
+  | { error: true }
+> {
+  if (!hasLearnerAccountCookie(request.headers.get("cookie"))) {
+    return { session: null };
+  }
+  try {
+    const session = await (await getLearnerAuth(request)).api.getSession({
+      headers: request.headers,
+    });
+    return { session };
+  } catch (error) {
+    console.error(
+      JSON.stringify({
+        event: "learner_session_validation_failed",
+        message: error instanceof Error ? error.message : "unknown error",
+        timestamp: new Date().toISOString(),
+      }),
+    );
+    return { error: true };
+  }
+}
+
+export async function anonymousUserKey(
+  secret: string,
+  sessionToken: string,
+): Promise<string> {
+  return hmacSha256(secret, `web-anon:v1:${sessionToken}`);
+}
+
+export async function accountUserKey(
+  secret: string,
+  accountId: string,
+): Promise<string> {
+  return hmacSha256(secret, `web-account:v1:${accountId}`);
+}
+
+export async function resolveLearnerClaimKeys(
+  request: Request,
+): Promise<
+  | {
+      ok: true;
+      accountId: string;
+      accountUserKey: string;
+      anonymousUserKey: string | null;
+      accountStorageKey: string;
+      anonymousStorageKey: string | null;
+    }
+  | { ok: false; status: 401 | 503 }
+> {
+  const accountSession = await resolveLearnerAccountSession(request);
+  if ("error" in accountSession) return { ok: false, status: 503 };
+  if (!accountSession.session) return { ok: false, status: 401 };
+
+  const bindings = await serverBindings();
+  if (
+    typeof bindings.USER_KEY_SECRET !== "string" ||
+    bindings.USER_KEY_SECRET.length < 32
+  ) {
+    return { ok: false, status: 503 };
+  }
+
+  const anonymousToken = readLearnerSessionToken(request);
+  const accountScope = await progressCacheScope(
+    bindings.USER_KEY_SECRET,
+    "account",
+    accountSession.session.user.id,
+  );
+  return {
+    ok: true,
+    accountId: accountSession.session.user.id,
+    accountUserKey: await accountUserKey(
+      bindings.USER_KEY_SECRET,
+      accountSession.session.user.id,
+    ),
+    anonymousUserKey: anonymousToken
+      ? await anonymousUserKey(bindings.USER_KEY_SECRET, anonymousToken)
+      : null,
+    accountStorageKey: scopedProgressStorageKey("account", accountScope),
+    anonymousStorageKey: anonymousToken
+      ? scopedProgressStorageKey(
+          "anonymous",
+          await progressCacheScope(
+            bindings.USER_KEY_SECRET,
+            "anonymous",
+            anonymousToken,
+          ),
+        )
+      : null,
+  };
 }
 
 export async function authorizeAdmin(
@@ -144,12 +458,15 @@ function parseAdminAllowlist(value: unknown): Set<string> {
 
 async function serverBindings(): Promise<{
   USER_KEY_SECRET?: unknown;
+  SUPPORT_RATE_LIMIT_SECRET?: unknown;
+  BETTER_AUTH_RATE_LIMIT_SECRET?: unknown;
   ADMIN_EMAILS?: unknown;
   ADMIN_PASSWORD_VERIFIER?: unknown;
   ADMIN_PASSWORD_VERIFIERS?: unknown;
   ADMIN_SESSION_SECRET?: unknown;
   TURNSTILE_SITE_KEY?: unknown;
   TURNSTILE_SECRET?: unknown;
+  LAUNCH_MODE?: unknown;
   NATIVE_API_ENABLED?: unknown;
   APPLE_CLIENT_ID?: unknown;
   APPLE_TEAM_ID?: unknown;
@@ -157,16 +474,28 @@ async function serverBindings(): Promise<{
   APPLE_PRIVATE_KEY?: unknown;
   APPLE_TOKEN_ENCRYPTION_SECRET?: unknown;
   NATIVE_SESSION_SECRET?: unknown;
+  BETTER_AUTH_SECRET?: unknown;
+  BETTER_AUTH_URL?: unknown;
+  GOOGLE_CLIENT_ID?: unknown;
+  GOOGLE_CLIENT_SECRET?: unknown;
+  APPLE_WEB_CLIENT_ID?: unknown;
+  APPLE_WEB_CLIENT_SECRET?: unknown;
+  RESEND_API_KEY?: unknown;
+  AUTH_EMAIL_FROM?: unknown;
+  SUPPORT_NOTIFICATION_EMAIL?: unknown;
 }> {
   const { env } = await import("cloudflare:workers");
   return env as unknown as {
     USER_KEY_SECRET?: unknown;
+    SUPPORT_RATE_LIMIT_SECRET?: unknown;
+    BETTER_AUTH_RATE_LIMIT_SECRET?: unknown;
     ADMIN_EMAILS?: unknown;
     ADMIN_PASSWORD_VERIFIER?: unknown;
     ADMIN_PASSWORD_VERIFIERS?: unknown;
     ADMIN_SESSION_SECRET?: unknown;
     TURNSTILE_SITE_KEY?: unknown;
     TURNSTILE_SECRET?: unknown;
+    LAUNCH_MODE?: unknown;
     NATIVE_API_ENABLED?: unknown;
     APPLE_CLIENT_ID?: unknown;
     APPLE_TEAM_ID?: unknown;
@@ -174,7 +503,28 @@ async function serverBindings(): Promise<{
     APPLE_PRIVATE_KEY?: unknown;
     APPLE_TOKEN_ENCRYPTION_SECRET?: unknown;
     NATIVE_SESSION_SECRET?: unknown;
+    BETTER_AUTH_SECRET?: unknown;
+    BETTER_AUTH_URL?: unknown;
+    GOOGLE_CLIENT_ID?: unknown;
+    GOOGLE_CLIENT_SECRET?: unknown;
+    APPLE_WEB_CLIENT_ID?: unknown;
+    APPLE_WEB_CLIENT_SECRET?: unknown;
+    RESEND_API_KEY?: unknown;
+    AUTH_EMAIL_FROM?: unknown;
+    SUPPORT_NOTIFICATION_EMAIL?: unknown;
   };
+}
+
+function hasLearnerAccountCookie(header: string | null): boolean {
+  if (!header) return false;
+  return header
+    .split(";")
+    .map((part) => part.trim().split("=", 1)[0])
+    .some(
+      (name) =>
+        name === "paretto.session_token" ||
+        name === "__Secure-paretto.session_token",
+    );
 }
 
 async function hmacSha256(secret: string, value: string): Promise<string> {
@@ -188,6 +538,14 @@ async function hmacSha256(secret: string, value: string): Promise<string> {
   );
   const signature = await crypto.subtle.sign("HMAC", key, encoder.encode(value));
   return bytesToHex(signature);
+}
+
+async function progressCacheScope(
+  secret: string,
+  kind: "account" | "anonymous",
+  identity: string,
+): Promise<string> {
+  return hmacSha256(secret, `web-progress-cache:v2:${kind}:${identity}`);
 }
 
 function bytesToHex(value: ArrayBuffer): string {

@@ -22,13 +22,16 @@ export default function TermsPage() {
         </p>
       </LegalSection>
 
-      <LegalSection title="Eligibility and browser profiles">
+      <LegalSection title="Eligibility and learner accounts">
         <p>
           You must be at least 13 and legally able to accept these Terms. A
           parent or guardian must authorize use where required by local law.
-          The web service currently keeps progress in an anonymous browser
-          profile. Protect access to the device and browser that holds it, and
-          export progress before clearing site data or moving browsers.
+          You may learn with an anonymous browser profile or create a learner
+          account to synchronize progress across supported devices. Provide
+          accurate account information, use a unique password, protect access
+          to your email and devices, and promptly report suspected unauthorized
+          access. Export progress before clearing site data if you continue
+          without an account.
         </p>
       </LegalSection>
 
@@ -70,7 +73,8 @@ export default function TermsPage() {
           Reasonable efforts are made to keep the service reliable, but
           uninterrupted availability is not guaranteed. Access may be limited
           to maintain security, comply with law, or address misuse. You may stop
-          using the service and delete learning progress at any time. Material
+          using the service, delete learning progress, or delete a learner
+          account and its synchronized learning data at any time. Material
           changes to these Terms will be dated here and may be announced in the
           product before taking effect.
         </p>

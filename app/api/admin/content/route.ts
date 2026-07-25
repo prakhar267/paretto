@@ -14,6 +14,10 @@ import {
   type ContentRow,
 } from "@/app/api/_lib/cms-database";
 import {
+  DEFAULT_COURSE_ID,
+} from "@/app/course-catalog";
+import {
+  parseCourseId,
   parseContentKind,
   parseContentStatus,
   validateContentCreate,
@@ -28,8 +32,12 @@ export async function GET(request: Request) {
   const url = new URL(request.url);
   const rawKind = url.searchParams.get("kind");
   const rawStatus = url.searchParams.get("status");
+  const rawCourseId = url.searchParams.get("courseId");
+  const courseId =
+    rawCourseId === null ? DEFAULT_COURSE_ID : parseCourseId(rawCourseId);
   const kind = parseContentKind(rawKind);
   const status = parseContentStatus(rawStatus);
+  if (!courseId) return apiError(400, "Invalid course.");
   if (rawKind && !kind) return apiError(400, "Invalid content kind.");
   if (rawStatus && !status) return apiError(400, "Invalid content status.");
 
@@ -41,8 +49,8 @@ export async function GET(request: Request) {
   const cursor = rawCursor === null ? null : parseContentCursor(rawCursor);
   if (rawCursor !== null && !cursor) return apiError(400, "Invalid content cursor.");
 
-  const conditions: string[] = [];
-  const values: unknown[] = [];
+  const conditions: string[] = ["course_id = ?"];
+  const values: unknown[] = [courseId];
   if (kind) {
     conditions.push("kind = ?");
     values.push(kind);
@@ -94,6 +102,7 @@ export async function POST(request: Request) {
   const contentJson = JSON.stringify(parsed.value.content);
   const row: ContentRow = {
     id,
+    course_id: parsed.value.courseId,
     kind: parsed.value.kind,
     slug: parsed.value.slug,
     stable_key: parsed.value.slug,
@@ -118,20 +127,21 @@ export async function POST(request: Request) {
       database
         .prepare(
           `INSERT INTO cms_content (
-            id, kind, slug, stable_key, title, content, status, revision,
+            id, course_id, kind, slug, stable_key, title, content, status, revision,
             created_at, updated_at, published_at, review_status,
             reviewed_by_email, reviewed_at, approved_revision,
             created_by_email, updated_by_email
           )
-          SELECT ?, ?, ?, ?, ?, ?, 'draft', 1, ?, ?, NULL, 'draft',
+          SELECT ?, ?, ?, ?, ?, ?, ?, 'draft', 1, ?, ?, NULL, 'draft',
                  NULL, NULL, NULL, ?, ?
           WHERE NOT EXISTS (
             SELECT 1 FROM cms_slug_tombstones
-            WHERE kind = ? AND slug = ?
+            WHERE course_id = ? AND kind = ? AND slug = ?
           )`,
         )
         .bind(
           id,
+          row.course_id,
           row.kind,
           row.slug,
           row.stable_key,
@@ -141,16 +151,17 @@ export async function POST(request: Request) {
           now,
           admin.email,
           admin.email,
+          row.course_id,
           row.kind,
           row.slug,
         ),
       database
         .prepare(
           `INSERT INTO cms_content_revisions (
-            content_id, revision, kind, slug, stable_key, title, content, status,
+            course_id, content_id, revision, kind, slug, stable_key, title, content, status,
             published_at, actor_email, action, created_at
           )
-          SELECT id, revision, kind, slug, stable_key, title, content, status,
+          SELECT course_id, id, revision, kind, slug, stable_key, title, content, status,
                  published_at, ?, 'CREATE', ?
           FROM cms_content
           WHERE id = ? AND revision = 1 AND status = 'draft'
@@ -183,7 +194,11 @@ export async function POST(request: Request) {
         )
         .bind(
           admin.email,
-          JSON.stringify({ kind: row.kind, slug: row.slug }),
+          JSON.stringify({
+            courseId: row.course_id,
+            kind: row.kind,
+            slug: row.slug,
+          }),
           now,
           id,
           row.slug,
@@ -195,9 +210,9 @@ export async function POST(request: Request) {
       database
         .prepare(
           `INSERT OR IGNORE INTO cms_vocabulary_aliases (
-            alias, content_id, stable_key, created_at
+            course_id, alias, content_id, stable_key, created_at
           )
-          SELECT slug, id, stable_key, ?
+          SELECT course_id, slug, id, stable_key, ?
           FROM cms_content
           WHERE id = ? AND revision = 1 AND kind = 'vocabulary'`,
         )

@@ -84,6 +84,7 @@ export async function POST(request: Request, context: RouteContext) {
           AND EXISTS (
             SELECT 1 FROM cms_content AS live_vocabulary
             WHERE live_vocabulary.id = ?
+              AND live_vocabulary.course_id = cms_content.course_id
               AND live_vocabulary.stable_key = ?
               AND live_vocabulary.revision = ?
               AND live_vocabulary.kind = 'vocabulary'
@@ -106,12 +107,13 @@ export async function POST(request: Request, context: RouteContext) {
            FROM cms_content AS content,
                 json_each(content.content, '$.vocabularyIds') AS vocabulary_reference
            WHERE content.kind = 'lesson'
+             AND content.course_id = ?
              AND content.status = 'published'
              AND vocabulary_reference.value IN (${placeholders})
            ORDER BY content.updated_at DESC, content.id ASC
            LIMIT 1`,
         )
-        .bind(...references)
+        .bind(existing.course_id, ...references)
         .first<ContentRow>();
       const dependentLesson = dependentRow
         ? contentRecordFromRow(dependentRow)
@@ -128,6 +130,7 @@ export async function POST(request: Request, context: RouteContext) {
         FROM cms_content AS dependent_lesson,
              json_each(dependent_lesson.content, '$.vocabularyIds') AS vocabulary_reference
         WHERE dependent_lesson.kind = 'lesson'
+          AND dependent_lesson.course_id = cms_content.course_id
           AND dependent_lesson.status = 'published'
           AND vocabulary_reference.value IN (${placeholders})
       )`;
@@ -173,10 +176,10 @@ export async function POST(request: Request, context: RouteContext) {
       database
         .prepare(
           `INSERT INTO cms_content_revisions (
-            content_id, revision, kind, slug, stable_key, title, content, status,
+            course_id, content_id, revision, kind, slug, stable_key, title, content, status,
             published_at, actor_email, action, created_at
           )
-          SELECT id, revision, kind, slug, stable_key, title, content, status,
+          SELECT course_id, id, revision, kind, slug, stable_key, title, content, status,
                  published_at, ?, ?, ?
           FROM cms_content
           WHERE id = ? AND revision = ? AND status = ?
@@ -214,6 +217,7 @@ export async function POST(request: Request, context: RouteContext) {
           existing.revision,
           nextRevision,
           JSON.stringify({
+            courseId: existing.course_id,
             fromStatus: existing.status,
             toStatus: desiredStatus,
             approvedRevision: existing.approved_revision,
@@ -256,12 +260,12 @@ async function vocabularyReferences(
   const result = await database
     .prepare(
       `SELECT alias FROM cms_vocabulary_aliases
-       WHERE content_id = ? OR stable_key = ?`,
+       WHERE course_id = ? AND (content_id = ? OR stable_key = ?)`,
     )
-    .bind(row.id, row.stable_key)
+    .bind(row.course_id, row.id, row.stable_key)
     .all<{ alias: string }>();
   const references = new Set<string>([
-    vocabularyPublicId(row.stable_key),
+    vocabularyPublicId(row.stable_key, row.course_id),
     row.stable_key,
     `cms-${row.stable_key}`,
   ]);

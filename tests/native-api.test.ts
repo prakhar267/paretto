@@ -15,6 +15,7 @@ import {
   initialNativeLearningState,
   validateNativeLearningState,
 } from "../app/api/native/_lib/native-progress";
+import { MAX_ACTIVE_REWARD_REPLICAS } from "../app/learning-engine";
 import { setCloudflareEnv } from "./cloudflare-workers-mock";
 
 describe("native API security contracts", () => {
@@ -40,10 +41,37 @@ describe("native API security contracts", () => {
     const stateWithoutOptionalDay = { ...state };
     delete (stateWithoutOptionalDay as { lastActiveDate?: unknown }).lastActiveDate;
     expect(validateNativeLearningState(stateWithoutOptionalDay)).toBe(true);
+    const legacyState = { ...state } as Record<string, unknown>;
+    delete legacyState.activeCourseId;
+    delete legacyState.courseProgress;
+    expect(validateNativeLearningState(legacyState)).toBe(true);
+    expect(
+      validateNativeLearningState({
+        ...state,
+        activeCourseId: "unpublished-course",
+      }),
+    ).toBe(false);
     expect(validateNativeLearningState({ ...state, schemaVersion: 2 })).toBe(false);
     expect(validateNativeLearningState({ ...state, analyticsIdentifier: "hidden-pii" })).toBe(false);
     expect(validateNativeLearningState({ ...state, dailyGoal: "5" })).toBe(false);
     expect(validateNativeLearningState({ ...state, dailyGoal: 6 })).toBe(false);
+    expect(
+      validateNativeLearningState({
+        ...state,
+        rewardJournal: {
+          ...state.rewardJournal,
+          replicas: Object.fromEntries(
+            Array.from(
+              { length: MAX_ACTIVE_REWARD_REPLICAS + 1 },
+              (_, index) => [
+                `ios2:${index.toString(36)}:00000000-0000-4000-8000-${index.toString().padStart(12, "0")}`,
+                { xpEarned: 0, coinsEarned: 0, coinsSpent: 0 },
+              ],
+            ),
+          ),
+        },
+      }),
+    ).toBe(false);
     expect(
       validateNativeLearningState({
         ...state,
@@ -109,6 +137,34 @@ describe("native API security contracts", () => {
       validateNativeLearningState({
         ...state,
         challenge: { bestScore: 4, lastPlayedDate: "2026-02-30" },
+      }),
+    ).toBe(false);
+    expect(
+      validateNativeLearningState({
+        ...state,
+        dice: {
+          lastPlayedDate: "2026-07-25",
+          lastPlayedResult: {
+            date: "2026-07-25",
+            stake: 3,
+            multiplier: 2,
+            xp: 72,
+          },
+        },
+      }),
+    ).toBe(true);
+    expect(
+      validateNativeLearningState({
+        ...state,
+        dice: {
+          lastPlayedDate: "2026-07-25",
+          lastPlayedResult: {
+            date: "2026-07-24",
+            stake: 3,
+            multiplier: 2,
+            xp: 72,
+          },
+        },
       }),
     ).toBe(false);
     expect(

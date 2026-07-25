@@ -15,8 +15,14 @@ import {
   type FrenchAudioSource,
   type FrenchAudioStatus,
 } from "./french-audio-service";
+import {
+  COURSE_CATALOG,
+  DEFAULT_COURSE_ID,
+  type CourseId,
+} from "../course-catalog";
 
 export type FrenchAudioButtonProps = {
+  courseId?: CourseId;
   wordId: string;
   text: string;
   enabled: boolean;
@@ -49,6 +55,7 @@ const visuallyHidden = {
 const EMPTY_PRELOAD_WORDS: readonly FrenchAudioPreloadRequest[] = [];
 
 export function FrenchAudioButton({
+  courseId: suppliedCourseId,
   wordId,
   text,
   enabled,
@@ -58,6 +65,8 @@ export function FrenchAudioButton({
   service: suppliedService,
   onPlay,
 }: FrenchAudioButtonProps) {
+  const courseId: CourseId = suppliedCourseId ?? DEFAULT_COURSE_ID;
+  const course = COURSE_CATALOG[courseId];
   const service = suppliedService ?? getFrenchAudioService();
   const statusId = useId();
   const snapshot = useSyncExternalStore(
@@ -65,14 +74,23 @@ export function FrenchAudioButton({
     service.getSnapshot,
     service.getServerSnapshot,
   );
-  const ownsPlayback = snapshot.wordId === wordId;
+  const ownsPlayback =
+    snapshot.wordId === wordId &&
+    (snapshot.courseId ?? DEFAULT_COURSE_ID) === courseId;
   const isPlaying =
     ownsPlayback &&
     (snapshot.status === "playing" || snapshot.status === "loading");
   const isPaused = ownsPlayback && snapshot.status === "paused";
-  const preloadRequests = useMemo(
-    () => [{ wordId, text }, ...preloadWords],
-    [preloadWords, text, wordId],
+  const preloadRequests = useMemo<FrenchAudioPreloadRequest[]>(
+    () => [
+      { courseId, wordId, text },
+      ...preloadWords.map<FrenchAudioPreloadRequest>((request) => ({
+        courseId: (request.courseId ?? courseId) as CourseId,
+        wordId: request.wordId,
+        text: request.text,
+      })),
+    ],
+    [courseId, preloadWords, text, wordId],
   );
 
   useEffect(() => {
@@ -85,23 +103,29 @@ export function FrenchAudioButton({
 
   useEffect(
     () => () => {
-      if (service.getSnapshot().wordId === wordId) service.stop();
+      const current = service.getSnapshot();
+      if (
+        current.wordId === wordId &&
+        (current.courseId ?? DEFAULT_COURSE_ID) === courseId
+      ) {
+        service.stop();
+      }
     },
-    [service, wordId],
+    [courseId, service, wordId],
   );
 
   const label = !enabled
-    ? `French audio is off for ${text}`
+    ? `${course.targetLanguageName} audio is off for ${text}`
     : isPlaying
       ? `Pause pronunciation of ${text}`
       : isPaused
         ? `Resume pronunciation of ${text}`
         : `Hear pronunciation of ${text}`;
   const statusMessage = !enabled
-    ? "French audio is turned off in settings."
+    ? `${course.targetLanguageName} audio is turned off in settings.`
     : ownsPlayback
       ? snapshot.message
-      : "French pronunciation is ready.";
+      : `${course.targetLanguageName} pronunciation is ready.`;
 
   const handleClick = () => {
     if (!enabled) return;
@@ -111,7 +135,7 @@ export function FrenchAudioButton({
       void service.resume();
     } else {
       onPlay?.();
-      void service.play({ wordId, text, enabled });
+      void service.play({ courseId, wordId, text, enabled });
     }
   };
   const content =
@@ -122,7 +146,10 @@ export function FrenchAudioButton({
           status: ownsPlayback ? snapshot.status : "idle",
           source: ownsPlayback ? (snapshot.source ?? "none") : "none",
         })
-      : children ?? (isPlaying ? "Pause French audio" : "Hear it in French");
+      : children ??
+        (isPlaying
+          ? `Pause ${course.targetLanguageName} audio`
+          : `Hear it in ${course.targetLanguageName}`);
 
   return (
     <>

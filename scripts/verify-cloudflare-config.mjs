@@ -2,16 +2,20 @@
 
 import { access, readFile, readdir, stat } from "node:fs/promises";
 import { join, relative, resolve } from "node:path";
+import { gzipSync } from "node:zlib";
 
 const FREE_MAX_ASSET_FILES = 20_000;
 const FREE_MAX_ASSET_BYTES = 25 * 1024 * 1024;
-// Cloudflare measures compressed Worker upload size. Keeping the uncompressed
-// JavaScript module set below the Free limit is a deliberately conservative gate.
-const FREE_MAX_WORKER_MODULE_BYTES = 3 * 1024 * 1024;
+// Cloudflare enforces the Free Worker limit after gzip compression. Summing
+// independently compressed modules is slightly stricter than Wrangler's
+// combined upload report while avoiding false failures from repetitive source.
+const FREE_MAX_COMPRESSED_WORKER_MODULE_BYTES = 3_000_000;
 const EXPECTED_CRON = "17 3 * * *";
-const REQUIRED_SECRETS = [
+const COMMON_REQUIRED_SECRETS = [
   "USER_KEY_SECRET",
-  "ADMIN_PASSWORD_VERIFIER",
+  "SUPPORT_RATE_LIMIT_SECRET",
+  "BETTER_AUTH_RATE_LIMIT_SECRET",
+  "BETTER_AUTH_SECRET",
   "ADMIN_SESSION_SECRET",
   "TURNSTILE_SECRET",
 ];
@@ -21,9 +25,12 @@ const WORKER_FIRST_ROUTES = [
   "/admin",
   "/admin/*",
   "/api/*",
+  "/auth/*",
   "/attributions",
   "/cookies",
   "/privacy",
+  "/reset-password",
+  "/sign-in",
   "/support",
   "/terms",
 ];
@@ -37,10 +44,15 @@ if (options.templates === "true") {
       "utf8",
     );
     invariant(
-      source.includes("__CLOUDFLARE_ACCOUNT_ID__") &&
+        source.includes("__CLOUDFLARE_ACCOUNT_ID__") &&
         source.includes("__D1_DATABASE_NAME__") &&
         source.includes("__D1_DATABASE_ID__") &&
-        source.includes("__ADMIN_EMAIL__") &&
+        source.includes("__ADMIN_EMAILS__") &&
+        source.includes("__ADMIN_PASSWORD_SECRET_NAME__") &&
+        source.includes("__AUTH_EMAIL_FROM__") &&
+        source.includes("__BETTER_AUTH_URL__") &&
+        source.includes("__LAUNCH_MODE__") &&
+        source.includes("__SUPPORT_NOTIFICATION_EMAIL__") &&
         source.includes("__TURNSTILE_SITE_KEY__"),
       `${environment} template must keep every provisioning placeholder.`,
     );
@@ -61,7 +73,24 @@ if (options.templates === "true") {
           ? "12345678-1234-4234-8234-1234567890ab"
           : "abcdefab-cdef-4abc-8def-abcdefabcdef",
       )
-      .replace("__ADMIN_EMAIL__", "admin@example.com")
+      .replace("__ADMIN_EMAILS__", "admin@example.com")
+      .replace(
+        "__ADMIN_PASSWORD_SECRET_NAME__",
+        "ADMIN_PASSWORD_VERIFIER",
+      )
+      .replace(
+        "__AUTH_EMAIL_FROM__",
+        "Paretto <accounts@example.com>",
+      )
+      .replace(
+        "__BETTER_AUTH_URL__",
+        `https://paretto-${environment}.example.com`,
+      )
+      .replace("__LAUNCH_MODE__", "public")
+      .replace(
+        "__SUPPORT_NOTIFICATION_EMAIL__",
+        "support@example.com",
+      )
       .replace(
         "__TURNSTILE_SITE_KEY__",
         "1x00000000000000000000AA",
@@ -89,10 +118,11 @@ const configuration = JSON.parse(await readFile(configPath, "utf8"));
 validateConfiguration(configuration, environment, true);
 await verifyDeploymentArtifact(configuration);
 
-console.log(
+  console.log(
   `Cloudflare ${environment} deployment gate passed for ${configuration.name}: ` +
     `provisioned D1 ${configuration.d1_databases[0].database_name}, ` +
-    "checked-in migrations, free-plan asset limits, Cron, and observability.",
+    `${configuration.vars.LAUNCH_MODE} mode, checked-in migrations, ` +
+    "free-plan asset limits, Cron, and observability.",
 );
 
 function validateConfiguration(configuration, environment, requireProvisioned) {
@@ -120,29 +150,55 @@ function validateConfiguration(configuration, environment, requireProvisioned) {
   );
   invariant(
     configuration.assets?.directory === "dist/client" &&
-      configuration.assets?.binding === "ASSETS",
-    "Static assets must use dist/client through the ASSETS binding.",
+      configuration.assets?.binding === "ASSETS" &&
+      configuration.assets?.html_handling === "none",
+    "Static assets must use dist/client through the ASSETS binding and preserve exact HTML paths.",
   );
+  const adminEmails = parseAdminEmails(configuration.vars?.ADMIN_EMAILS);
+  const launchMode = configuration.vars?.LAUNCH_MODE;
+  const publicDeliveryConfigured =
+    typeof configuration.vars?.AUTH_EMAIL_FROM === "string" &&
+    /<[^<>\s@]+@[^<>\s@]+\.[^<>\s@]+>$/.test(
+      configuration.vars.AUTH_EMAIL_FROM,
+    ) &&
+    typeof configuration.vars?.SUPPORT_NOTIFICATION_EMAIL === "string" &&
+    /^[^\s,@]+@[^\s,@]+\.[^\s,@]+$/.test(
+      configuration.vars.SUPPORT_NOTIFICATION_EMAIL,
+    );
+  const controlledBetaDeliveryDisabled =
+    configuration.vars?.AUTH_EMAIL_FROM === "" &&
+    configuration.vars?.SUPPORT_NOTIFICATION_EMAIL === "";
   invariant(
     configuration.vars?.NATIVE_API_ENABLED === "false" &&
-      typeof configuration.vars?.ADMIN_EMAILS === "string" &&
-      /^[^\s,@]+@[^\s,@]+\.[^\s,@]+$/.test(
-        configuration.vars.ADMIN_EMAILS,
-      ) &&
+      adminEmails !== null &&
+      (launchMode === "public" || launchMode === "controlled-beta") &&
+      (launchMode === "public"
+        ? publicDeliveryConfigured
+        : controlledBetaDeliveryDisabled) &&
+      validHttpsOrigin(configuration.vars?.BETTER_AUTH_URL) &&
       typeof configuration.vars?.TURNSTILE_SITE_KEY === "string" &&
       configuration.vars.TURNSTILE_SITE_KEY.length >= 20 &&
       configuration.vars.TURNSTILE_SITE_KEY.length <= 256 &&
       !/\s/.test(configuration.vars.TURNSTILE_SITE_KEY) &&
-      Object.keys(configuration.vars).length === 3,
-    "The web launch must configure exactly one admin email and Turnstile site key while disabling the native API.",
+      Object.keys(configuration.vars).length === 7,
+    "The web launch must explicitly select controlled-beta or public mode, configure core learner/admin identity and Turnstile, disable the native API, and either omit delivery in controlled beta or fully configure its public sender and support mailbox.",
   );
+  const adminPasswordSecretName =
+    adminEmails.length === 1
+      ? "ADMIN_PASSWORD_VERIFIER"
+      : "ADMIN_PASSWORD_VERIFIERS";
+  const requiredSecrets = [
+    ...COMMON_REQUIRED_SECRETS.slice(0, 4),
+    adminPasswordSecretName,
+    ...COMMON_REQUIRED_SECRETS.slice(4),
+  ];
   invariant(
     Array.isArray(configuration.secrets?.required) &&
-      configuration.secrets.required.length === REQUIRED_SECRETS.length &&
+      configuration.secrets.required.length === requiredSecrets.length &&
       configuration.secrets.required.every(
-        (secret, index) => secret === REQUIRED_SECRETS[index],
+        (secret, index) => secret === requiredSecrets[index],
       ),
-    `Required secrets must be exactly ${REQUIRED_SECRETS.join(", ")}.`,
+    `Required secrets must be exactly ${requiredSecrets.join(", ")}.`,
   );
   invariant(
     !configuration.secrets.required.some((secret) =>
@@ -234,6 +290,42 @@ function validateConfiguration(configuration, environment, requireProvisioned) {
   );
 }
 
+function validHttpsOrigin(value) {
+  if (typeof value !== "string") return false;
+  try {
+    const url = new URL(value);
+    return (
+      url.protocol === "https:" &&
+      url.origin === value &&
+      url.pathname === "/" &&
+      !url.username &&
+      !url.password
+    );
+  } catch {
+    return false;
+  }
+}
+
+function parseAdminEmails(value) {
+  if (typeof value !== "string") return null;
+  const entries = value.split(",");
+  if (entries.length < 1 || entries.length > 25) return null;
+  const normalized = entries.map((entry) => entry.trim().toLowerCase());
+  if (
+    normalized.some(
+      (email) =>
+        email.length < 3 ||
+        email.length > 254 ||
+        !/^[^\s,@]+@[^\s,@]+\.[^\s,@]+$/.test(email),
+    ) ||
+    new Set(normalized).size !== normalized.length ||
+    normalized.join(",") !== value
+  ) {
+    return null;
+  }
+  return normalized;
+}
+
 async function verifyDeploymentArtifact(configuration) {
   const mainPath = resolve(root, configuration.main);
   const assetsPath = resolve(root, configuration.assets.directory);
@@ -259,14 +351,16 @@ async function verifyDeploymentArtifact(configuration) {
   const workerModules = (await filesBelow(resolve(root, "dist/server"))).filter(
     (path) => /\.(?:m?js)$/.test(path),
   );
-  let workerModuleBytes = 0;
+  let compressedWorkerModuleBytes = 0;
   for (const path of workerModules) {
-    workerModuleBytes += (await stat(path)).size;
+    compressedWorkerModuleBytes += gzipSync(await readFile(path), {
+      level: 9,
+    }).length;
   }
   invariant(
-    workerModuleBytes <= FREE_MAX_WORKER_MODULE_BYTES,
-    `Uncompressed Worker modules ${workerModuleBytes} bytes exceed the conservative ` +
-      `${FREE_MAX_WORKER_MODULE_BYTES}-byte Free-plan gate.`,
+    compressedWorkerModuleBytes <= FREE_MAX_COMPRESSED_WORKER_MODULE_BYTES,
+    `Individually gzip-compressed Worker modules ${compressedWorkerModuleBytes} bytes ` +
+      `exceed the ${FREE_MAX_COMPRESSED_WORKER_MODULE_BYTES}-byte Free-plan gate.`,
   );
 
   const [journalSource, headersSource, workerSource] = await Promise.all([

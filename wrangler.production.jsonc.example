@@ -6,14 +6,21 @@
   "compatibility_date": "2026-07-17",
   "compatibility_flags": ["nodejs_compat"],
   "vars": {
-    "ADMIN_EMAILS": "__ADMIN_EMAIL__",
+    "ADMIN_EMAILS": "__ADMIN_EMAILS__",
+    "AUTH_EMAIL_FROM": "__AUTH_EMAIL_FROM__",
+    "BETTER_AUTH_URL": "__BETTER_AUTH_URL__",
+    "LAUNCH_MODE": "__LAUNCH_MODE__",
     "NATIVE_API_ENABLED": "false",
+    "SUPPORT_NOTIFICATION_EMAIL": "__SUPPORT_NOTIFICATION_EMAIL__",
     "TURNSTILE_SITE_KEY": "__TURNSTILE_SITE_KEY__"
   },
   "secrets": {
     "required": [
       "USER_KEY_SECRET",
-      "ADMIN_PASSWORD_VERIFIER",
+      "SUPPORT_RATE_LIMIT_SECRET",
+      "BETTER_AUTH_RATE_LIMIT_SECRET",
+      "BETTER_AUTH_SECRET",
+      "__ADMIN_PASSWORD_SECRET_NAME__",
       "ADMIN_SESSION_SECRET",
       "TURNSTILE_SECRET"
     ]
@@ -21,15 +28,19 @@
   "assets": {
     "directory": "dist/client",
     "binding": "ASSETS",
+    "html_handling": "none",
     "run_worker_first": [
       "/",
       "/accessibility",
       "/admin",
       "/admin/*",
       "/api/*",
+      "/auth/*",
       "/attributions",
       "/cookies",
       "/privacy",
+      "/reset-password",
+      "/sign-in",
       "/support",
       "/terms"
     ]

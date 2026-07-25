@@ -1,5 +1,25 @@
 import Foundation
 
+public struct StoredLearningProgress: Codable, Equatable, Sendable {
+    public static let currentSchemaVersion = 1
+
+    public let schemaVersion: Int
+    public let accountScope: String?
+    public let serverGeneration: Int?
+    public let state: LearningState
+
+    public init(
+        accountScope: String?,
+        serverGeneration: Int?,
+        state: LearningState
+    ) {
+        self.schemaVersion = Self.currentSchemaVersion
+        self.accountScope = accountScope
+        self.serverGeneration = serverGeneration
+        self.state = state
+    }
+}
+
 public actor ProgressRepository {
     private let fileURL: URL
     private let encoder: JSONEncoder
@@ -56,14 +76,57 @@ public actor ProgressRepository {
     }
 
     public func load() throws -> LearningState? {
+        try loadStoredProgress()?.state
+    }
+
+    public func loadStoredProgress() throws -> StoredLearningProgress? {
         guard FileManager.default.fileExists(atPath: fileURL.path) else { return nil }
-        return try decoder.decode(LearningState.self, from: Data(contentsOf: fileURL))
+        let data = try Data(contentsOf: fileURL)
+        if let stored = try? decoder.decode(StoredLearningProgress.self, from: data) {
+            guard stored.schemaVersion == StoredLearningProgress.currentSchemaVersion,
+                  stored.serverGeneration.map({ $0 >= 0 }) ?? true
+            else {
+                throw ProgressRepositoryError.unsupportedStoredProgress
+            }
+            return stored
+        }
+        // Development and pre-account builds wrote LearningState directly.
+        // Treat it as unowned data; the app may use it only in explicit guest
+        // mode and must never merge it into an authenticated account.
+        return StoredLearningProgress(
+            accountScope: nil,
+            serverGeneration: nil,
+            state: try decoder.decode(LearningState.self, from: data)
+        )
     }
 
     public func save(_ state: LearningState) throws {
+        try saveStoredProgress(
+            StoredLearningProgress(
+                accountScope: nil,
+                serverGeneration: nil,
+                state: state
+            )
+        )
+    }
+
+    public func saveStoredProgress(_ progress: StoredLearningProgress) throws {
+        guard progress.schemaVersion == StoredLearningProgress.currentSchemaVersion,
+              progress.serverGeneration.map({ $0 >= 0 }) ?? true
+        else {
+            throw ProgressRepositoryError.unsupportedStoredProgress
+        }
         let directory = fileURL.deletingLastPathComponent()
         try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
-        try encoder.encode(state).write(to: fileURL, options: [.atomic, .completeFileProtection])
+        #if os(iOS) || os(tvOS) || os(watchOS) || os(visionOS)
+        let options: Data.WritingOptions = [.atomic, .completeFileProtection]
+        #else
+        // Data Protection classes are an iOS-family capability. Requesting
+        // them from macOS can make otherwise writable temporary directories
+        // fail with EPERM, which breaks package tests and macOS diagnostics.
+        let options: Data.WritingOptions = [.atomic]
+        #endif
+        try encoder.encode(progress).write(to: fileURL, options: options)
     }
 
     public func export(_ state: LearningState, to destination: URL) throws {
@@ -74,4 +137,8 @@ public actor ProgressRepository {
         guard FileManager.default.fileExists(atPath: fileURL.path) else { return }
         try FileManager.default.removeItem(at: fileURL)
     }
+}
+
+private enum ProgressRepositoryError: Error {
+    case unsupportedStoredProgress
 }

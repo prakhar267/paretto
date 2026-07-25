@@ -49,15 +49,37 @@ legacy probes alone cannot cross normal iOS sandbox boundaries.
    Team ID. Set server `APPLE_CLIENT_ID`, `APPLE_TEAM_ID`, and `APPLE_KEY_ID` to
    those exact registered values; store the full `.p8` as `APPLE_PRIVATE_KEY` in
    the hosting secret manager. Never put it in Git or a local xcconfig.
-4. Create separate random `NATIVE_SESSION_SECRET` and
+4. If Apple login is offered on the web, group its Apple Service ID with this
+   primary App ID and configure `APPLE_WEB_CLIENT_ID` and
+   `APPLE_WEB_CLIENT_SECRET`. That Apple grouping is required for Apple's
+   provider subject to identify the same learner across web and native; the
+   backend deliberately refuses to guess based on matching email addresses.
+5. Create separate random `NATIVE_SESSION_SECRET` and
    `APPLE_TOKEN_ENCRYPTION_SECRET` values of at least 32 characters in the hosted
    secret manager. The latter protects Apple refresh tokens used for account
    deletion; rotation requires a credential re-encryption plan.
-5. Configure Debug, Staging, and Release API base URLs in an uncommitted xcconfig.
-6. Select the development team, allow Xcode to create development provisioning,
+6. Configure and verify Apple’s server-to-server account-change notifications
+   before enabling the production native API. The receiver must validate
+   Apple’s signed payloads and promptly handle consent revocation, Apple Account
+   deletion, relay-email changes, and identifier transfer. The app already
+   retains the protected Apple user identifier, checks credential state at
+   launch, observes local revocation notifications, clears scoped local data,
+   and revokes its Paretto session. The provider callback remains a required
+   production/App Store gate because it covers changes while the app is not
+   running.
+7. Verify the tracked Staging and Release Worker origins, or override them in
+   an uncommitted `Configuration/Local.xcconfig`.
+8. Apply every journaled migration through
+   `0012_private_auth_reset_generation` before enabling
+   the native API. `0010_small_switch` adds the one-to-one verified
+   native/learner identity bridge; `0011_sour_post` adds durable account
+   deletion, support delivery/quota operations, and course-scoped CMS identity.
+   `0012_private_auth_reset_generation` adds private authentication throttling
+   and durable cross-device progress-reset generations.
+9. Select the development team, allow Xcode to create development provisioning,
    and repeat the unsigned test suites on the available iPhone and iPad
    simulators before creating a signed build.
-7. Create a signed staging archive, validate it in Xcode Organizer, upload to
+10. Create a signed staging archive, validate it in Xcode Organizer, upload to
    TestFlight, and complete internal testing before App Review.
 
 The server flow follows Apple's official
@@ -70,15 +92,21 @@ This is a submission worksheet, not legal advice. Confirm it against the exact
 binary and provider behavior in App Store Connect.
 
 - Data linked to the user for app functionality: opaque user identifier, optional
-  Apple relay email/display name, learning progress, preferences, and session history.
+  Apple relay email/display name, a per-install/account reward replica identifier,
+  learning progress, preferences, session history, and saved challenge/dice/reward
+  gameplay state. The replica is used only for conflict-safe reward merging, is
+  not an advertising identifier, and is not used for tracking.
 - The native iOS client emits no product-analytics events and exposes no analytics
   toggle. The web app's opt-in analytics is a separate surface; do not include it
   in the iOS privacy label unless the submitted binary's behavior changes.
 - Data not used for tracking, targeted advertising, or sale.
 - No microphone capture, precise location, contacts, photos, health, or payment data.
-- Account deletion is available in Profile, revokes the stored Sign in with Apple
-  refresh token, and removes the native account, synchronized progress, sessions,
-  encrypted Apple credential, and on-device progress.
+- Account deletion is available in Profile, attempts to revoke the stored Sign
+  in with Apple refresh token, removes account access immediately, and stages a
+  durable cleanup job for the native account, synchronized progress, sessions,
+  encrypted Apple credential, and on-device progress. Temporary cleanup
+  failures are retried by scheduled maintenance; matching legal-hold records
+  remain isolated until the hold is released.
 - The target declares no use of non-exempt encryption. Reconfirm this if networking or
   cryptographic features change.
 

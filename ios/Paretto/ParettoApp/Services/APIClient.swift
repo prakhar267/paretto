@@ -1,16 +1,64 @@
 import Foundation
 import ParettoCore
 
+enum AccountSyncScope: String, Codable, Equatable, Sendable {
+    case nativeOnly
+    case unified
+}
+
 struct AuthSession: Codable, Equatable, Sendable {
     let accessToken: String
     let expiresAt: Date
     let displayName: String?
+    // Optional keeps Keychain sessions from pre-1.2 development builds
+    // decodable. A missing value is conservatively treated as native-only.
+    let syncScope: AccountSyncScope?
+    // Optional only for decoding pre-1.3 Keychain sessions. New sessions must
+    // receive a server-issued scope before local progress can be merged.
+    let accountScope: String?
+    // Stored only in this device's protected Keychain so AuthenticationServices
+    // can detect revoked, transferred, or deleted Apple credentials.
+    let appleUserID: String?
+
+    init(
+        accessToken: String,
+        expiresAt: Date,
+        displayName: String?,
+        syncScope: AccountSyncScope? = nil,
+        accountScope: String? = nil,
+        appleUserID: String? = nil
+    ) {
+        self.accessToken = accessToken
+        self.expiresAt = expiresAt
+        self.displayName = displayName
+        self.syncScope = syncScope
+        self.accountScope = accountScope
+        self.appleUserID = appleUserID
+    }
+
+    var sharesWebProgress: Bool { syncScope == .unified }
 }
 
 struct ProgressEnvelope: Codable, Sendable {
     let state: LearningState
     let revision: Int
+    let generation: Int
+    let accountScope: String?
     let savedAt: Date?
+
+    init(
+        state: LearningState,
+        revision: Int,
+        generation: Int,
+        accountScope: String? = nil,
+        savedAt: Date?
+    ) {
+        self.state = state
+        self.revision = revision
+        self.generation = generation
+        self.accountScope = accountScope
+        self.savedAt = savedAt
+    }
 }
 
 enum APIError: LocalizedError {
@@ -75,13 +123,18 @@ actor APIClient {
     func saveProgress(
         _ state: LearningState,
         revision: Int,
+        generation: Int,
         accessToken: String
     ) async throws -> ProgressEnvelope {
         do {
             return try await request(
                 path: "/api/native/progress",
                 method: "PUT",
-                body: SaveProgressRequest(state: state, revision: revision),
+                body: SaveProgressRequest(
+                    state: state,
+                    revision: revision,
+                    generation: generation
+                ),
                 accessToken: accessToken,
                 response: ProgressEnvelope.self
             )
@@ -207,6 +260,7 @@ private struct AppleAuthenticationRequest: Codable {
 private struct SaveProgressRequest: Codable {
     let state: LearningState
     let revision: Int
+    let generation: Int
 }
 
 private struct ErrorResponse: Codable {

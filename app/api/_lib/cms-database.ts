@@ -12,15 +12,21 @@ import type {
 } from "@/app/admin/admin-types";
 import { vocabularyPublicId } from "@/app/curriculum-identity";
 import {
-  hasFrenchAudioAsset,
-  isFrenchAudioDistributionReady,
+  hasCourseAudioAsset,
+  isCourseAudioDistributionReady,
 } from "@/app/audio/french-audio-manifest";
+import {
+  DEFAULT_COURSE_ID,
+  isCourseId,
+  type CourseId,
+} from "@/app/course-catalog";
 import { getDatabase } from "@/db";
 import { isRecord } from "./api-utils";
 import { parseStoredContent } from "./content-validation";
 
 export type ContentRow = {
   id: string;
+  course_id?: CourseId;
   kind: ContentKind;
   slug: string;
   stable_key: string;
@@ -52,6 +58,7 @@ export type SupportRow = {
 };
 
 export type ContentRevisionRow = {
+  course_id?: CourseId;
   content_id: string;
   revision: number;
   kind: ContentKind;
@@ -79,13 +86,13 @@ export type AuditRow = {
 };
 
 export const CONTENT_COLUMNS = `
-  id, kind, slug, stable_key, title, content, status, revision, created_at,
+  id, course_id, kind, slug, stable_key, title, content, status, revision, created_at,
   updated_at, published_at, review_status, reviewed_by_email, reviewed_at,
   approved_revision, created_by_email, updated_by_email
 `;
 
 export const QUALIFIED_CONTENT_COLUMNS = `
-  content.id, content.kind, content.slug, content.stable_key, content.title,
+  content.id, content.course_id, content.kind, content.slug, content.stable_key, content.title,
   content.content, content.status, content.revision, content.created_at,
   content.updated_at, content.published_at, content.review_status,
   content.reviewed_by_email, content.reviewed_at, content.approved_revision,
@@ -93,7 +100,7 @@ export const QUALIFIED_CONTENT_COLUMNS = `
 `;
 
 export const REVISION_COLUMNS = `
-  content_id, revision, kind, slug, stable_key, title, content, status,
+  course_id, content_id, revision, kind, slug, stable_key, title, content, status,
   published_at, actor_email, action, created_at
 `;
 
@@ -102,14 +109,16 @@ export function getCmsDatabase(): Promise<D1Database> {
 }
 
 export function contentSummaryFromRow(row: ContentRow): CmsContentSummary {
+  const courseId = rowCourseId(row.course_id);
   return {
     id: row.id,
+    courseId,
     kind: row.kind,
     slug: row.slug,
     stableKey: row.stable_key,
     publicId:
       row.kind === "vocabulary"
-        ? vocabularyPublicId(row.stable_key)
+        ? vocabularyPublicId(row.stable_key, courseId)
         : row.stable_key,
     title: row.title,
     status: row.status,
@@ -127,15 +136,20 @@ export function contentSummaryFromRow(row: ContentRow): CmsContentSummary {
 }
 
 export function contentRecordFromRow(row: ContentRow): CmsContentRecord | null {
-  const content = parseStoredContent(row.kind, row.content);
+  const courseId = rowCourseId(row.course_id);
+  const content = parseStoredContent(row.kind, row.content, courseId);
   if (!content) return null;
   return {
     ...contentSummaryFromRow(row),
     content,
     packagedAudioReady:
       row.kind === "vocabulary" && "french" in content
-        ? isFrenchAudioDistributionReady() &&
-          hasFrenchAudioAsset(vocabularyPublicId(row.stable_key), content.french)
+        ? isCourseAudioDistributionReady(courseId) &&
+          hasCourseAudioAsset(
+            courseId,
+            vocabularyPublicId(row.stable_key, courseId),
+            content.french,
+          )
         : null,
   };
 }
@@ -143,9 +157,11 @@ export function contentRecordFromRow(row: ContentRow): CmsContentRecord | null {
 export function contentRevisionFromRow(
   row: ContentRevisionRow,
 ): CmsContentRevision | null {
-  const content = parseStoredContent(row.kind, row.content);
+  const courseId = rowCourseId(row.course_id);
+  const content = parseStoredContent(row.kind, row.content, courseId);
   if (!content) return null;
   return {
+    courseId,
     contentId: row.content_id,
     revision: row.revision,
     kind: row.kind,
@@ -159,6 +175,10 @@ export function contentRevisionFromRow(
     action: row.action,
     createdAt: timestamp(row.created_at),
   };
+}
+
+function rowCourseId(value: unknown): CourseId {
+  return isCourseId(value) ? value : DEFAULT_COURSE_ID;
 }
 
 export function supportRecordFromRow(row: SupportRow): SupportRequestRecord {

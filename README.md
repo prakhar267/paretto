@@ -1,27 +1,37 @@
 # Paretto
 
 Paretto is a game-inspired language-learning platform launching with a
-full-stack French course built around short, recall-first lessons and a journey
-through all 18 administrative regions of France.
+structured 270-word A1–A2 French foundation built around short, recall-first
+lessons and a journey through all 18 administrative regions of France.
 
 ## Product surface
 
 - Five-card guided lessons with French pronunciation, IPA, gender, and examples
 - Seven-stage spaced repetition with adaptive review queues
-- An 18-region, 54-lesson A1–A2 journey containing 270 curated words
-- Packaged French production audio for every curriculum card, with an accessible
-  playback control and browser speech fallback
+- An 18-region, 54-lesson A1–A2 journey containing 270 structured words
+- Course-scoped curriculum, CMS, progress, export, and audio identities so
+  additional language pairs can be added without reusing French learner IDs;
+  French-from-English is the only published course in this release
+- Packaged French audio for every curriculum card, with automated signal and
+  licence checks, an accessible playback control, and browser speech fallback;
+  native-speaker pronunciation approval remains a human launch gate
 - Château recall challenges, transparent travel-dice rewards, postcards, XP, coins, and streaks
 - Searchable wordbook with accent-insensitive lookup and mastery filters
 - Responsive desktop and mobile navigation, reduced-motion support, keyboard focus states, and semantic dialogs
 - Per-user Cloudflare D1 progress with conflict-safe merges, a durable offline queue, and explicit sync status
+- Optional email/password learner accounts with email verification, password
+  recovery, anonymous-progress claiming, cross-browser synchronization,
+  sign-out, and account deletion
 - An identity-free cold-offline reconnect page; authenticated HTML and API responses are never cached
-- Keyboard-contained dialogs, high-contrast regional art, data export, and permanent progress deletion
+- Keyboard-contained dialogs, high-contrast regional art, progress export and
+  restore, and permanent progress/account deletion
 - A revision-safe administration CMS, learner-support queue, privacy-preserving
   server-verified opt-in analytics, operational readiness checks, bounded retention,
   and audited legal-hold controls
 - A separate SwiftUI iPhone/iPad project with native offline progress, lessons,
-  review, wordbook, reminders, Sign in with Apple, cloud sync, export, and deletion
+  review, wordbook, reminders, Sign in with Apple, cloud sync, export, and
+  deletion; App Store distribution and production Apple credentials remain
+  separate release gates
 
 ## Local development
 
@@ -34,8 +44,11 @@ npm run dev
 
 The local app runs at `http://localhost:3000`. D1 is simulated by Wrangler
 through the `DB` binding declared in `.openai/hosting.json`; development mode
-also supplies an explicitly local-only learner-identity key so a fresh checkout
-can complete onboarding without production secrets.
+also supplies explicitly local-only learner-identity, support-rate-limit, and
+authentication-rate-limit keys so a fresh checkout can complete onboarding,
+exercise support, and test account flows without production secrets. These
+values exist only in the local Vite/Miniflare
+configuration and must never be copied into staging or production.
 
 For the guarded direct-Cloudflare fallback, start with
 `docs/PRODUCTION-INFRA.md`. Environment-specific Wrangler files are generated
@@ -76,13 +89,21 @@ native XCTest suite on an unsigned iOS Simulator build with Xcode 26.3.
 - `docs/APP-STORE-LAUNCH.md` and `docs/PRODUCTION-INFRA.md` cover native submission
   inputs and a free-start operations topology.
 
-The first public web release uses an origin-bound, 256-bit anonymous learner
-cookie. The API HMACs that token with `USER_KEY_SECRET`, so raw cookie values and
-email addresses are not stored in D1. Progress is browser-specific until a public
-account and cross-device sync system is enabled. Administration uses one
-allowlisted email, a generated high-entropy access key, a one-way
-`ADMIN_PASSWORD_VERIFIER`, login throttling, and an eight-hour signed cookie.
-Support submissions are protected by server-verified Cloudflare Turnstile.
+Every browser begins with an origin-bound, 256-bit anonymous learner cookie.
+The API HMACs that token with `USER_KEY_SECRET`, so raw cookie values are not
+stored in learning tables. A learner can create an account and atomically claim
+that browser journal; account-derived keys then synchronize progress across
+supported browsers. Administration uses an allowlist, generated high-entropy
+access keys, either a single one-way `ADMIN_PASSWORD_VERIFIER` or an exact
+per-email `ADMIN_PASSWORD_VERIFIERS` map, login throttling, and an eight-hour
+signed cookie. Public CMS publishing requires separate author and approver
+administrators with distinct access keys.
+Support submissions are protected by server-verified Cloudflare Turnstile plus
+an hourly opaque IP quota HMACed under an independent
+`SUPPORT_RATE_LIMIT_SECRET`; raw IP addresses never enter the limiter table.
+Account endpoints use Better Auth&apos;s route-specific limits through a separate,
+atomic D1 counter HMACed under `BETTER_AUTH_RATE_LIMIT_SECRET`; its table never
+stores the raw client IP, auth path, or submitted email.
 
 Native sync and Sign in with Apple remain implemented behind
 `NATIVE_API_ENABLED=false`; their Apple and native-session credentials are not

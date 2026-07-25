@@ -57,6 +57,41 @@
       "when": 1784916908285,
       "tag": "0007_crazy_living_tribunal",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "6",
+      "when": 1784939992374,
+      "tag": "0008_thankful_pestilence",
+      "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "6",
+      "when": 1784940274676,
+      "tag": "0009_thick_hercules",
+      "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "6",
+      "when": 1784941070174,
+      "tag": "0010_small_switch",
+      "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "6",
+      "when": 1784945583861,
+      "tag": "0011_sour_post",
+      "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "6",
+      "when": 1784947051551,
+      "tag": "0012_private_auth_reset_generation",
+      "breakpoints": true
     }
   ]
 }

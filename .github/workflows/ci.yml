@@ -32,6 +32,7 @@ jobs:
       - name: Check out exact source
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
           persist-credentials: false
 
       - name: Use Node.js ${{ matrix.node }}
@@ -46,6 +47,105 @@ jobs:
       - name: Run the complete release gate
         run: npm run release:verify
 
+  browser-gate:
+    name: Browser journeys (${{ matrix.browser }})
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        browser: [chromium, firefox, webkit]
+    env:
+      CI: true
+      NPM_CONFIG_AUDIT: "false"
+      NPM_CONFIG_FUND: "false"
+      WRANGLER_SEND_METRICS: "false"
+    steps:
+      - name: Check out exact source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+
+      - name: Use Node.js 24
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 24.x
+          cache: npm
+
+      - name: Install the locked dependency graph
+        run: npm ci
+
+      - name: Install the exact Playwright browser
+        run: npx playwright install --with-deps "${{ matrix.browser }}"
+
+      - name: Run critical browser journeys
+        run: npm run test:e2e -- --project="${{ matrix.browser }}"
+
+      - name: Preserve browser evidence and failure traces
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: playwright-${{ matrix.browser }}
+          path: |
+            playwright-report/
+            test-results/playwright/
+          if-no-files-found: warn
+          retention-days: 14
+
+  windows-chromium-compatibility:
+    # This hosted-runner gate catches Windows path, shell, process, and browser
+    # regressions. It is not evidence for Windows 11, Microsoft Edge, high
+    # contrast mode, assistive technology, or physical-device certification.
+    name: Windows-hosted Chromium compatibility (not device certification)
+    runs-on: windows-2022
+    timeout-minutes: 30
+    env:
+      CI: true
+      NPM_CONFIG_AUDIT: "false"
+      NPM_CONFIG_FUND: "false"
+      WRANGLER_SEND_METRICS: "false"
+      # Wrangler's local HTTPS runtime exits on the hosted Windows runner during
+      # the seeded account sign-in journey. That journey remains mandatory in
+      # Linux Chromium, Firefox, and WebKit. This explicitly non-certification
+      # job runs the other Windows compatibility journeys.
+      PLAYWRIGHT_SKIP_SEEDED_ACCOUNT_JOURNEY: "true"
+    steps:
+      - name: Check out exact source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+
+      - name: Use Node.js 24
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 24.x
+          cache: npm
+
+      - name: Install the locked dependency graph
+        run: npm ci
+
+      - name: Install Chromium
+        run: npx playwright install chromium
+
+      - name: Run the Worker-backed Chromium journeys
+        env:
+          WRANGLER_LOG_PATH: ${{ runner.temp }}/wrangler-logs
+        run: npm run test:e2e -- --project=chromium
+
+      - name: Preserve Windows-hosted browser evidence and failure traces
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: playwright-windows-hosted-chromium
+          path: |
+            playwright-report/
+            test-results/playwright/
+            ${{ runner.temp }}/wrangler-logs/
+          if-no-files-found: warn
+          retention-days: 14
+
   native-gate:
     name: Native iPhone and iPad release gate (Xcode 26.3)
     runs-on: macos-15
@@ -56,6 +156,7 @@ jobs:
       - name: Check out exact source
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
           persist-credentials: false
 
       - name: Report the Apple toolchain
@@ -68,6 +169,17 @@ jobs:
 
       - name: Compile and test the native application package
         run: swift test --package-path ios/Paretto
+
+      - name: Compile and test the Staging configuration
+        run: >-
+          xcodebuild
+          -project ios/Paretto/Paretto.xcodeproj
+          -scheme Paretto-Staging
+          -configuration Staging
+          -destination 'platform=iOS Simulator,name=iPhone 16 Pro,OS=latest'
+          -only-testing:ParettoTests
+          CODE_SIGNING_ALLOWED=NO
+          test
 
       - name: Test on an iOS Simulator without signing
         run: >-
@@ -86,6 +198,36 @@ jobs:
           -destination 'platform=iOS Simulator,name=iPad Pro 13-inch (M4),OS=latest'
           CODE_SIGNING_ALLOWED=NO
           test
+
+      - name: Compile and inspect the Release configuration
+        shell: bash
+        run: |
+          set -euo pipefail
+          derived_data="$RUNNER_TEMP/paretto-release-derived"
+          xcodebuild \
+            -project ios/Paretto/Paretto.xcodeproj \
+            -scheme Paretto \
+            -configuration Release \
+            -destination 'generic/platform=iOS Simulator' \
+            -derivedDataPath "$derived_data" \
+            CODE_SIGNING_ALLOWED=NO \
+            build
+
+          app="$derived_data/Build/Products/Release-iphonesimulator/Paretto.app"
+          test -s "$app/Paretto"
+          test -s "$app/PrivacyInfo.xcprivacy"
+          test -s "$app/fr/v1/idf-metro.wav"
+          audio_count="$(
+            find "$app/fr/v1" -type f -name '*.wav' -print |
+              wc -l |
+              tr -d '[:space:]'
+          )"
+          test "$audio_count" = "270"
+          test "$(
+            /usr/libexec/PlistBuddy \
+              -c 'Print :PARETTO_API_BASE_URL' \
+              "$app/Info.plist"
+          )" = "https://paretto.prakhargupta267.workers.dev"
 
       - name: Confirm tests did not mutate tracked release inputs
         run: git diff --exit-code

@@ -257,7 +257,8 @@
 }
 
 .catalog h3 { margin: 0; font-family: Fraunces, ui-serif, serif; }
-.catalog input {
+.catalog input,
+.catalog select {
   width: 100%;
   min-height: 2.6rem;
   border: 1px solid rgba(23, 35, 59, 0.15);
@@ -266,6 +267,45 @@
   color: inherit;
   font: inherit;
   padding: 0.55rem 0.7rem;
+}
+
+.seedControls {
+  padding: 0.7rem;
+  border: 1px solid rgba(49, 92, 140, 0.16);
+  border-radius: 0.75rem;
+  background: rgba(255, 255, 255, 0.6);
+  display: grid;
+  gap: 0.5rem;
+}
+
+.seedControls label {
+  display: grid;
+  gap: 0.3rem;
+  color: #475467;
+  font-size: 0.72rem;
+  font-weight: 800;
+}
+
+.seedControls button {
+  min-height: 2.35rem;
+  border: 0;
+  border-radius: 0.65rem;
+  background: #315c8c;
+  color: #fff;
+  font: inherit;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.seedControls button:disabled {
+  cursor: wait;
+  opacity: 0.6;
+}
+
+.seedControls small {
+  color: #667085;
+  font-size: 0.68rem;
+  line-height: 1.4;
 }
 
 .catalogList {
