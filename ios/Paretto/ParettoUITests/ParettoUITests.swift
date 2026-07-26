@@ -105,30 +105,126 @@ final class ParettoUITests: XCTestCase {
             }
         }
 
-        XCTAssertTrue(app.buttons["Back to today"].waitForExistence(timeout: 5))
-        app.buttons["Back to today"].tap()
-        let compactReview = app.tabBars.buttons["Review"]
-        if compactReview.exists {
-            compactReview.tap()
-        } else {
-            let regularReview = app.staticTexts["Review"]
-            XCTAssertTrue(regularReview.waitForExistence(timeout: 5))
-            regularReview.tap()
+        let backToToday = app.buttons["Back to today"]
+        XCTAssertTrue(backToToday.waitForExistence(timeout: 5))
+        backToToday.tap()
+        XCTAssertTrue(
+            backToToday.waitForNonExistence(timeout: 10),
+            "The completed lesson cover must finish dismissing."
+        )
+        XCTAssertTrue(
+            app.navigationBars["Today"].waitForExistence(timeout: 10),
+            "The lesson must dismiss back to Today before changing sections."
+        )
+        XCTAssertTrue(
+            openReview(in: app),
+            "The Review destination must be selected before querying its actions."
+        )
+
+        guard let challenge = findHittableReviewAction(
+            "review-begin-challenge",
+            in: app
+        ) else {
+            preserveFailureEvidence(
+                app: app,
+                name: "Missing challenge action after completed lesson"
+            )
+            XCTFail("The learned-word challenge action was not reachable in Review.")
+            return
         }
 
-        let challenge = app.buttons["Begin challenge"]
-        XCTAssertTrue(challenge.waitForExistence(timeout: 5))
         XCTAssertTrue(challenge.isEnabled)
         challenge.tap()
         XCTAssertTrue(app.navigationBars["Château Challenge"].waitForExistence(timeout: 5))
-        app.buttons["Close"].tap()
+        let closeChallenge = app.buttons["Close"]
+        closeChallenge.tap()
+        XCTAssertTrue(
+            closeChallenge.waitForNonExistence(timeout: 10),
+            "The challenge cover must finish dismissing."
+        )
 
-        let dice = app.buttons["Open the dice"]
-        XCTAssertTrue(dice.waitForExistence(timeout: 5))
+        XCTAssertTrue(
+            app.navigationBars["Review"].waitForExistence(timeout: 10),
+            "Closing the challenge must return to Review."
+        )
+        guard let dice = findHittableReviewAction(
+            "review-open-dice",
+            in: app
+        ) else {
+            preserveFailureEvidence(
+                app: app,
+                name: "Missing dice action after challenge dismissal"
+            )
+            XCTFail("The learned-word travel-dice action was not reachable in Review.")
+            return
+        }
         dice.tap()
         XCTAssertTrue(app.navigationBars["Travel dice"].waitForExistence(timeout: 5))
         app.buttons["Roll the dice"].tap()
         XCTAssertTrue(app.buttons["Collect reward"].waitForExistence(timeout: 5))
+    }
+
+    @MainActor
+    private func openReview(in app: XCUIApplication) -> Bool {
+        let compactReview = app.tabBars.buttons["Review"]
+        if compactReview.waitForExistence(timeout: 2) {
+            compactReview.tap()
+        } else {
+            let regularReview = app.staticTexts["app-section-review"]
+            guard regularReview.waitForExistence(timeout: 5) else {
+                preserveFailureEvidence(
+                    app: app,
+                    name: "Missing regular-width Review navigation item"
+                )
+                return false
+            }
+            regularReview.tap()
+        }
+
+        guard app.navigationBars["Review"].waitForExistence(timeout: 10) else {
+            preserveFailureEvidence(
+                app: app,
+                name: "Review navigation did not complete"
+            )
+            return false
+        }
+        return true
+    }
+
+    @MainActor
+    private func findHittableReviewAction(
+        _ identifier: String,
+        in app: XCUIApplication
+    ) -> XCUIElement? {
+        let action = app.buttons[identifier]
+        if action.waitForExistence(timeout: 2), action.isHittable {
+            return action
+        }
+
+        let reviewScroll = app.scrollViews["review-scroll"]
+        guard reviewScroll.waitForExistence(timeout: 5) else {
+            return nil
+        }
+        for _ in 0..<5 {
+            reviewScroll.swipeUp()
+            if action.waitForExistence(timeout: 1), action.isHittable {
+                return action
+            }
+        }
+        return nil
+    }
+
+    @MainActor
+    private func preserveFailureEvidence(app: XCUIApplication, name: String) {
+        let screenshot = XCTAttachment(screenshot: app.screenshot())
+        screenshot.name = name
+        screenshot.lifetime = .keepAlways
+        add(screenshot)
+
+        let hierarchy = XCTAttachment(string: app.debugDescription)
+        hierarchy.name = "\(name) — accessibility hierarchy"
+        hierarchy.lifetime = .keepAlways
+        add(hierarchy)
     }
 
     @MainActor

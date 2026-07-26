@@ -45,7 +45,13 @@ struct AdaptiveRootView: View {
                             }
                         )
                     ) { section in
-                        Label(section.title, systemImage: section.symbol).tag(section)
+                        Label {
+                            Text(section.title)
+                                .accessibilityIdentifier("app-section-\(section.rawValue)")
+                        } icon: {
+                            Image(systemName: section.symbol)
+                        }
+                            .tag(section)
                     }
                     .navigationTitle("Paretto")
                 } detail: {

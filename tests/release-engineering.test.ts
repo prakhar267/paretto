@@ -175,6 +175,7 @@ describe("release engineering contracts", () => {
     const nativeJobStart = workflow.indexOf("\n  native-gate:");
     const browserJob = workflow.slice(browserJobStart, windowsJobStart);
     const windowsJob = workflow.slice(windowsJobStart, nativeJobStart);
+    const nativeJob = workflow.slice(nativeJobStart);
     expect(browserJob).not.toContain(
       "PLAYWRIGHT_SKIP_SEEDED_ACCOUNT_JOURNEY",
     );
@@ -198,6 +199,30 @@ describe("release engineering contracts", () => {
     expect(windowsJob).toContain(
       "${{ runner.temp }}/worker-runtime-logs/windows-chromium/",
     );
+    for (const resultName of ["staging", "iphone", "ipad"]) {
+      expect(nativeJob).toContain(
+        `-resultBundlePath "$RUNNER_TEMP/paretto-native-results/${resultName}.xcresult"`,
+      );
+      expect(nativeJob).toContain(
+        `tee "$RUNNER_TEMP/paretto-native-results/${resultName}.log"`,
+      );
+    }
+    for (const logName of ["paretto-core", "paretto-package"]) {
+      expect(nativeJob).toContain(
+        `tee "$RUNNER_TEMP/paretto-native-results/${logName}.log"`,
+      );
+    }
+    expect(nativeJob.match(/set -euo pipefail/g)).toHaveLength(6);
+    expect(nativeJob).not.toMatch(/-retry-tests-on-failure|-test-iterations/);
+    expect(nativeJob).toContain("Preserve native XCTest evidence");
+    expect(nativeJob).toContain("if: ${{ !cancelled() }}");
+    expect(nativeJob).toContain(
+      "name: native-xcode-results-${{ github.run_attempt }}",
+    );
+    expect(nativeJob).toContain(
+      "${{ runner.temp }}/paretto-native-results/",
+    );
+    expect(nativeJob).toContain("retention-days: 14");
     expect(workflow.match(/github\.event\.pull_request\.head\.sha/g)).toHaveLength(
       4,
     );
