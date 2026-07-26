@@ -41,6 +41,38 @@ describe("portable D1 export restore verification", () => {
       "migration history is not a contiguous release prefix",
     );
   });
+
+  it("emits pure JSON through the silent npm invocation used by deployment", async () => {
+    const exportPath = await writeExport(false);
+    const npmCli = process.env.npm_execpath;
+    expect(npmCli).toBeTruthy();
+    if (!npmCli) throw new Error("npm_execpath is unavailable.");
+
+    const result = spawnSync(
+      process.execPath,
+      [
+        npmCli,
+        "run",
+        "--silent",
+        "d1:export:verify",
+        "--",
+        exportPath,
+      ],
+      {
+        cwd: ROOT,
+        encoding: "utf8",
+        timeout: 30_000,
+      },
+    );
+
+    expect(result.status).toBe(0);
+    expect(result.stdout.trim().startsWith("{")).toBe(true);
+    expect(JSON.parse(result.stdout)).toMatchObject({
+      integrity: "ok",
+      foreignKeys: "ok",
+      newestMigration: "0000_confused_stephen_strange",
+    });
+  });
 });
 
 async function writeExport(unknownMigration: boolean): Promise<string> {

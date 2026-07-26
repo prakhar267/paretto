@@ -15,7 +15,7 @@ describe("read-only deployment smoke", () => {
     let health = {
       status: "ok",
       service: "paretto-web",
-      version: "1.3.2",
+      version: "1.3.3",
       schemaRevision: "0012",
       launchMode: "public",
       productionReady: true,
@@ -143,7 +143,7 @@ describe("read-only deployment smoke", () => {
 
       expect(JSON.parse(result.stdout)).toMatchObject({
         origin,
-        version: "1.3.2",
+        version: "1.3.3",
         health: "ready",
         authPages: "ready",
         staticAssets: 5,
