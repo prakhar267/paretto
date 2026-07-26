@@ -183,6 +183,7 @@ jobs:
           -configuration Staging
           -destination 'platform=iOS Simulator,name=iPhone 16 Pro,OS=latest'
           -only-testing:ParettoTests
+          -only-testing:ParettoUITests/ParettoUITests/testSignedOutTaglineDoesNotTruncateAtSupportedDynamicTypeSizes
           CODE_SIGNING_ALLOWED=NO
           test
 
