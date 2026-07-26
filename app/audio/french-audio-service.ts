@@ -1,7 +1,12 @@
 import {
-  frenchAudioAssetUrl,
-  hasFrenchAudioAsset,
+  courseAudioAssetUrl,
+  hasCourseAudioAsset,
 } from "./french-audio-manifest";
+import {
+  COURSE_CATALOG,
+  DEFAULT_COURSE_ID,
+  type CourseId,
+} from "../course-catalog";
 
 export type FrenchAudioStatus =
   | "idle"
@@ -20,9 +25,11 @@ export type FrenchAudioSnapshot = {
   wordId: string | null;
   message: string;
   errorCode: "invalid-request" | "speech-unavailable" | null;
+  courseId?: CourseId | null;
 };
 
 export type FrenchAudioRequest = {
+  courseId?: CourseId;
   wordId: string;
   text: string;
   enabled: boolean;
@@ -30,7 +37,7 @@ export type FrenchAudioRequest = {
 
 export type FrenchAudioPreloadRequest = Pick<
   FrenchAudioRequest,
-  "wordId" | "text"
+  "courseId" | "wordId" | "text"
 >;
 
 export type AudioElementLike = {
@@ -77,8 +84,8 @@ export type FrenchAudioEnvironment = {
   createAudio: (url: string) => AudioElementLike | null;
   getSpeechSynthesis: () => SpeechSynthesisLike | null;
   createUtterance: (text: string) => SpeechUtteranceLike | null;
-  hasAsset: (wordId: string, text: string) => boolean;
-  assetUrl: (wordId: string) => string;
+  hasAsset: (wordId: string, text: string, courseId: CourseId) => boolean;
+  assetUrl: (wordId: string, courseId: CourseId) => string;
 };
 
 const IDLE_SNAPSHOT: FrenchAudioSnapshot = {
@@ -139,34 +146,36 @@ export class FrenchAudioService {
     const uniqueRequests = [
       ...new Map(
         requests.map((request) => [
-          `${request.wordId}\u0000${request.text}`,
+          `${request.courseId ?? DEFAULT_COURSE_ID}\u0000${request.wordId}\u0000${request.text}`,
           request,
         ]),
       ).values(),
     ].slice(0, MAX_PRELOAD_BATCH);
 
     for (const request of uniqueRequests) {
+      const courseId: CourseId = request.courseId ?? DEFAULT_COURSE_ID;
+      const assetKey = `${courseId}:${request.wordId}`;
       if (
-        this.failedAssets.has(request.wordId) ||
-        !this.environment.hasAsset(request.wordId, request.text)
+        this.failedAssets.has(assetKey) ||
+        !this.environment.hasAsset(request.wordId, request.text, courseId)
       ) {
         continue;
       }
 
       let url: string;
       try {
-        url = this.environment.assetUrl(request.wordId);
+        url = this.environment.assetUrl(request.wordId, courseId);
       } catch {
         continue;
       }
       const audio = this.getOrCreateAudio(url);
       if (!audio || audio === this.activeAudio) continue;
       audio.preload = "auto";
-      audio.onerror = () => this.failedAssets.add(request.wordId);
+      audio.onerror = () => this.failedAssets.add(assetKey);
       try {
         audio.load();
       } catch {
-        this.failedAssets.add(request.wordId);
+        this.failedAssets.add(assetKey);
       }
     }
   }
@@ -176,6 +185,9 @@ export class FrenchAudioService {
     if (!request.enabled || !this.enabled) return;
 
     const text = request.text.trim().slice(0, 200);
+    const courseId: CourseId = request.courseId ?? DEFAULT_COURSE_ID;
+    const course = COURSE_CATALOG[courseId];
+    const assetKey = `${courseId}:${request.wordId}`;
     if (!text) {
       this.cancelActive();
       this.activeRequest = null;
@@ -191,6 +203,7 @@ export class FrenchAudioService {
 
     if (
       this.snapshot.wordId === request.wordId &&
+      (this.snapshot.courseId ?? DEFAULT_COURSE_ID) === courseId &&
       this.snapshot.status === "paused" &&
       this.activeRequest?.text === text
     ) {
@@ -199,19 +212,27 @@ export class FrenchAudioService {
     }
 
     this.cancelActive();
-    const normalizedRequest = { ...request, text };
+    const normalizedRequest: FrenchAudioRequest = {
+      ...request,
+      courseId,
+      text,
+    };
     this.activeRequest = normalizedRequest;
 
     if (
       this.environment.hasAsset(
         normalizedRequest.wordId,
         normalizedRequest.text,
+        courseId,
       ) &&
-      !this.failedAssets.has(normalizedRequest.wordId)
+      !this.failedAssets.has(assetKey)
     ) {
       let assetUrl: string;
       try {
-        assetUrl = this.environment.assetUrl(normalizedRequest.wordId);
+        assetUrl = this.environment.assetUrl(
+          normalizedRequest.wordId,
+          courseId,
+        );
       } catch {
         this.update({
           status: "error",
@@ -231,7 +252,7 @@ export class FrenchAudioService {
 
     this.playSpeech(
       normalizedRequest,
-      "Using the French voice on this device.",
+      `Using the ${course.targetLanguageName} voice on this device.`,
     );
   }
 
@@ -277,7 +298,11 @@ export class FrenchAudioService {
         }
       } catch {
         const wordId = this.snapshot.wordId;
-        if (wordId) this.failedAssets.add(wordId);
+        if (wordId && this.activeRequest) {
+          this.failedAssets.add(
+            `${this.activeRequest.courseId ?? DEFAULT_COURSE_ID}:${wordId}`,
+          );
+        }
         if (this.activeRequest) {
           this.playSpeech(
             this.activeRequest,
@@ -391,7 +416,9 @@ export class FrenchAudioService {
     };
     audio.onerror = () => {
       if (operation !== this.operation) return;
-      this.failedAssets.add(request.wordId);
+      this.failedAssets.add(
+        `${request.courseId ?? DEFAULT_COURSE_ID}:${request.wordId}`,
+      );
       this.playSpeech(
         request,
         "The saved recording was unavailable. Using the French voice on this device.",
@@ -419,7 +446,9 @@ export class FrenchAudioService {
       }
     } catch {
       if (operation !== this.operation) return;
-      this.failedAssets.add(request.wordId);
+      this.failedAssets.add(
+        `${request.courseId ?? DEFAULT_COURSE_ID}:${request.wordId}`,
+      );
       this.playSpeech(
         request,
         "The saved recording was unavailable. Using the French voice on this device.",
@@ -447,7 +476,11 @@ export class FrenchAudioService {
 
     const operation = ++this.operation;
     this.activeUtterance = utterance;
-    utterance.lang = "fr-FR";
+    const courseId: CourseId = request.courseId ?? DEFAULT_COURSE_ID;
+    const course = COURSE_CATALOG[courseId];
+    const speechLocale = course.audio.locale.toLowerCase();
+    const speechLanguage = speechLocale.split("-")[0];
+    utterance.lang = course.audio.locale;
     utterance.rate = 0.86;
     utterance.pitch = 1;
     try {
@@ -456,15 +489,17 @@ export class FrenchAudioService {
         voices.find(
           (voice) =>
             voice.localService === true &&
-            voice.lang.toLowerCase() === "fr-fr",
+            voice.lang.toLowerCase() === speechLocale,
         ) ??
         voices.find(
           (voice) =>
             voice.localService === true &&
-            voice.lang.toLowerCase().startsWith("fr"),
+            voice.lang.toLowerCase().startsWith(speechLanguage),
         ) ??
-        voices.find((voice) => voice.lang.toLowerCase() === "fr-fr") ??
-        voices.find((voice) => voice.lang.toLowerCase().startsWith("fr")) ??
+        voices.find((voice) => voice.lang.toLowerCase() === speechLocale) ??
+        voices.find((voice) =>
+          voice.lang.toLowerCase().startsWith(speechLanguage),
+        ) ??
         null;
     } catch {
       utterance.voice = null;
@@ -635,7 +670,14 @@ export class FrenchAudioService {
   }
 
   private update(snapshot: FrenchAudioSnapshot): void {
-    this.snapshot = snapshot;
+    const courseId =
+      snapshot.courseId ??
+      this.activeRequest?.courseId ??
+      DEFAULT_COURSE_ID;
+    this.snapshot =
+      snapshot.wordId !== null && courseId !== DEFAULT_COURSE_ID
+        ? { ...snapshot, courseId }
+        : snapshot;
     for (const listener of this.listeners) listener();
   }
 }
@@ -657,8 +699,9 @@ const browserAudioEnvironment: FrenchAudioEnvironment = {
       text,
     ) as unknown as SpeechUtteranceLike;
   },
-  hasAsset: hasFrenchAudioAsset,
-  assetUrl: frenchAudioAssetUrl,
+  hasAsset: (wordId, text, courseId) =>
+    hasCourseAudioAsset(courseId, wordId, text),
+  assetUrl: (wordId, courseId) => courseAudioAssetUrl(courseId, wordId),
 };
 
 let sharedFrenchAudioService: FrenchAudioService | null = null;

@@ -7,6 +7,17 @@ func profileProgressSummary(xp: Int, coins: Int, streak: Int) -> String {
     return "\(xp) XP · \(coins) \(coinNoun) · \(streak)-day streak"
 }
 
+func curriculumSizeSummary(_ curriculum: CurriculumBundle) -> String {
+    let contextCount = Set(curriculum.words.map(\.regionID)).count
+    let lessonCount = Set(
+        curriculum.words.map { "\($0.regionID):\($0.lesson)" }
+    ).count
+    let contextNoun = contextCount == 1 ? "region" : "regions"
+    let lessonNoun = lessonCount == 1 ? "lesson" : "lessons"
+    let wordNoun = curriculum.words.count == 1 ? "word" : "words"
+    return "\(contextCount) \(contextNoun) · \(lessonCount) \(lessonNoun) · \(curriculum.words.count) \(wordNoun)"
+}
+
 struct ProfileView: View {
     @EnvironmentObject private var model: AppModel
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
@@ -102,7 +113,24 @@ struct ProfileView: View {
                     SecureAppleSignInButton()
                     .frame(height: 48)
                 }
-            } else if model.authSession != nil {
+            } else if let session = model.authSession {
+                Section("Cloud sync") {
+                    Label(
+                        session.sharesWebProgress
+                            ? "Shared Paretto account"
+                            : "Apple-device account",
+                        systemImage: session.sharesWebProgress
+                            ? "checkmark.icloud"
+                            : "icloud"
+                    )
+                    Text(
+                        session.sharesWebProgress
+                            ? "Progress uses the same account on the web and on signed-in Apple devices."
+                            : "Progress syncs on signed-in Apple devices. Sign in again after connecting the same Apple identity on the web to complete account linking."
+                    )
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+                }
                 Section {
                     Button("Sign out", role: .destructive) {
                         signOutConfirmation = true
@@ -111,7 +139,7 @@ struct ProfileView: View {
             }
 
             Section("About") {
-                Label("18 regions · 54 lessons · 270 words", systemImage: "map")
+                Label(curriculumSizeSummary(model.curriculum), systemImage: "map")
                 Label("Synthetic French audio with attribution", systemImage: "waveform")
                 Text("Paretto is designed toward WCAG 2.2 AA and contains no advertising or tracking SDKs.")
                     .font(.footnote)

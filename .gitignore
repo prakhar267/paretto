@@ -12,6 +12,8 @@
 
 # testing
 /coverage
+/playwright-report/
+/test-results/
 
 # next.js
 /.next/
@@ -46,6 +48,7 @@ next-env.d.ts
 
 # Swift / Xcode generated and local state
 **/.build/
+**/.derived/
 **/.swiftpm/
 **/xcuserdata/
 *.xcuserstate

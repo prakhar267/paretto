@@ -75,6 +75,16 @@ struct DiceView: View {
             .parettoInlineNavigationTitle()
             .toolbar { Button("Done") { dismiss() } }
         }
+        .onAppear {
+            guard result == nil,
+                  let saved = model.state.dice.lastPlayedResult
+            else { return }
+            result = DiceReward(
+                multiplier: saved.multiplier,
+                xp: saved.xp,
+                stake: saved.stake
+            )
+        }
     }
 
     private func stakeButton(_ value: Int) -> some View {

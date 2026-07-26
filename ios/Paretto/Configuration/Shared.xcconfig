@@ -1,6 +1,6 @@
 // Safe tracked defaults for every app build configuration. A developer or CI
 // environment may provide real deployment origins in the ignored local file.
-PARETTO_STAGING_API_BASE_URL =
-PARETTO_PRODUCTION_API_BASE_URL =
+PARETTO_STAGING_API_BASE_URL = https:/$()/paretto-staging.prakhargupta267.workers.dev
+PARETTO_PRODUCTION_API_BASE_URL = https:/$()/paretto.prakhargupta267.workers.dev
 
 #include? "Local.xcconfig"

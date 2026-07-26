@@ -7,6 +7,41 @@ Do not mark an unexecuted manual check as passed.
 
 - Unit tests for scheduling, sanitization, merging, streaks, and curriculum integrity.
 - Component journey from onboarding through a five-card lesson and completion.
+- Committed Playwright journeys in Chromium, Firefox, and WebKit for anonymous
+  onboarding, complete learn and practice rounds, abandoned and completed
+  Château Challenge attempts, persisted Travel Dice receipts, wordbook search,
+  progress export/import, keyboard/dialog focus, offline-state messaging,
+  account/support/recovery surfaces, 390×844 overflow, a 360×800 Android-sized
+  journey at 200% text with reduced motion, and automated serious/critical
+  accessibility violations. The browser gate builds the release artifact,
+  applies every migration to an isolated local D1 store, and serves the built
+  Worker over local HTTPS rather than relying on development HMR.
+  Unix browser runners terminate browser TLS at a disposable Node boundary and
+  forward to an isolated HTTP Wrangler port with a pinned HTTPS upstream URL
+  and forwarded origin headers. This avoids a Wrangler local-TLS crash while
+  the browser and Worker still observe the same secure URL, cookie, and CSRF
+  contract. The gate rejects HTTP metadata, validates secure auth cookies, and
+  proves the HTTPS runtime survives a deliberate plaintext probe.
+- Thirteen Worker-backed Chromium journeys run on a Windows Server 2022 hosted
+  runner to catch Windows path, command-shell, process-lifecycle, and Chromium
+  compatibility regressions. The seeded account sign-in/claim/deletion journey
+  remains mandatory in Linux Chromium, Firefox, and WebKit but is explicitly
+  skipped on hosted Windows because Wrangler 4.114.0's local HTTPS runtime exits
+  during its first sign-in there. The Windows job retains HTTPS and uploads the
+  Wrangler diagnostic log. This is automation infrastructure evidence only; it
+  does not certify Windows account behavior, Windows 11, Microsoft Edge, high
+  contrast, Narrator, or a physical Windows device.
+- A disposable local-D1 account journey uses Better Auth's production password
+  hash and a preverified test-only identity to test anonymous progress claim,
+  sign-out, a second isolated browser-context sign-in and sync, and permanent
+  account deletion. The setup script is hardcoded to Wrangler `--local`, is not
+  an application route, and cannot send email or access a remote database. The
+  public signup endpoint remains disabled in this test environment because no
+  verified transactional-email sender is configured.
+- Chromium additionally installs the checked-in production service worker with
+  `serviceWorkers: "allow"`, closes its disposable origin, and proves a cold
+  navigation returns only the cached identity-free offline shell. Normal
+  browser tests retain `serviceWorkers: "block"` for deterministic routing.
 - Persistence tests for offline edits, failed saves, revision conflicts, retry, and deletion.
 - API tests for identity, native Apple-token validation, native sessions/progress,
   validation, authorization, CMS publishing, server-enforced analytics consent,
@@ -16,9 +51,14 @@ Do not mark an unexecuted manual check as passed.
 - Packaged-artifact checks for Sites metadata, the Worker entry, D1 binding,
   migrations, install assets, audio manifest, observability, and the retention Cron.
 - Fresh SQLite replay of every journaled migration, with intermediate quick checks,
-  final integrity and foreign-key checks, and schema table/index drift detection.
-- Swift 6 tests for the shared core and complete app package, plus unsigned XCTest
-  on the required iOS Simulator destination.
+  final integrity and foreign-key checks, schema table/index drift detection,
+  and populated pre-0011 CMS fixtures proving that revisions, aliases, and slug
+  tombstones retain their IDs under the default course during table rebuilds.
+- Swift 6 tests for the shared core and complete app package; unsigned XCTest
+  for the explicit Staging configuration and Debug iPhone/iPad journeys; and an
+  unsigned Release build whose app bundle is checked for the privacy manifest,
+  production API origin, and all 270 WAV files in the resource directory used
+  by the native audio player.
 - Static checks for duplicate IDs, invalid regions, malformed IPA, missing examples,
   missing audio manifest entries, legal-route availability, service-worker
   registration timing, and the identity-free offline navigation fallback.
@@ -30,13 +70,16 @@ and a simulated offline transition:
 
 1. New learner onboarding and optional analytics choice.
 2. First five-card lesson, pronunciation, reveal, three ratings, mark-known, and completion.
-3. Refresh and signed-in progress restoration.
+3. Anonymous-to-account progress claim, sign-out, second-browser sign-in and
+   signed-in progress restoration, followed by permanent account deletion.
 4. Concurrent edit conflict and merge without duplicate rewards.
-5. Review, Château Challenge replay, Travel Dice, and collection unlocks.
+5. Learned-card practice, abandoned and completed Château Challenge attempts,
+   reward-free replay, persisted Travel Dice receipts, and collection unlocks.
 6. Journey progression and multiple lessons within one expanded regional chapter.
-7. Wordbook search with and without accents and every part-of-speech filter.
+7. Wordbook search with and without accents, card opening, and every
+   part-of-speech filter.
 8. Audio asset success, network failure fallback, disabled audio, and rapid repeated play.
-9. Progress export and permanent deletion.
+9. Progress export, import/restore, learning-data deletion, and account deletion.
 10. Support submission and status visibility.
 11. Non-admin denial for every admin page and API; administrator draft and
     validation; same-actor review/publish denial under the one-admin launch
@@ -68,6 +111,12 @@ portrait/landscape, Dynamic Type through accessibility sizes, VoiceOver,
 reduced motion, offline relaunch, and a signed staging archive before
 TestFlight. The local release workstation currently uses Xcode 26.6
 (17F113), macOS 26.5.2, and the iOS 26.5 Simulator runtime.
+
+Playwright WebKit is a release regression gate, not evidence of testing the
+shipping Safari application, VoiceOver, a physical iPhone/iPad, or Apple GPU and
+input behavior. Keep those manual rows unexecuted until they are actually run.
+Likewise, hosted Windows Chromium automation is not evidence for the Windows 11
+Edge or Firefox manual rows, high contrast, Narrator, or physical hardware.
 
 ### Interactive execution — 20 July 2026
 

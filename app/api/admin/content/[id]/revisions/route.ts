@@ -104,9 +104,9 @@ export async function POST(request: Request, context: RouteContext) {
       .prepare(
         `SELECT ${REVISION_COLUMNS}
          FROM cms_content_revisions
-         WHERE content_id = ? AND revision = ?`,
+         WHERE course_id = ? AND content_id = ? AND revision = ?`,
       )
-      .bind(id, parsed.value.sourceRevision)
+      .bind(existing.course_id, id, parsed.value.sourceRevision)
       .first<ContentRevisionRow>();
     if (!sourceRow) return apiError(404, "Source revision not found.");
     const source = contentRevisionFromRow(sourceRow);
@@ -128,7 +128,8 @@ export async function POST(request: Request, context: RouteContext) {
            WHERE id = ? AND revision = ? AND status = 'draft'
              AND NOT EXISTS (
                SELECT 1 FROM cms_slug_tombstones AS retired_slug
-               WHERE retired_slug.kind = cms_content.kind
+               WHERE retired_slug.course_id = cms_content.course_id
+                 AND retired_slug.kind = cms_content.kind
                  AND retired_slug.slug = ?
                  AND retired_slug.content_id <> cms_content.id
              )`,
@@ -146,10 +147,10 @@ export async function POST(request: Request, context: RouteContext) {
       database
         .prepare(
           `INSERT INTO cms_content_revisions (
-            content_id, revision, kind, slug, stable_key, title, content, status,
+            course_id, content_id, revision, kind, slug, stable_key, title, content, status,
             published_at, actor_email, action, created_at
           )
-          SELECT id, revision, kind, slug, stable_key, title, content, status,
+          SELECT course_id, id, revision, kind, slug, stable_key, title, content, status,
                  published_at, ?, 'RESTORE', ?
           FROM cms_content
           WHERE id = ? AND revision = ? AND status = 'draft'
@@ -187,7 +188,10 @@ export async function POST(request: Request, context: RouteContext) {
           admin.email,
           existing.revision,
           nextRevision,
-          JSON.stringify({ sourceRevision: parsed.value.sourceRevision }),
+          JSON.stringify({
+            courseId: existing.course_id,
+            sourceRevision: parsed.value.sourceRevision,
+          }),
           now,
           id,
           nextRevision,
@@ -200,9 +204,9 @@ export async function POST(request: Request, context: RouteContext) {
       database
         .prepare(
           `INSERT OR IGNORE INTO cms_slug_tombstones (
-            kind, slug, stable_key, content_id, retired_at, retired_by_email
+            course_id, kind, slug, stable_key, content_id, retired_at, retired_by_email
           )
-          SELECT kind, ?, stable_key, id, ?, ?
+          SELECT course_id, kind, ?, stable_key, id, ?, ?
           FROM cms_content
           WHERE id = ? AND revision = ? AND status = 'draft'
             AND slug = ? AND title = ? AND content = ?
@@ -227,9 +231,9 @@ export async function POST(request: Request, context: RouteContext) {
       database
         .prepare(
           `INSERT OR IGNORE INTO cms_vocabulary_aliases (
-            alias, content_id, stable_key, created_at
+            course_id, alias, content_id, stable_key, created_at
           )
-          SELECT slug, id, stable_key, ?
+          SELECT course_id, slug, id, stable_key, ?
           FROM cms_content
           WHERE id = ? AND revision = ? AND kind = 'vocabulary'`,
         )
@@ -239,9 +243,9 @@ export async function POST(request: Request, context: RouteContext) {
       const retired = await database
         .prepare(
           `SELECT content_id FROM cms_slug_tombstones
-           WHERE kind = ? AND slug = ? AND content_id <> ?`,
+           WHERE course_id = ? AND kind = ? AND slug = ? AND content_id <> ?`,
         )
-        .bind(existing.kind, source.slug, id)
+        .bind(existing.course_id, existing.kind, source.slug, id)
         .first<{ content_id: string }>();
       if (retired) {
         return apiError(

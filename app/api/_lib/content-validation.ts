@@ -11,6 +11,19 @@ import {
   type SupportStatus,
   type VocabularyContent,
 } from "@/app/admin/admin-types";
+import {
+  CEFR_LEVELS,
+  MAX_CURRICULUM_LESSON_NUMBER,
+  MIN_CURRICULUM_LESSON_NUMBER,
+  isCurriculumLessonNumber,
+} from "@/app/curriculum-metadata";
+import {
+  COURSE_CATALOG,
+  courseFromId,
+  DEFAULT_COURSE_ID,
+  publishedCourseFromId,
+  type CourseId,
+} from "@/app/course-catalog";
 import { REGIONS } from "@/app/learning-data";
 import { isRecord } from "./api-utils";
 
@@ -30,25 +43,44 @@ const PARTS_OF_SPEECH = new Set([
 const BLOCK_TYPES = new Set(["text", "tip", "exercise"]);
 
 export function validateContentCreate(value: unknown): ValidationResult<{
+  courseId: CourseId;
   kind: ContentKind;
   slug: string;
   title: string;
   content: CmsContentPayload;
 }> {
-  if (!isRecord(value) || !hasOnlyKeys(value, ["kind", "slug", "title", "content"])) {
-    return invalid("Expected kind, slug, title, and content only.");
+  if (
+    !isRecord(value) ||
+    !hasOnlyKeys(
+      value,
+      ["kind", "slug", "title", "content", "courseId"],
+      ["courseId"],
+    )
+  ) {
+    return invalid("Expected courseId, kind, slug, title, and content only.");
   }
   if (!isOneOf(value.kind, CONTENT_KINDS)) return invalid("Invalid content kind.");
+  const course = courseFromId(value.courseId ?? DEFAULT_COURSE_ID);
+  if (!course) return invalid("Invalid course.");
   const common = validateCommonFields(value.slug, value.title);
   if (!common.ok) return common;
-  const content = validatePayload(value.kind, value.content);
+  const content = validatePayload(value.kind, value.content, false, course.id);
   if (!content.ok) return content;
-  return { ok: true, value: { kind: value.kind, ...common.value, content: content.value } };
+  return {
+    ok: true,
+    value: {
+      courseId: course.id,
+      kind: value.kind,
+      ...common.value,
+      content: content.value,
+    },
+  };
 }
 
 export function validateContentUpdate(
   value: unknown,
   kind: ContentKind,
+  courseId: CourseId = DEFAULT_COURSE_ID,
 ): ValidationResult<{
   revision: number;
   slug: string;
@@ -62,7 +94,7 @@ export function validateContentUpdate(
   if (!revision.ok) return revision;
   const common = validateCommonFields(value.slug, value.title);
   if (!common.ok) return common;
-  const content = validatePayload(kind, value.content);
+  const content = validatePayload(kind, value.content, false, courseId);
   if (!content.ok) return content;
   return {
     ok: true,
@@ -229,6 +261,18 @@ export function parseContentKind(value: string | null): ContentKind | null {
   return isOneOf(value, CONTENT_KINDS) ? value : null;
 }
 
+export function parseCourseId(value: string | null): CourseId | null {
+  const course = courseFromId(value);
+  return course?.id ?? null;
+}
+
+export function parsePublishedCourseId(
+  value: string | null,
+): CourseId | null {
+  const course = publishedCourseFromId(value);
+  return course?.id ?? null;
+}
+
 export function parseSupportStatus(value: string | null): SupportStatus | null {
   return isOneOf(value, SUPPORT_STATUSES) ? value : null;
 }
@@ -240,9 +284,15 @@ export function parseSupportCategory(value: string | null): SupportCategory | nu
 export function parseStoredContent(
   kind: ContentKind,
   value: string,
+  courseId: CourseId = DEFAULT_COURSE_ID,
 ): CmsContentPayload | null {
   try {
-    const result = validatePayload(kind, JSON.parse(value) as unknown, true);
+    const result = validatePayload(
+      kind,
+      JSON.parse(value) as unknown,
+      true,
+      courseId,
+    );
     return result.ok ? result.value : null;
   } catch {
     return null;
@@ -258,9 +308,10 @@ export function parseStoredContent(
 export function parsePublishableStoredContent(
   kind: ContentKind,
   value: string,
+  courseId: CourseId = DEFAULT_COURSE_ID,
 ): ValidationResult<CmsContentPayload> {
   try {
-    return validatePayload(kind, JSON.parse(value) as unknown);
+    return validatePayload(kind, JSON.parse(value) as unknown, false, courseId);
   } catch {
     return invalid("Stored content is not valid JSON.");
   }
@@ -288,15 +339,17 @@ function validatePayload(
   kind: ContentKind,
   value: unknown,
   allowLegacy = false,
+  courseId: CourseId = DEFAULT_COURSE_ID,
 ): ValidationResult<CmsContentPayload> {
   return kind === "vocabulary"
-    ? validateVocabulary(value, allowLegacy)
-    : validateLesson(value, allowLegacy);
+    ? validateVocabulary(value, allowLegacy, courseId)
+    : validateLesson(value, allowLegacy, courseId);
 }
 
 function validateVocabulary(
   value: unknown,
   allowLegacy: boolean,
+  courseId: CourseId,
 ): ValidationResult<VocabularyContent> {
   const baseKeys = [
     "french",
@@ -354,8 +407,13 @@ function validateVocabulary(
   if (value.partOfSpeech !== "noun" && value.gender !== null) {
     return invalid("Only nouns may have grammatical gender.");
   }
-  if (typeof value.regionId !== "string" || !REGION_IDS.has(value.regionId)) {
-    return invalid("Invalid French region.");
+  if (
+    typeof value.regionId !== "string" ||
+    (courseId === DEFAULT_COURSE_ID && !REGION_IDS.has(value.regionId))
+  ) {
+    return invalid(
+      `Invalid ${COURSE_CATALOG[courseId].taxonomy.contextSingular}.`,
+    );
   }
   if (!Array.isArray(value.tags) || value.tags.length > 10) {
     return invalid("Tags must be an array of no more than 10 items.");
@@ -370,24 +428,37 @@ function validateVocabulary(
     if (!tags.includes(tag)) tags.push(tag);
   }
 
-  const legacyCefr = tags.find((tag) => /^(a1|a2)$/i.test(tag))?.toUpperCase();
-  const legacyLesson = tags.find((tag) => /^lesson-[123]$/i.test(tag));
+  const legacyCefr = tags
+    .find((tag) => /^(a1|a2|b1|b2|c1|c2)$/i.test(tag))
+    ?.toUpperCase();
+  const legacyLesson = tags.find((tag) => /^lesson-[1-9][0-9]{0,2}$/i.test(tag));
   const cefr = value.cefr ?? (allowLegacy ? legacyCefr ?? "A2" : null);
   const lesson = value.lesson ??
-    (allowLegacy && legacyLesson ? Number(legacyLesson.slice(-1)) : allowLegacy ? 3 : null);
+    (allowLegacy && legacyLesson
+      ? Number(legacyLesson.slice("lesson-".length))
+      : allowLegacy
+        ? 3
+        : null);
   const topic = boundedText(
     value.topic ??
       (allowLegacy
-        ? tags.find((tag) => !/^(a1|a2|lesson-[123])$/i.test(tag)) ?? "editorial"
+        ? tags.find(
+            (tag) =>
+              !/^(a1|a2|b1|b2|c1|c2|lesson-[1-9][0-9]{0,2})$/i.test(tag),
+          ) ?? "editorial"
         : null),
     2,
     80,
   );
   const emoji = boundedText(value.emoji ?? (allowLegacy ? "✨" : null), 1, 12);
   const sensitive = value.sensitive ?? (allowLegacy ? false : null);
-  if (cefr !== "A1" && cefr !== "A2") return invalid("CEFR must be A1 or A2.");
-  if (lesson !== 1 && lesson !== 2 && lesson !== 3) {
-    return invalid("Lesson must be 1, 2, or 3.");
+  if (!isOneOf(cefr, CEFR_LEVELS)) {
+    return invalid("CEFR must be A1, A2, B1, B2, C1, or C2.");
+  }
+  if (!isCurriculumLessonNumber(lesson)) {
+    return invalid(
+      `Lesson must be an integer from ${MIN_CURRICULUM_LESSON_NUMBER} to ${MAX_CURRICULUM_LESSON_NUMBER}.`,
+    );
   }
   if (!topic) return invalid("Topic must be between 2 and 80 characters.");
   if (!emoji) return invalid("A compact visual marker is required.");
@@ -417,6 +488,7 @@ function validateVocabulary(
 function validateLesson(
   value: unknown,
   allowLegacy: boolean,
+  courseId: CourseId,
 ): ValidationResult<CmsContentPayload> {
   const editorialKeys = ["cefr", "lesson", "topic", "sensitive"];
   const keys = [
@@ -439,16 +511,25 @@ function validateLesson(
   if (!summary || !introduction) {
     return invalid("Lesson summary or introduction is missing or exceeds its limit.");
   }
-  if (typeof value.regionId !== "string" || !REGION_IDS.has(value.regionId)) {
-    return invalid("Invalid French region.");
+  if (
+    typeof value.regionId !== "string" ||
+    (courseId === DEFAULT_COURSE_ID && !REGION_IDS.has(value.regionId))
+  ) {
+    return invalid(
+      `Invalid ${COURSE_CATALOG[courseId].taxonomy.contextSingular}.`,
+    );
   }
   const cefr = value.cefr ?? (allowLegacy ? "A2" : null);
   const lesson = value.lesson ?? (allowLegacy ? 3 : null);
   const topic = boundedText(value.topic ?? (allowLegacy ? "editorial" : null), 2, 80);
   const sensitive = value.sensitive ?? (allowLegacy ? false : null);
-  if (cefr !== "A1" && cefr !== "A2") return invalid("CEFR must be A1 or A2.");
-  if (lesson !== 1 && lesson !== 2 && lesson !== 3) {
-    return invalid("Lesson must be 1, 2, or 3.");
+  if (!isOneOf(cefr, CEFR_LEVELS)) {
+    return invalid("CEFR must be A1, A2, B1, B2, C1, or C2.");
+  }
+  if (!isCurriculumLessonNumber(lesson)) {
+    return invalid(
+      `Lesson must be an integer from ${MIN_CURRICULUM_LESSON_NUMBER} to ${MAX_CURRICULUM_LESSON_NUMBER}.`,
+    );
   }
   if (!topic) return invalid("Topic must be between 2 and 80 characters.");
   if (typeof sensitive !== "boolean") return invalid("Sensitive must be a boolean.");

@@ -58,6 +58,38 @@ is one availability source of truth. Before creating a new release:
    reports an unknown ID, untracked file, checksum mismatch, implausible
    duration, missing attribution, or unclear distribution status.
 
+### New CMS vocabulary
+
+Cloudflare Worker assets are immutable at runtime, so CMS audio is deliberately
+an audited build-time intake instead of a browser upload that could appear live
+without a reviewed release. For a new CMS word:
+
+1. Save a JSON request with the immutable `cms-*` public ID, exact French
+   transcript and content revision; separate content-author and pronunciation
+   reviewer emails/timestamps; generator/voice; review notes; and a concrete
+   public licence name/URL plus an internal distribution-rights reference with
+   its approver and timestamp.
+2. Stage and technically inspect the WAV without changing production:
+
+   ```sh
+   npm run audio:cms:intake -- stage --request request.json --wav clip.wav
+   ```
+
+3. Have the operator inspect the generated receipt and clip, then promote them
+   into the checked-in release:
+
+   ```sh
+   npm run audio:cms:intake -- promote \
+     --receipt work/cms-audio-intake/cms-example/receipt.json
+   npm run audio:verify
+   ```
+
+Promotion adds non-personal per-clip review and licence provenance plus a hash of
+the private intake receipt to the public manifest; reviewer emails and internal
+notes stay out of public assets. It never approves or publishes a CMS item. The
+normal independent CMS review remains required, and approval will continue to
+fail if the manifest transcript differs from the current French text.
+
 The current release contains 270 WAV clips produced with Piper 1.4.2 and the
 `fr_FR-mls-medium` voice. Its model card identifies the French Multilingual
 LibriSpeech dataset, CC BY 4.0 licensing, 22,050 Hz sample rate, and training from

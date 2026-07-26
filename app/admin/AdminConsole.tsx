@@ -2,7 +2,19 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { WORDS, type Word } from "@/app/learning-data";
+import {
+  REGIONS,
+  WORDS,
+  type RegionId,
+  type Word,
+} from "@/app/learning-data";
+import { compiledCurriculumDrafts } from "@/app/compiled-curriculum-seed";
+import {
+  COURSE_CATALOG,
+  DEFAULT_COURSE_ID,
+  type CourseDefinition,
+  type CourseId,
+} from "@/app/course-catalog";
 
 import {
   CONTENT_KINDS,
@@ -23,8 +35,13 @@ import styles from "./admin.module.css";
 
 type Tab = "content" | "support" | "analytics" | "operations" | "audit";
 
+const ADMIN_COURSES = Object.values(
+  COURSE_CATALOG,
+) as readonly CourseDefinition[];
+
 type Editor = {
   id: string | null;
+  courseId: CourseId;
   kind: ContentKind;
   slug: string;
   stableKey: string | null;
@@ -91,6 +108,7 @@ export default function AdminConsole({ adminEmail }: { adminEmail: string }) {
   const [releaseReason, setReleaseReason] = useState("");
   const [editor, setEditor] = useState<Editor>(() => emptyEditor("vocabulary"));
   const [catalogQuery, setCatalogQuery] = useState("");
+  const [seedRegionId, setSeedRegionId] = useState<RegionId>(REGIONS[0].id);
   const [busy, setBusy] = useState(false);
   const [loading, setLoading] = useState(true);
   const [message, setMessage] = useState("");
@@ -233,6 +251,7 @@ export default function AdminConsole({ adminEmail }: { adminEmail: string }) {
       ]);
       setEditor({
         id: entry.id,
+        courseId: entry.courseId,
         kind: entry.kind,
         slug: entry.slug,
         stableKey: entry.stableKey,
@@ -265,6 +284,7 @@ export default function AdminConsole({ adminEmail }: { adminEmail: string }) {
   function startOverride(word: Word) {
     setEditor({
       id: null,
+      courseId: DEFAULT_COURSE_ID,
       kind: "vocabulary",
       slug: word.id,
       stableKey: null,
@@ -303,6 +323,50 @@ export default function AdminConsole({ adminEmail }: { adminEmail: string }) {
     setMessage("Compiled card loaded as a new CMS override. Review and save it as a draft.");
   }
 
+  async function seedCompiledRegion() {
+    const region = REGIONS.find((candidate) => candidate.id === seedRegionId);
+    if (!region) return;
+    const confirmed = window.confirm(
+      `Create the missing ${region.name} compiled cards and lessons as CMS drafts? Each item will be attributed to you and must still be independently reviewed before publication.`,
+    );
+    if (!confirmed) return;
+
+    setBusy(true);
+    setError("");
+    setMessage("");
+    try {
+      const existing = new Set(
+        entries.map((entry) => `${entry.kind}:${entry.stableKey}`),
+      );
+      const drafts = compiledCurriculumDrafts(seedRegionId).filter(
+        (draft) => !existing.has(`${draft.kind}:${draft.slug}`),
+      );
+      if (drafts.length === 0) {
+        setMessage(`${region.name} is already represented in the CMS.`);
+        return;
+      }
+
+      for (const draft of drafts) {
+        await apiRequest("/api/admin/content", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify(draft),
+        });
+      }
+      await Promise.all([loadEntries(), loadAudit()]);
+      setMessage(
+        `${drafts.length} ${region.name} items created as audited drafts. A different administrator must review them; nothing was published.`,
+      );
+    } catch (reason) {
+      setError(
+        `${errorMessage(reason)} Any drafts created before the failure remain visible and auditable; run the seed again to add only missing items.`,
+      );
+      await loadEntries().catch(() => undefined);
+    } finally {
+      setBusy(false);
+    }
+  }
+
   async function saveEntry(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setBusy(true);
@@ -326,7 +390,13 @@ export default function AdminConsole({ adminEmail }: { adminEmail: string }) {
             title: editor.title,
             content,
           }
-        : { kind: editor.kind, slug: editor.slug, title: editor.title, content };
+        : {
+            courseId: editor.courseId,
+            kind: editor.kind,
+            slug: editor.slug,
+            title: editor.title,
+            content,
+          };
       const { entry } = await apiRequest<{ entry: CmsContentRecord }>(endpoint, {
         method: editor.id ? "PUT" : "POST",
         headers: { "content-type": "application/json" },
@@ -334,6 +404,7 @@ export default function AdminConsole({ adminEmail }: { adminEmail: string }) {
       });
       setEditor({
         id: entry.id,
+        courseId: entry.courseId,
         kind: entry.kind,
         slug: entry.slug,
         stableKey: entry.stableKey,
@@ -530,6 +601,7 @@ export default function AdminConsole({ adminEmail }: { adminEmail: string }) {
       );
       setEditor({
         id: entry.id,
+        courseId: entry.courseId,
         kind: entry.kind,
         slug: entry.slug,
         stableKey: entry.stableKey,
@@ -754,7 +826,35 @@ export default function AdminConsole({ adminEmail }: { adminEmail: string }) {
             <div className={styles.catalog}>
               <div>
                 <p className={styles.kicker}>Compiled foundation</p>
-                <h3>{WORDS.length} live cards</h3>
+                <h3>{WORDS.length} bundle cards</h3>
+              </div>
+              <div className={styles.seedControls}>
+                <label>
+                  Stage region in CMS
+                  <select
+                    value={seedRegionId}
+                    disabled={busy}
+                    onChange={(event) =>
+                      setSeedRegionId(event.target.value as RegionId)
+                    }
+                  >
+                    {REGIONS.map((region) => (
+                      <option value={region.id} key={region.id}>
+                        {region.name}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <button
+                  type="button"
+                  disabled={busy}
+                  onClick={() => void seedCompiledRegion()}
+                >
+                  Create missing drafts
+                </button>
+                <small>
+                  Uses the normal audited create path. It never approves or publishes.
+                </small>
               </div>
               <label>
                 <span className={styles.visuallyHidden}>Search compiled curriculum</span>
@@ -817,6 +917,27 @@ export default function AdminConsole({ adminEmail }: { adminEmail: string }) {
             )}
 
             <div className={styles.fieldGrid}>
+              <label>
+                Course
+                <select
+                  value={editor.courseId}
+                  disabled={Boolean(editor.id)}
+                  onChange={(event) =>
+                    setEditor((current) => ({
+                      ...current,
+                      courseId: event.target.value as CourseId,
+                    }))
+                  }
+                >
+                  {ADMIN_COURSES.map((course) => (
+                    <option key={course.id} value={course.id}>
+                      {course.sourceLanguageName} to{" "}
+                      {course.targetLanguageName}
+                      {course.status === "draft" ? " (draft)" : ""}
+                    </option>
+                  ))}
+                </select>
+              </label>
               <label>
                 Type
                 <select
@@ -1059,11 +1180,35 @@ export default function AdminConsole({ adminEmail }: { adminEmail: string }) {
               <div className={styles.operationsGrid}>
                 <section><p className={styles.kicker}>Publishing</p><strong>{operations.content.published}</strong><span>published · {operations.content.drafts} drafts</span></section>
                 <section><p className={styles.kicker}>Learner care</p><strong>{operations.support.open}</strong><span>open or in progress</span></section>
-                <section><p className={styles.kicker}>Retention due</p><strong>{operations.retentionDue.productEvents + operations.retentionDue.supportRequests + operations.retentionDue.auditEvents}</strong><span>expired records</span></section>
+                <section><p className={styles.kicker}>Retention due</p><strong>{Object.values(operations.retentionDue).reduce((total, count) => total + count, 0)}</strong><span>expired records</span></section>
                 <section><p className={styles.kicker}>Legal holds</p><strong>{operations.activeLegalHolds}</strong><span>active deletion exclusions</span></section>
+                <section>
+                  <p className={styles.kicker}>Account deletion</p>
+                  <strong>{operations.accountDeletionQueue.pending + operations.accountDeletionQueue.held}</strong>
+                  <span>
+                    {operations.accountDeletionQueue.pending} retrying · {operations.accountDeletionQueue.held} legally held
+                    {operations.accountDeletionQueue.withErrors > 0 ? ` · ${operations.accountDeletionQueue.withErrors} with errors` : ""}
+                  </span>
+                </section>
+                <section>
+                  <p className={styles.kicker}>Support email</p>
+                  <strong>{operations.supportNotificationQueue.pending + operations.supportNotificationQueue.failed}</strong>
+                  <span>
+                    {operations.supportNotificationQueue.pending} queued · {operations.supportNotificationQueue.failed} awaiting retry
+                  </span>
+                </section>
               </div>
               <section className={styles.retentionCard}>
-                <div><h3>Retention maintenance</h3><p>Events older than 400 days and resolved support or audit records older than 730 days are eligible for permanent deletion. Each class is limited to {operations.retentionBatchLimit} records per run; active legal holds are always excluded.</p></div>
+                <div>
+                  <h3>Retention maintenance</h3>
+                  <p>Events older than 400 days and resolved support or audit records older than 730 days are eligible for permanent deletion. Each class is limited to {operations.retentionBatchLimit} records per run; active legal holds are always excluded. Durable account-deletion and support-notification jobs are retried on every run.</p>
+                  {operations.accountDeletionQueue.oldestUpdatedAt ? (
+                    <small>Oldest open account-deletion job updated {formatDate(operations.accountDeletionQueue.oldestUpdatedAt)}.</small>
+                  ) : null}
+                  {operations.supportNotificationQueue.oldestCreatedAt ? (
+                    <small>Oldest undelivered support notification created {formatDate(operations.supportNotificationQueue.oldestCreatedAt)}.</small>
+                  ) : null}
+                </div>
                 <button type="button" disabled={busy} onClick={() => void runRetention()}>{busy ? "Working…" : "Delete expired records"}</button>
               </section>
               <section className={styles.legalHoldPanel} aria-labelledby="legal-holds-title">
@@ -1164,6 +1309,7 @@ export default function AdminConsole({ adminEmail }: { adminEmail: string }) {
 function emptyEditor(kind: ContentKind): Editor {
   return {
     id: null,
+    courseId: DEFAULT_COURSE_ID,
     kind,
     slug: "",
     stableKey: null,
@@ -1202,9 +1348,18 @@ async function apiRequest<T = Record<string, unknown>>(
 }
 
 async function fetchAllContentEntries(): Promise<CmsContentSummary[]> {
-  return fetchAllAdminPages<CmsContentSummary>(
-    "/api/admin/content?limit=100",
-    "entries",
+  const pages = await Promise.all(
+    ADMIN_COURSES.map((course) =>
+      fetchAllAdminPages<CmsContentSummary>(
+        `/api/admin/content?courseId=${encodeURIComponent(course.id)}&limit=100`,
+        "entries",
+      ),
+    ),
+  );
+  return pages.flat().sort(
+    (left, right) =>
+      right.updatedAt.localeCompare(left.updatedAt) ||
+      left.id.localeCompare(right.id),
   );
 }
 

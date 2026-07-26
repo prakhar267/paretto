@@ -89,8 +89,9 @@ invariant(
 );
 invariant(
   wrangler.assets?.directory === "../client" &&
-    wrangler.assets?.binding === "ASSETS",
-  "The Worker artifact must expose built static files through the ASSETS binding.",
+    wrangler.assets?.binding === "ASSETS" &&
+    wrangler.assets?.html_handling === "none",
+  "The Worker artifact must expose built static files through the ASSETS binding and preserve exact HTML paths.",
 );
 invariant(
   wrangler.images === undefined,

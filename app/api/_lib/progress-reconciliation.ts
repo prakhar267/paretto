@@ -31,9 +31,9 @@ export async function reconcileProgressAliases(
     const result = await database
       .prepare(
         `SELECT alias, stable_key FROM cms_vocabulary_aliases
-         WHERE alias IN (${placeholders})`,
+         WHERE course_id = ? AND alias IN (${placeholders})`,
       )
-      .bind(...page)
+      .bind(state.activeCourseId, ...page)
       .all<VocabularyAliasRow>();
     aliases.push(...result.results);
   }
@@ -48,7 +48,7 @@ export function reconcileWordProgressAliases(
   let changed = false;
 
   for (const { alias, stable_key: stableKey } of aliases) {
-    const canonicalId = vocabularyPublicId(stableKey);
+    const canonicalId = vocabularyPublicId(stableKey, state.activeCourseId);
     for (const historicalId of [alias, `cms-${alias}`]) {
       if (historicalId === canonicalId || !progress[historicalId]) continue;
       progress[canonicalId] = mergeProgress(

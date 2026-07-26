@@ -2,14 +2,22 @@ import { describe, expect, it } from "vitest";
 
 import {
   MASTERY_INTERVALS_MS,
+  MAX_ACTIVE_REWARD_REPLICAS,
+  RewardJournalCapacityError,
+  RewardJournalEpochError,
   STATE_VERSION,
+  activeWordProgress,
+  applyRewardClaim,
   completeSession,
   createInitialState,
   dueCount,
   isDue,
+  learnedCount,
   levelFromXp,
   markWordKnown,
+  masteredCount,
   mergeLearningStates,
+  isolateRewardReplicaCollisions,
   rateWord,
   stateFromUnknown,
   updateStreak,
@@ -50,12 +58,29 @@ describe("createInitialState", () => {
   it("creates a deterministic, ready-to-onboard state", () => {
     expect(createInitialState(BASE_TIME)).toEqual({
       version: STATE_VERSION,
+      activeCourseId: "french-from-english",
+      courseProgress: {
+        "french-from-english": {
+          currentContextId: "ile-de-france",
+          curriculumRevision: "compiled-v1",
+          updatedAt: BASE_TIME.toISOString(),
+        },
+      },
       onboarded: false,
       displayName: "Traveler",
       level: "new",
       dailyGoal: 5,
       xp: 0,
       coins: 12,
+      rewardJournal: {
+        baselineXp: 0,
+        baselineCoins: 12,
+        replicas: {},
+        replicaEpoch: 0,
+        claims: {},
+        claimDayFloor: null,
+        legacyBaseline: false,
+      },
       streak: 0,
       longestStreak: 0,
       lastActiveDate: null,
@@ -77,6 +102,7 @@ describe("createInitialState", () => {
       },
       dice: {
         lastPlayedDate: null,
+        lastPlayedResult: null,
       },
       updatedAt: BASE_TIME.toISOString(),
     });
@@ -237,7 +263,48 @@ describe("review due dates", () => {
       },
     };
 
-    expect(dueCount(state, BASE_TIME)).toBe(2);
+    expect(
+      dueCount(state, ["past", "boundary", "future"], BASE_TIME),
+    ).toBe(2);
+
+    const compiledState = {
+      ...createInitialState(BASE_TIME),
+      wordProgress: {
+        "idf-metro": progressAt(1, {
+          nextReviewAt: BASE_TIME.toISOString(),
+        }),
+      },
+    };
+    expect(dueCount(compiledState, BASE_TIME)).toBe(1);
+  });
+
+  it("excludes orphaned progress from active curriculum counts without deleting it", () => {
+    const state = {
+      ...createInitialState(BASE_TIME),
+      wordProgress: {
+        "active-due": progressAt(2, {
+          nextReviewAt: BASE_TIME.toISOString(),
+        }),
+        "active-mastered": progressAt(5, {
+          nextReviewAt: new Date(
+            BASE_TIME.getTime() + 60_000,
+          ).toISOString(),
+        }),
+        "retired-mastered": progressAt(6, {
+          nextReviewAt: BASE_TIME.toISOString(),
+        }),
+      },
+    };
+    const activeWordIds = new Set(["active-due", "active-mastered"]);
+
+    expect(activeWordProgress(state, activeWordIds)).toEqual({
+      "active-due": state.wordProgress["active-due"],
+      "active-mastered": state.wordProgress["active-mastered"],
+    });
+    expect(dueCount(state, activeWordIds, BASE_TIME)).toBe(1);
+    expect(learnedCount(state, activeWordIds)).toBe(2);
+    expect(masteredCount(state, activeWordIds)).toBe(1);
+    expect(state.wordProgress).toHaveProperty("retired-mastered");
   });
 });
 
@@ -342,6 +409,35 @@ describe("level math", () => {
 });
 
 describe("stateFromUnknown", () => {
+  it("hydrates legacy v1 progress into the default course without losing learning", () => {
+    const legacy = {
+      ...createInitialState(BASE_TIME),
+      xp: 420,
+      wordProgress: {
+        "idf-metro": {
+          stage: 2,
+          seen: 3,
+          correct: 2,
+          incorrect: 1,
+          nextReviewAt: "2026-07-20T10:00:00.000Z",
+          lastReviewedAt: "2026-07-19T10:00:00.000Z",
+        },
+      },
+    } as Record<string, unknown>;
+    delete legacy.activeCourseId;
+    delete legacy.courseProgress;
+
+    const migrated = stateFromUnknown(legacy, BASE_TIME);
+
+    expect(migrated.xp).toBe(420);
+    expect(migrated.wordProgress["idf-metro"]?.stage).toBe(2);
+    expect(migrated.activeCourseId).toBe("french-from-english");
+    expect(migrated.courseProgress["french-from-english"]).toMatchObject({
+      currentContextId: "ile-de-france",
+      curriculumRevision: "compiled-v1",
+    });
+  });
+
   it("falls back for non-objects and incompatible versions", () => {
     const fallback = createInitialState(BASE_TIME);
 
@@ -403,7 +499,10 @@ describe("stateFromUnknown", () => {
       lastPlayedDate: null,
       bestScore: 12,
     });
-    expect(result.dice).toEqual({ lastPlayedDate: "2026-07-18" });
+    expect(result.dice).toEqual({
+      lastPlayedDate: "2026-07-18",
+      lastPlayedResult: null,
+    });
   });
 
   it("preserves valid goals and replaces an empty display name", () => {
@@ -422,6 +521,49 @@ describe("stateFromUnknown", () => {
     expect(result.displayName).toBe("Traveler");
     expect(result.xp).toBe(0);
     expect(result.coins).toBe(0);
+  });
+
+  it("validates and preserves a restorable daily dice receipt", () => {
+    const result = stateFromUnknown({
+      ...createInitialState(BASE_TIME),
+      dice: {
+        lastPlayedDate: "2026-07-19",
+        lastPlayedResult: {
+          date: "2026-07-19",
+          stake: 3,
+          multiplier: 1.5,
+          xp: 54,
+        },
+      },
+    });
+
+    expect(result.dice).toEqual({
+      lastPlayedDate: "2026-07-19",
+      lastPlayedResult: {
+        date: "2026-07-19",
+        stake: 3,
+        multiplier: 1.5,
+        xp: 54,
+      },
+    });
+
+    expect(
+      stateFromUnknown({
+        ...result,
+        dice: {
+          lastPlayedDate: "2026-07-19",
+          lastPlayedResult: {
+            date: "2026-07-19",
+            stake: 4,
+            multiplier: 99,
+            xp: -1,
+          },
+        },
+      }).dice,
+    ).toEqual({
+      lastPlayedDate: "2026-07-19",
+      lastPlayedResult: null,
+    });
   });
 
   it("deeply rejects malformed records, enums, dates, IDs, and booleans", () => {
@@ -550,6 +692,14 @@ describe("stateFromUnknown", () => {
         nextReviewAt: "2026-07-22T10:00:00.000Z",
         lastReviewedAt: "2026-07-19T10:00:00.000Z",
       },
+      "unknown-word": {
+        stage: 1,
+        seen: 1,
+        correct: 1,
+        incorrect: 0,
+        nextReviewAt: "2026-07-22T10:00:00.000Z",
+        lastReviewedAt: "2026-07-19T10:00:00.000Z",
+      },
     });
     expect(result.sessions).toEqual([
       {
@@ -575,6 +725,41 @@ describe("stateFromUnknown", () => {
 
     expect(result.currentRegionId).toBe("corse");
     expect(result.unlockedRegionIds).toEqual(["ile-de-france", "corse"]);
+  });
+});
+
+describe("mergeLearningStates reward counters", () => {
+  it("preserves independent device rewards and remains idempotent", () => {
+    const base = createInitialState(BASE_TIME);
+    const server = rateWord(
+      base,
+      "idf-metro",
+      "good",
+      BASE_TIME,
+      "web:11111111-1111-4111-8111-111111111111",
+    );
+    const local = rateWord(
+      base,
+      "idf-musee",
+      "good",
+      new Date(BASE_TIME.getTime() + 60_000),
+      "web:22222222-2222-4222-8222-222222222222",
+    );
+
+    const merged = mergeLearningStates(server, local, BASE_TIME);
+    const replayed = mergeLearningStates(
+      merged,
+      local,
+      new Date(BASE_TIME.getTime() + 120_000),
+    );
+
+    expect(merged.xp).toBe(20);
+    expect(merged.coins).toBe(14);
+    expect(Object.keys(merged.wordProgress)).toEqual(
+      expect.arrayContaining(["idf-metro", "idf-musee"]),
+    );
+    expect(replayed.xp).toBe(20);
+    expect(replayed.coins).toBe(14);
   });
 });
 
@@ -630,7 +815,15 @@ describe("mergeLearningStates", () => {
         analytics: false,
       },
       challenge: { lastPlayedDate: "2026-07-18", bestScore: 4 },
-      dice: { lastPlayedDate: "2026-07-19" },
+      dice: {
+        lastPlayedDate: "2026-07-19",
+        lastPlayedResult: {
+          date: "2026-07-19",
+          stake: 5,
+          multiplier: 2,
+          xp: 120,
+        },
+      },
       updatedAt: "2026-07-19T10:00:00.000Z",
     };
     const local: LearningState = {
@@ -682,7 +875,7 @@ describe("mergeLearningStates", () => {
         analytics: true,
       },
       challenge: { lastPlayedDate: "2026-07-19", bestScore: 3 },
-      dice: { lastPlayedDate: "2026-07-18" },
+      dice: { lastPlayedDate: "2026-07-18", lastPlayedResult: null },
       updatedAt: "2026-07-19T11:00:00.000Z",
     };
 
@@ -707,7 +900,15 @@ describe("mergeLearningStates", () => {
       collectibles: ["metro-ticket", "castle-key"],
       settings: local.settings,
       challenge: { lastPlayedDate: "2026-07-19", bestScore: 4 },
-      dice: { lastPlayedDate: "2026-07-19" },
+      dice: {
+        lastPlayedDate: "2026-07-19",
+        lastPlayedResult: {
+          date: "2026-07-19",
+          stake: 5,
+          multiplier: 2,
+          xp: 120,
+        },
+      },
       updatedAt: "2026-07-19T12:00:00.000Z",
     });
     expect(result.wordProgress["idf-metro"]).toEqual({
@@ -759,5 +960,317 @@ describe("mergeLearningStates", () => {
     expect(result.settings).toEqual(local.settings);
     expect(result.currentRegionId).toBe("ile-de-france");
     expect(result.unlockedRegionIds).toEqual(["ile-de-france"]);
+  });
+});
+
+describe("reward journal adversarial reconciliation", () => {
+  const replicaA = "web:11111111-1111-4111-8111-111111111111";
+  const replicaB = "web:22222222-2222-4222-8222-222222222222";
+
+  it("admits one concurrent daily dice entitlement and keeps its receipt", () => {
+    const base = {
+      ...createInitialState(BASE_TIME),
+      coins: 5,
+      rewardJournal: {
+        ...createInitialState(BASE_TIME).rewardJournal,
+        baselineCoins: 5,
+      },
+    };
+    const day = "2026-07-19";
+    const remoteReward = applyRewardClaim(
+      base,
+      `daily:dice:${day}`,
+      { xpEarned: 180, coinsSpent: 5 },
+      replicaA,
+      BASE_TIME,
+    );
+    const localReward = applyRewardClaim(
+      base,
+      `daily:dice:${day}`,
+      { xpEarned: 30, coinsSpent: 5 },
+      replicaB,
+      new Date(BASE_TIME.getTime() + 60_000),
+    );
+    const remote = {
+      ...remoteReward,
+      dice: {
+        lastPlayedDate: day,
+        lastPlayedResult: {
+          date: day,
+          stake: 5 as const,
+          multiplier: 3 as const,
+          xp: 180,
+        },
+      },
+    };
+    const local = {
+      ...localReward,
+      dice: {
+        lastPlayedDate: day,
+        lastPlayedResult: {
+          date: day,
+          stake: 5 as const,
+          multiplier: 0.5 as const,
+          xp: 30,
+        },
+      },
+    };
+
+    const merged = mergeLearningStates(remote, local, BASE_TIME);
+
+    expect(merged.xp).toBe(180);
+    expect(merged.coins).toBe(0);
+    expect(Object.keys(merged.rewardJournal.claims)).toEqual([
+      `daily:dice:${day}`,
+    ]);
+    expect(merged.dice.lastPlayedResult).toEqual(
+      remote.dice.lastPlayedResult,
+    );
+  });
+
+  it("never overspends when distinct paid claims arrive concurrently", () => {
+    const base = {
+      ...createInitialState(BASE_TIME),
+      coins: 5,
+      rewardJournal: {
+        ...createInitialState(BASE_TIME).rewardJournal,
+        baselineCoins: 5,
+      },
+    };
+    const remote = applyRewardClaim(
+      base,
+      "daily:dice:2026-07-18",
+      { xpEarned: 60, coinsSpent: 5 },
+      replicaA,
+      BASE_TIME,
+    );
+    const local = applyRewardClaim(
+      base,
+      "daily:dice:2026-07-19",
+      { xpEarned: 180, coinsSpent: 5 },
+      replicaB,
+      new Date(BASE_TIME.getTime() + 60_000),
+    );
+
+    const merged = mergeLearningStates(remote, local, BASE_TIME);
+
+    expect(merged.coins).toBe(0);
+    expect(merged.xp).toBe(60);
+    expect(Object.keys(merged.rewardJournal.claims)).toHaveLength(2);
+  });
+
+  it("deduplicates a concurrent daily challenge entitlement", () => {
+    const remote = applyRewardClaim(
+      createInitialState(BASE_TIME),
+      "daily:challenge:2026-07-19",
+      { xpEarned: 77, coinsEarned: 6 },
+      replicaA,
+      BASE_TIME,
+    );
+    const local = applyRewardClaim(
+      createInitialState(BASE_TIME),
+      "daily:challenge:2026-07-19",
+      { xpEarned: 99, coinsEarned: 8 },
+      replicaB,
+      new Date(BASE_TIME.getTime() + 60_000),
+    );
+
+    const merged = mergeLearningStates(remote, local, BASE_TIME);
+
+    expect(merged.xp).toBe(77);
+    expect(merged.coins).toBe(18);
+    expect(Object.keys(merged.rewardJournal.claims)).toHaveLength(1);
+  });
+
+  it("adopts a legacy numeric snapshot without counting journal history twice", () => {
+    const modern = rateWord(
+      createInitialState(BASE_TIME),
+      "idf-metro",
+      "good",
+      BASE_TIME,
+      replicaA,
+    );
+    const legacy = {
+      ...modern,
+      version: 1,
+    } as Record<string, unknown>;
+    delete legacy.rewardJournal;
+
+    const merged = mergeLearningStates(modern, legacy, BASE_TIME);
+
+    expect(merged.xp).toBe(10);
+    expect(merged.coins).toBe(13);
+  });
+
+  it("rekeys an anonymous replica collision before an account claim", () => {
+    const account = rateWord(
+      createInitialState(BASE_TIME),
+      "idf-metro",
+      "good",
+      BASE_TIME,
+      replicaA,
+    );
+    const anonymous = rateWord(
+      createInitialState(BASE_TIME),
+      "idf-musee",
+      "good",
+      new Date(BASE_TIME.getTime() + 60_000),
+      replicaA,
+    );
+    const isolated = isolateRewardReplicaCollisions(
+      anonymous,
+      account,
+      "anonymous-scope",
+    );
+    const merged = mergeLearningStates(account, isolated, BASE_TIME);
+
+    expect(merged.xp).toBe(20);
+    expect(merged.coins).toBe(14);
+    expect(Object.keys(merged.rewardJournal.replicas)).toHaveLength(2);
+    expect(
+      Object.keys(isolated.rewardJournal.replicas),
+    ).not.toContain(replicaA);
+  });
+
+  it("fails closed at replica capacity and on an old epoch", () => {
+    const allReplicas = Object.fromEntries(
+      Array.from({ length: MAX_ACTIVE_REWARD_REPLICAS + 1 }, (_, index) => [
+        `web2:${index.toString(36).padStart(8, "0")}:00000000-0000-4000-8000-${index.toString().padStart(12, "0")}`,
+        { xpEarned: 1, coinsEarned: 0, coinsSpent: 0 },
+      ]),
+    );
+    const oversized = {
+      ...createInitialState(BASE_TIME),
+      rewardJournal: {
+        ...createInitialState(BASE_TIME).rewardJournal,
+        replicas: allReplicas,
+      },
+      xp: MAX_ACTIVE_REWARD_REPLICAS + 1,
+    };
+
+    expect(() => stateFromUnknown(oversized, BASE_TIME)).toThrow(
+      RewardJournalCapacityError,
+    );
+
+    const current = createInitialState(BASE_TIME);
+    const oldOffline = rateWord(
+      createInitialState(BASE_TIME),
+      "idf-metro",
+      "good",
+      BASE_TIME,
+      replicaA,
+    );
+    const advanced = {
+      ...current,
+      rewardJournal: {
+        ...current.rewardJournal,
+        replicaEpoch: 1,
+      },
+    };
+    expect(() => mergeLearningStates(advanced, oldOffline, BASE_TIME)).toThrow(
+      RewardJournalEpochError,
+    );
+    expect(oldOffline.xp).toBe(10);
+  });
+
+  it("never retires claims locally and fails closed without a coordinated floor", () => {
+    let state = createInitialState(BASE_TIME);
+    for (let index = 0; index < 70; index += 1) {
+      const day = new Date(Date.UTC(2026, 0, 1 + index))
+        .toISOString()
+        .slice(0, 10);
+      state = applyRewardClaim(
+        state,
+        `daily:challenge:${day}`,
+        { xpEarned: 1 },
+        replicaA,
+        BASE_TIME,
+      );
+    }
+
+    expect(Object.keys(state.rewardJournal.claims)).toHaveLength(70);
+    expect(state.rewardJournal.claimDayFloor).toBeNull();
+    expect(state.xp).toBe(70);
+
+    const compactedElsewhere = {
+      ...state,
+      rewardJournal: {
+        ...state.rewardJournal,
+        claimDayFloor: "2026-01-05",
+      },
+    };
+    expect(() =>
+      mergeLearningStates(compactedElsewhere, state, BASE_TIME),
+    ).toThrow(RewardJournalEpochError);
+    expect(state.xp).toBe(70);
+    expect(Object.keys(state.rewardJournal.claims)).toHaveLength(70);
+  });
+
+  it("does not resurrect spent coins by compacting paid daily claims locally", () => {
+    let paid = {
+      ...createInitialState(BASE_TIME),
+      coins: 100,
+      rewardJournal: {
+        ...createInitialState(BASE_TIME).rewardJournal,
+        baselineCoins: 100,
+      },
+    };
+    const oldOffline = paid;
+    for (let index = 0; index < 70; index += 1) {
+      const day = new Date(Date.UTC(2026, 0, 1 + index))
+        .toISOString()
+        .slice(0, 10);
+      paid = applyRewardClaim(
+        paid,
+        `daily:dice:${day}`,
+        { coinsSpent: 1 },
+        replicaA,
+        BASE_TIME,
+      );
+    }
+
+    const firstMerge = mergeLearningStates(paid, oldOffline, BASE_TIME);
+    const secondMerge = mergeLearningStates(
+      firstMerge,
+      oldOffline,
+      BASE_TIME,
+    );
+    expect(secondMerge.coins).toBe(30);
+    expect(secondMerge.rewardJournal.claimDayFloor).toBeNull();
+    expect(Object.keys(secondMerge.rewardJournal.claims)).toHaveLength(70);
+  });
+
+  it("fails a claim writer at capacity without mutating existing rewards", () => {
+    const claims = Object.fromEntries(
+      Array.from({ length: 512 }, (_, index) => [
+        `entitlement:bounded:${index.toString().padStart(4, "0")}`,
+        {
+          replicaId: replicaA,
+          xpEarned: 1,
+          coinsEarned: 0,
+          coinsSpent: 0,
+        },
+      ]),
+    );
+    const state = {
+      ...createInitialState(BASE_TIME),
+      xp: 512,
+      rewardJournal: {
+        ...createInitialState(BASE_TIME).rewardJournal,
+        claims,
+      },
+    };
+
+    expect(() =>
+      applyRewardClaim(
+        state,
+        "entitlement:bounded:overflow",
+        { xpEarned: 1 },
+        replicaA,
+        BASE_TIME,
+      ),
+    ).toThrow(RewardJournalCapacityError);
+    expect(state.xp).toBe(512);
+    expect(Object.keys(state.rewardJournal.claims)).toHaveLength(512);
   });
 });

@@ -1,8 +1,31 @@
 import assert from "node:assert/strict";
 import { access, readFile } from "node:fs/promises";
+import { registerHooks } from "node:module";
 import test from "node:test";
 
 const templateRoot = new URL("../", import.meta.url);
+const cloudflareWorkersTestModule =
+  "data:text/javascript," +
+  encodeURIComponent(
+    [
+      "export const env = {};",
+      "export function waitUntil(promise) {",
+      "  Promise.resolve(promise).catch(() => {});",
+      "}",
+    ].join("\n"),
+  );
+
+registerHooks({
+  resolve(specifier, context, nextResolve) {
+    if (specifier === "cloudflare:workers") {
+      return {
+        url: cloudflareWorkersTestModule,
+        shortCircuit: true,
+      };
+    }
+    return nextResolve(specifier, context);
+  },
+});
 
 async function render(pathname = "/") {
   const workerUrl = new URL("../dist/server/index.js", import.meta.url);
@@ -43,10 +66,14 @@ test("server-renders the Paretto app shell and product metadata", async () => {
 
   const html = await response.text();
   assert.match(html, /<title>Paretto — Learn French, one region at a time<\/title>/i);
-  assert.match(html, /Opening your travel journal/);
+  assert.match(
+    html,
+    /Your learning profile is temporarily unavailable/,
+    "the bare server render must fail closed until the Worker supplies a scoped learner identity",
+  );
   assert.match(html, /Paretto/);
   assert.match(html, /five-minute lessons, adaptive reviews/i);
-  assert.match(html, /property="og:image" content="http:\/\/localhost(?::3000)?\/og\.png"/i);
+  assert.match(html, /property="og:image" content="http:\/\/localhost(?::3000)?\/og-v2\.png"/i);
   assert.match(html, /name="twitter:card" content="summary_large_image"/i);
   assert.doesNotMatch(html, /codex-preview|Your site is taking shape|react-loading-skeleton/i);
 });
@@ -105,7 +132,7 @@ test("removes the disposable starter surface and keeps production metadata", asy
   assert.doesNotMatch(favicon, /Loquivo/);
 
   await Promise.all([
-    access(new URL("../public/og.png", import.meta.url)),
+    access(new URL("../public/og-v2.png", import.meta.url)),
     access(new URL("../public/manifest.webmanifest", import.meta.url)),
     access(new URL("../public/apple-touch-icon.png", import.meta.url)),
     access(new URL("../public/audio/fr/manifest.json", import.meta.url)),

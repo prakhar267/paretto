@@ -35,7 +35,7 @@ enum AppEnvironment: String, Codable {
         return URL(string: path, relativeTo: baseURL)?.absoluteURL
     }
 
-    private func validatedAPIURL(_ value: String) -> URL? {
+    func validatedAPIURL(_ value: String) -> URL? {
         let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty,
               !trimmed.contains("$("),

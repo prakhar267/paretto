@@ -1,4 +1,5 @@
 import { sql } from "drizzle-orm";
+import { DEFAULT_COURSE_ID } from "../app/course-catalog";
 import {
   check,
   index,
@@ -15,6 +16,150 @@ export const learningState = sqliteTable("learning_state", {
   payload: text("payload").notNull(),
   updatedAt: integer("updated_at").notNull(),
 });
+
+/**
+ * Server-owned reset epoch for a learner's canonical progress. Rows are
+ * deliberately independent from `learning_state`: deleting the state must
+ * leave a durable tombstone so an offline tab or device carrying an older
+ * snapshot can never recreate it.
+ */
+export const learnerProgressGenerations = sqliteTable(
+  "learner_progress_generations",
+  {
+    userKey: text("user_key").primaryKey(),
+    generation: integer("generation").notNull(),
+    updatedAt: integer("updated_at").notNull(),
+  },
+  (table) => [
+    check(
+      "learner_progress_generations_generation_check",
+      sql`${table.generation} >= 1`,
+    ),
+  ],
+);
+
+/**
+ * Learner account tables are deliberately separate from the legacy anonymous
+ * browser identity and the native Apple-only tables. Better Auth owns these
+ * records; Paretto only stores the stable account id alongside learning data.
+ */
+export const learnerUser = sqliteTable(
+  "learner_user",
+  {
+    id: text("id").primaryKey(),
+    name: text("name").notNull(),
+    email: text("email").notNull(),
+    emailVerified: integer("email_verified", { mode: "boolean" })
+      .notNull()
+      .default(false),
+    image: text("image"),
+    createdAt: integer("created_at", { mode: "timestamp_ms" }).notNull(),
+    updatedAt: integer("updated_at", { mode: "timestamp_ms" }).notNull(),
+  },
+  (table) => [
+    uniqueIndex("learner_user_email_unique").on(table.email),
+  ],
+);
+
+export const learnerSession = sqliteTable(
+  "learner_session",
+  {
+    id: text("id").primaryKey(),
+    expiresAt: integer("expires_at", { mode: "timestamp_ms" }).notNull(),
+    token: text("token").notNull(),
+    createdAt: integer("created_at", { mode: "timestamp_ms" }).notNull(),
+    updatedAt: integer("updated_at", { mode: "timestamp_ms" }).notNull(),
+    ipAddress: text("ip_address"),
+    userAgent: text("user_agent"),
+    userId: text("user_id")
+      .notNull()
+      .references(() => learnerUser.id, { onDelete: "cascade" }),
+  },
+  (table) => [
+    uniqueIndex("learner_session_token_unique").on(table.token),
+    index("learner_session_user_idx").on(table.userId),
+    index("learner_session_expiry_idx").on(table.expiresAt),
+  ],
+);
+
+export const learnerAccount = sqliteTable(
+  "learner_account",
+  {
+    id: text("id").primaryKey(),
+    accountId: text("account_id").notNull(),
+    providerId: text("provider_id").notNull(),
+    userId: text("user_id")
+      .notNull()
+      .references(() => learnerUser.id, { onDelete: "cascade" }),
+    accessToken: text("access_token"),
+    refreshToken: text("refresh_token"),
+    idToken: text("id_token"),
+    accessTokenExpiresAt: integer("access_token_expires_at", {
+      mode: "timestamp_ms",
+    }),
+    refreshTokenExpiresAt: integer("refresh_token_expires_at", {
+      mode: "timestamp_ms",
+    }),
+    scope: text("scope"),
+    password: text("password"),
+    createdAt: integer("created_at", { mode: "timestamp_ms" }).notNull(),
+    updatedAt: integer("updated_at", { mode: "timestamp_ms" }).notNull(),
+  },
+  (table) => [
+    index("learner_account_user_idx").on(table.userId),
+    uniqueIndex("learner_account_provider_unique").on(
+      table.providerId,
+      table.accountId,
+    ),
+  ],
+);
+
+export const learnerVerification = sqliteTable(
+  "learner_verification",
+  {
+    id: text("id").primaryKey(),
+    identifier: text("identifier").notNull(),
+    value: text("value").notNull(),
+    expiresAt: integer("expires_at", { mode: "timestamp_ms" }).notNull(),
+    createdAt: integer("created_at", { mode: "timestamp_ms" }).notNull(),
+    updatedAt: integer("updated_at", { mode: "timestamp_ms" }).notNull(),
+  },
+  (table) => [
+    index("learner_verification_identifier_idx").on(table.identifier),
+    index("learner_verification_expiry_idx").on(table.expiresAt),
+  ],
+);
+
+export const learnerAuthRateLimits = sqliteTable(
+  "learner_auth_rate_limits",
+  {
+    bucketHash: text("bucket_hash").primaryKey(),
+    requestCount: integer("request_count").notNull(),
+    lastRequestAt: integer("last_request_at").notNull(),
+    updatedAt: integer("updated_at").notNull(),
+  },
+  (table) => [
+    index("learner_auth_rate_limits_updated_idx").on(table.updatedAt),
+    check(
+      "learner_auth_rate_limits_request_count_check",
+      sql`${table.requestCount} >= 1`,
+    ),
+  ],
+);
+
+export const learnerIdentityLink = sqliteTable(
+  "learner_identity_links",
+  {
+    anonymousUserKey: text("anonymous_user_key").primaryKey(),
+    accountId: text("account_id")
+      .notNull()
+      .references(() => learnerUser.id, { onDelete: "cascade" }),
+    linkedAt: integer("linked_at").notNull(),
+  },
+  (table) => [
+    index("learner_identity_links_account_idx").on(table.accountId),
+  ],
+);
 
 export const adminLoginAttempts = sqliteTable(
   "admin_login_attempts",
@@ -38,6 +183,7 @@ export const cmsContent = sqliteTable(
   "cms_content",
   {
     id: text("id").primaryKey(),
+    courseId: text("course_id").notNull().default(DEFAULT_COURSE_ID),
     kind: text("kind", { enum: ["vocabulary", "lesson"] }).notNull(),
     slug: text("slug").notNull(),
     stableKey: text("stable_key").notNull(),
@@ -62,12 +208,21 @@ export const cmsContent = sqliteTable(
     updatedByEmail: text("updated_by_email").notNull(),
   },
   (table) => [
-    uniqueIndex("cms_content_kind_slug_unique").on(table.kind, table.slug),
+    uniqueIndex("cms_content_kind_slug_unique").on(
+      table.courseId,
+      table.kind,
+      table.slug,
+    ),
     uniqueIndex("cms_content_kind_stable_key_unique").on(
+      table.courseId,
       table.kind,
       table.stableKey,
     ),
-    index("cms_content_status_updated_idx").on(table.status, table.updatedAt),
+    index("cms_content_status_updated_idx").on(
+      table.courseId,
+      table.status,
+      table.updatedAt,
+    ),
     check(
       "cms_content_kind_check",
       sql`${table.kind} in ('vocabulary', 'lesson')`,
@@ -86,20 +241,29 @@ export const cmsContent = sqliteTable(
 export const cmsVocabularyAliases = sqliteTable(
   "cms_vocabulary_aliases",
   {
-    alias: text("alias").primaryKey(),
+    courseId: text("course_id").notNull().default(DEFAULT_COURSE_ID),
+    alias: text("alias").notNull(),
     contentId: text("content_id").notNull(),
     stableKey: text("stable_key").notNull(),
     createdAt: integer("created_at").notNull(),
   },
   (table) => [
-    index("cms_vocabulary_aliases_content_idx").on(table.contentId),
-    index("cms_vocabulary_aliases_stable_idx").on(table.stableKey),
+    primaryKey({ columns: [table.courseId, table.alias] }),
+    index("cms_vocabulary_aliases_content_idx").on(
+      table.courseId,
+      table.contentId,
+    ),
+    index("cms_vocabulary_aliases_stable_idx").on(
+      table.courseId,
+      table.stableKey,
+    ),
   ],
 );
 
 export const cmsSlugTombstones = sqliteTable(
   "cms_slug_tombstones",
   {
+    courseId: text("course_id").notNull().default(DEFAULT_COURSE_ID),
     kind: text("kind", { enum: ["vocabulary", "lesson"] }).notNull(),
     slug: text("slug").notNull(),
     stableKey: text("stable_key").notNull(),
@@ -108,8 +272,11 @@ export const cmsSlugTombstones = sqliteTable(
     retiredByEmail: text("retired_by_email").notNull(),
   },
   (table) => [
-    primaryKey({ columns: [table.kind, table.slug] }),
-    index("cms_slug_tombstones_content_idx").on(table.contentId),
+    primaryKey({ columns: [table.courseId, table.kind, table.slug] }),
+    index("cms_slug_tombstones_content_idx").on(
+      table.courseId,
+      table.contentId,
+    ),
     check(
       "cms_slug_tombstones_kind_check",
       sql`${table.kind} in ('vocabulary', 'lesson')`,
@@ -120,6 +287,7 @@ export const cmsSlugTombstones = sqliteTable(
 export const cmsContentRevisions = sqliteTable(
   "cms_content_revisions",
   {
+    courseId: text("course_id").notNull().default(DEFAULT_COURSE_ID),
     contentId: text("content_id").notNull(),
     revision: integer("revision").notNull(),
     kind: text("kind", { enum: ["vocabulary", "lesson"] }).notNull(),
@@ -136,8 +304,11 @@ export const cmsContentRevisions = sqliteTable(
     createdAt: integer("created_at").notNull(),
   },
   (table) => [
-    primaryKey({ columns: [table.contentId, table.revision] }),
+    primaryKey({
+      columns: [table.courseId, table.contentId, table.revision],
+    }),
     index("cms_content_revisions_created_idx").on(
+      table.courseId,
       table.contentId,
       table.createdAt,
     ),
@@ -192,6 +363,96 @@ export const supportRequests = sqliteTable(
     check(
       "support_requests_status_check",
       sql`${table.status} in ('open', 'in_progress', 'resolved', 'closed')`,
+    ),
+  ],
+);
+
+export const supportRateLimits = sqliteTable(
+  "support_rate_limits",
+  {
+    bucketHash: text("bucket_hash").primaryKey(),
+    windowStartedAt: integer("window_started_at").notNull(),
+    requestCount: integer("request_count").notNull(),
+    lastReservationId: text("last_reservation_id").notNull(),
+    updatedAt: integer("updated_at").notNull(),
+  },
+  (table) => [
+    index("support_rate_limits_updated_idx").on(table.updatedAt),
+    check(
+      "support_rate_limits_request_count_check",
+      sql`${table.requestCount} >= 1 AND ${table.requestCount} <= 20`,
+    ),
+  ],
+);
+
+/**
+ * Durable, body-free support email outbox. Mutations enqueue these rows in
+ * the same D1 batch as the support request change; scheduled retention then
+ * claims and delivers a bounded page. Requester destinations are written only
+ * after an exact match to a verified signed-in learner account.
+ */
+export const supportNotificationJobs = sqliteTable(
+  "support_notification_jobs",
+  {
+    id: text("id").primaryKey(),
+    supportRequestId: text("support_request_id")
+      .notNull()
+      .references(() => supportRequests.id, { onDelete: "cascade" }),
+    eventType: text("event_type", {
+      enum: [
+        "operator_created",
+        "requester_created",
+        "requester_status",
+      ],
+    }).notNull(),
+    supportRevision: integer("support_revision").notNull(),
+    supportStatus: text("support_status", {
+      enum: ["open", "in_progress", "resolved", "closed"],
+    }).notNull(),
+    recipientEmail: text("recipient_email"),
+    status: text("status", {
+      enum: ["pending", "processing", "failed", "completed"],
+    })
+      .notNull()
+      .default("pending"),
+    attempts: integer("attempts").notNull().default(0),
+    availableAt: integer("available_at").notNull(),
+    leaseExpiresAt: integer("lease_expires_at"),
+    lastError: text("last_error"),
+    completedAt: integer("completed_at"),
+    createdAt: integer("created_at").notNull(),
+    updatedAt: integer("updated_at").notNull(),
+  },
+  (table) => [
+    uniqueIndex("support_notification_jobs_event_unique").on(
+      table.supportRequestId,
+      table.eventType,
+      table.supportRevision,
+    ),
+    index("support_notification_jobs_delivery_idx").on(
+      table.status,
+      table.availableAt,
+      table.createdAt,
+    ),
+    check(
+      "support_notification_jobs_event_type_check",
+      sql`${table.eventType} in ('operator_created', 'requester_created', 'requester_status')`,
+    ),
+    check(
+      "support_notification_jobs_support_status_check",
+      sql`${table.supportStatus} in ('open', 'in_progress', 'resolved', 'closed')`,
+    ),
+    check(
+      "support_notification_jobs_status_check",
+      sql`${table.status} in ('pending', 'processing', 'failed', 'completed')`,
+    ),
+    check(
+      "support_notification_jobs_attempts_check",
+      sql`${table.attempts} >= 0`,
+    ),
+    check(
+      "support_notification_jobs_recipient_check",
+      sql`(${table.eventType} = 'operator_created' AND ${table.recipientEmail} IS NULL) OR (${table.eventType} IN ('requester_created', 'requester_status') AND ${table.recipientEmail} IS NOT NULL)`,
     ),
   ],
 );
@@ -283,6 +544,33 @@ export const nativeAccounts = sqliteTable(
   ],
 );
 
+/**
+ * A native Apple account joins the shared learner account only through the
+ * exact verified Apple provider subject. The native exchange can create the
+ * corresponding Better Auth provider record when Apple supplies a verified,
+ * unused email, but it never links to an existing account by email address.
+ *
+ * Keeping the bridge in its own table makes the migration additive: existing
+ * native-only accounts and progress remain valid until a verified provider
+ * match exists, and a learner account can never be claimed by two native
+ * identities.
+ */
+export const nativeLearnerLinks = sqliteTable(
+  "native_learner_links",
+  {
+    nativeAccountId: text("native_account_id")
+      .primaryKey()
+      .references(() => nativeAccounts.id, { onDelete: "cascade" }),
+    learnerUserId: text("learner_user_id")
+      .notNull()
+      .references(() => learnerUser.id, { onDelete: "cascade" }),
+    linkedAt: integer("linked_at").notNull(),
+  },
+  (table) => [
+    uniqueIndex("native_learner_links_user_unique").on(table.learnerUserId),
+  ],
+);
+
 export const nativeSessions = sqliteTable(
   "native_sessions",
   {
@@ -303,6 +591,7 @@ export const nativeSessions = sqliteTable(
 export const nativeLearningState = sqliteTable("native_learning_state", {
   accountId: text("account_id").primaryKey(),
   revision: integer("revision").notNull().default(1),
+  resetGeneration: integer("reset_generation").notNull().default(0),
   payload: text("payload").notNull(),
   updatedAt: integer("updated_at").notNull(),
 });
@@ -323,6 +612,39 @@ export const nativeIdentityTokenUses = sqliteTable(
   },
   (table) => [
     index("native_identity_token_uses_expiry_idx").on(table.expiresAt),
+  ],
+);
+
+/**
+ * Account deletion is a two-phase operation because Better Auth removes its
+ * user before product-owned rows can be cleaned up. This durable queue keeps
+ * the opaque deletion target available for immediate cleanup and scheduled
+ * retry without retaining an email address.
+ */
+export const learnerDeletionJobs = sqliteTable(
+  "learner_deletion_jobs",
+  {
+    userId: text("user_id").primaryKey(),
+    userKey: text("user_key").notNull(),
+    nativeAccountId: text("native_account_id"),
+    status: text("status", { enum: ["pending", "held", "completed"] })
+      .notNull()
+      .default("pending"),
+    requestedAt: integer("requested_at").notNull(),
+    completedAt: integer("completed_at"),
+    attempts: integer("attempts").notNull().default(0),
+    lastError: text("last_error"),
+    updatedAt: integer("updated_at").notNull(),
+  },
+  (table) => [
+    index("learner_deletion_jobs_status_updated_idx").on(
+      table.status,
+      table.updatedAt,
+    ),
+    check(
+      "learner_deletion_jobs_status_check",
+      sql`${table.status} in ('pending', 'held', 'completed')`,
+    ),
   ],
 );
 
@@ -355,6 +677,34 @@ export const retentionLegalHolds = sqliteTable(
     check(
       "retention_legal_holds_status_check",
       sql`${table.status} in ('active', 'released')`,
+    ),
+  ],
+);
+
+export const retentionScheduleState = sqliteTable(
+  "retention_schedule_state",
+  {
+    jobName: text("job_name").primaryKey(),
+    status: text("status", {
+      enum: ["pending", "running", "succeeded", "failed"],
+    })
+      .notNull()
+      .default("pending"),
+    monitoringStartedAt: integer("monitoring_started_at").notNull(),
+    runId: text("run_id"),
+    scheduledAt: integer("scheduled_at"),
+    startedAt: integer("started_at"),
+    completedAt: integer("completed_at"),
+    lastSucceededAt: integer("last_succeeded_at"),
+    lastFailedAt: integer("last_failed_at"),
+    lastError: text("last_error"),
+    lastResult: text("last_result"),
+    updatedAt: integer("updated_at").notNull(),
+  },
+  (table) => [
+    check(
+      "retention_schedule_state_status_check",
+      sql`${table.status} in ('pending', 'running', 'succeeded', 'failed')`,
     ),
   ],
 );

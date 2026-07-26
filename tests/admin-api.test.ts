@@ -34,6 +34,10 @@ import {
   TEST_TURNSTILE_SITE_KEY,
 } from "./auth-fixtures";
 import { setCloudflareEnv } from "./cloudflare-workers-mock";
+import {
+  DEFAULT_COURSE,
+  DEFAULT_COURSE_ID,
+} from "../app/course-catalog";
 
 type StoredSupportRow = SupportRow & { user_key: string };
 
@@ -44,11 +48,38 @@ class CmsMemoryD1 {
   revisions: ContentRevisionRow[] = [];
   aliases = new Map<
     string,
-    { contentId: string; stableKey: string; createdAt: number }
+    {
+      courseId: string;
+      contentId: string;
+      stableKey: string;
+      createdAt: number;
+    }
   >();
   tombstones = new Map<
     string,
-    { contentId: string; stableKey: string; retiredAt: number; retiredBy: string }
+    {
+      courseId: string;
+      contentId: string;
+      stableKey: string;
+      retiredAt: number;
+      retiredBy: string;
+    }
+  >();
+  notificationJobs: Array<{
+    id: string;
+    supportRequestId: string;
+    eventType: "operator_created" | "requester_created" | "requester_status";
+    revision: number;
+    recipientEmail: string | null;
+  }> = [];
+  supportRateLimits = new Map<
+    string,
+    {
+      windowStartedAt: number;
+      requestCount: number;
+      lastReservationId: string;
+      updatedAt: number;
+    }
   >();
   beforeContentSlugUpdate: (() => void) | null = null;
   beforeContentStatusUpdate: (() => void) | null = null;
@@ -89,16 +120,23 @@ class CmsMemoryStatement {
 
   async first<T>(): Promise<T | null> {
     if (this.normalizedSql.includes("FROM CMS_SLUG_TOMBSTONES")) {
-      const [kind, slug, excludedContentId] = this.values.map(String);
-      const tombstone = this.database.tombstones.get(`${kind}:${slug}`);
+      const [courseId, kind, slug, excludedContentId] =
+        this.values.map(String);
+      const tombstone = this.database.tombstones.get(
+        `${courseId}:${kind}:${slug}`,
+      );
       if (!tombstone || tombstone.contentId === excludedContentId) return null;
       return { content_id: tombstone.contentId } as T;
     }
     if (this.normalizedSql.includes("FROM CMS_CONTENT_REVISIONS")) {
-      const [contentId, revision] = this.values;
+      const hasCourseFilter = this.normalizedSql.includes("COURSE_ID = ?");
+      const [courseId, contentId, revision] = hasCourseFilter
+        ? this.values
+        : [DEFAULT_COURSE_ID, ...this.values];
       return (
         this.database.revisions.find(
           (row) =>
+            (row.course_id ?? DEFAULT_COURSE_ID) === String(courseId) &&
             row.content_id === String(contentId) &&
             row.revision === Number(revision),
         ) ?? null
@@ -108,9 +146,14 @@ class CmsMemoryStatement {
       this.normalizedSql.includes("JSON_EACH") &&
       this.normalizedSql.includes("FROM CMS_CONTENT AS CONTENT")
     ) {
-      const references = this.values.map(String);
+      const [courseId, ...references] = this.values.map(String);
       const row = [...this.database.content.values()]
-        .filter((candidate) => candidate.kind === "lesson" && candidate.status === "published")
+        .filter(
+          (candidate) =>
+            (candidate.course_id ?? DEFAULT_COURSE_ID) === courseId &&
+            candidate.kind === "lesson" &&
+            candidate.status === "published",
+        )
         .find((candidate) => {
           const content = JSON.parse(candidate.content) as { vocabularyIds?: unknown };
           return (
@@ -137,13 +180,22 @@ class CmsMemoryStatement {
   async all<T>(): Promise<{ results: T[]; success: true; meta: object }> {
     if (
       this.normalizedSql.includes(
+        "FROM SUPPORT_NOTIFICATION_JOBS AS JOBS",
+      )
+    ) {
+      return { results: [], success: true, meta: {} };
+    }
+
+    if (
+      this.normalizedSql.includes(
         "FROM CMS_VOCABULARY_ALIASES AS VOCABULARY_ALIAS",
       ) && this.normalizedSql.includes("AS MATCHED_ALIAS")
     ) {
-      const requested = new Set(this.values.map(String));
+      const [courseId, ...requestedAliases] = this.values.map(String);
+      const requested = new Set(requestedAliases);
       const rows = [...this.database.aliases.entries()].flatMap(
         ([alias, identity]) => {
-          if (!requested.has(alias)) return [];
+          if (identity.courseId !== courseId || !requested.has(alias)) return [];
           const content = this.database.content.get(identity.contentId);
           return content && content.kind === "vocabulary"
             ? [{ matched_alias: alias, ...content }]
@@ -157,10 +209,14 @@ class CmsMemoryStatement {
       this.normalizedSql.includes("FROM CMS_VOCABULARY_ALIASES") &&
       this.normalizedSql.includes("ORDER BY VOCABULARY_ALIAS.ALIAS ASC")
     ) {
-      const aliasAfter = String(this.values[0]);
-      const limit = Number(this.values[1]);
+      const courseId = String(this.values[0]);
+      const aliasAfter = String(this.values[1]);
+      const limit = Number(this.values[2]);
       const rows = [...this.database.aliases.entries()]
-        .filter(([alias]) => alias > aliasAfter)
+        .filter(
+          ([alias, identity]) =>
+            identity.courseId === courseId && alias > aliasAfter,
+        )
         .sort(([left], [right]) => left.localeCompare(right))
         .slice(0, limit)
         .flatMap(([alias, identity]) => {
@@ -173,11 +229,13 @@ class CmsMemoryStatement {
     }
 
     if (this.normalizedSql.includes("FROM CMS_VOCABULARY_ALIASES")) {
-      const [contentId, stableKey] = this.values.map(String);
+      const [courseId, contentId, stableKey] = this.values.map(String);
       const rows = [...this.database.aliases.entries()]
         .filter(
           ([, identity]) =>
-            identity.contentId === contentId || identity.stableKey === stableKey,
+            identity.courseId === courseId &&
+            (identity.contentId === contentId ||
+              identity.stableKey === stableKey),
         )
         .map(([alias]) => ({ alias }));
       return { results: rows as T[], success: true, meta: {} };
@@ -199,6 +257,13 @@ class CmsMemoryStatement {
     if (this.normalizedSql.includes("FROM CMS_CONTENT")) {
       let rows = [...this.database.content.values()];
       let cursor = 0;
+      if (this.normalizedSql.includes("COURSE_ID = ?")) {
+        const courseId = String(this.values[cursor++]);
+        rows = rows.filter(
+          (row) =>
+            (row.course_id ?? DEFAULT_COURSE_ID) === courseId,
+        );
+      }
       if (this.normalizedSql.includes("KIND = ?")) {
         const kind = String(this.values[cursor++]);
         rows = rows.filter((row) => row.kind === kind);
@@ -312,6 +377,38 @@ class CmsMemoryStatement {
   }
 
   async run(): Promise<{ meta: { changes: number } }> {
+    if (this.normalizedSql.startsWith("INSERT INTO SUPPORT_RATE_LIMITS")) {
+      const [
+        bucketHash,
+        now,
+        reservationId,
+        updatedAt,
+        resetBoundary,
+        ,
+        ,
+        maximum,
+      ] = this.values;
+      const existing = this.database.supportRateLimits.get(String(bucketHash));
+      if (
+        existing &&
+        existing.windowStartedAt > Number(resetBoundary) &&
+        existing.requestCount >= Number(maximum)
+      ) {
+        return changed(0);
+      }
+      const reset =
+        !existing || existing.windowStartedAt <= Number(resetBoundary);
+      this.database.supportRateLimits.set(String(bucketHash), {
+        windowStartedAt: reset
+          ? Number(now)
+          : existing.windowStartedAt,
+        requestCount: reset ? 1 : existing.requestCount + 1,
+        lastReservationId: String(reservationId),
+        updatedAt: Number(updatedAt),
+      });
+      return changed(1);
+    }
+
     if (this.normalizedSql.startsWith("INSERT INTO CMS_CONTENT_REVISIONS")) {
       if (
         this.normalizedSql.includes("CHANGES() = 1") &&
@@ -340,6 +437,7 @@ class CmsMemoryStatement {
         );
       }
       this.database.revisions.push({
+        course_id: row.course_id ?? DEFAULT_COURSE_ID,
         content_id: row.id,
         revision: row.revision,
         kind: row.kind,
@@ -364,7 +462,7 @@ class CmsMemoryStatement {
         return changed(0);
       }
       const deleting = this.normalizedSql.includes(
-        "SELECT KIND, SLUG, STABLE_KEY, ID",
+        "SELECT COURSE_ID, KIND, SLUG, STABLE_KEY, ID",
       );
       const id = String(this.values[deleting ? 2 : 3]);
       const requiredRevision = Number(this.values[deleting ? 3 : 4]);
@@ -374,9 +472,11 @@ class CmsMemoryStatement {
       }
       const slug = deleting ? row.slug : String(this.values[0]);
       if (!deleting && slug === String(this.values.at(-1))) return changed(0);
-      const key = `${row.kind}:${slug}`;
+      const courseId = row.course_id ?? DEFAULT_COURSE_ID;
+      const key = `${courseId}:${row.kind}:${slug}`;
       if (this.database.tombstones.has(key)) return changed(0);
       this.database.tombstones.set(key, {
+        courseId,
         contentId: row.id,
         stableKey: row.stable_key,
         retiredAt: Number(this.values[deleting ? 0 : 1]),
@@ -388,6 +488,7 @@ class CmsMemoryStatement {
     if (this.normalizedSql.startsWith("INSERT INTO CMS_CONTENT")) {
       const [
         id,
+        courseId,
         kind,
         slug,
         stableKey,
@@ -399,18 +500,26 @@ class CmsMemoryStatement {
         updater,
       ] =
         this.values;
-      if (this.database.tombstones.has(`${String(kind)}:${String(slug)}`)) {
+      if (
+        this.database.tombstones.has(
+          `${String(courseId)}:${String(kind)}:${String(slug)}`,
+        )
+      ) {
         return changed(0);
       }
       if (
         [...this.database.content.values()].some(
-          (row) => row.kind === kind && row.slug === slug,
+          (row) =>
+            (row.course_id ?? DEFAULT_COURSE_ID) === String(courseId) &&
+            row.kind === kind &&
+            row.slug === slug,
         )
       ) {
         throw new Error("UNIQUE constraint failed: cms_content.kind, cms_content.slug");
       }
       this.database.content.set(String(id), {
         id: String(id),
+        course_id: String(courseId) as ContentRow["course_id"],
         kind: kind as ContentRow["kind"],
         slug: String(slug),
         stable_key: String(stableKey),
@@ -440,12 +549,18 @@ class CmsMemoryStatement {
       if (!row || row.revision !== Number(revision) || row.status !== "draft") {
         return changed(0);
       }
-      const retired = this.database.tombstones.get(`${row.kind}:${String(guardedSlug)}`);
+      const retired = this.database.tombstones.get(
+        `${row.course_id ?? DEFAULT_COURSE_ID}:${row.kind}:${String(guardedSlug)}`,
+      );
       if (retired && retired.contentId !== row.id) return changed(0);
       if (
         [...this.database.content.values()].some(
           (other) =>
-            other.id !== row.id && other.kind === row.kind && other.slug === slug,
+            other.id !== row.id &&
+            (other.course_id ?? DEFAULT_COURSE_ID) ===
+              (row.course_id ?? DEFAULT_COURSE_ID) &&
+            other.kind === row.kind &&
+            other.slug === slug,
         )
       ) {
         throw new Error("UNIQUE constraint failed: cms_content.kind, cms_content.slug");
@@ -485,6 +600,7 @@ class CmsMemoryStatement {
         return changed(0);
       }
       this.database.aliases.set(row.slug, {
+        courseId: row.course_id ?? DEFAULT_COURSE_ID,
         contentId: row.id,
         stableKey: row.stable_key,
         createdAt,
@@ -631,6 +747,62 @@ class CmsMemoryStatement {
         revision: 1,
         created_at: Number(createdAt),
         updated_at: Number(updatedAt),
+      });
+      return changed(1);
+    }
+
+    if (
+      this.normalizedSql.startsWith(
+        "INSERT INTO SUPPORT_NOTIFICATION_JOBS",
+      )
+    ) {
+      if (this.normalizedSql.includes("'OPERATOR_CREATED'")) {
+        const [jobId, , , , supportRequestId] = this.values;
+        const support = this.database.support.get(String(supportRequestId));
+        if (!support) return changed(0);
+        this.database.notificationJobs.push({
+          id: String(jobId),
+          supportRequestId: support.id,
+          eventType: "operator_created",
+          revision: 1,
+          recipientEmail: null,
+        });
+        return changed(1);
+      }
+      if (this.normalizedSql.includes("'REQUESTER_CREATED'")) {
+        const [jobId, , , , accountId, supportRequestId] = this.values;
+        if (accountId === null || accountId === undefined) return changed(0);
+        const support = this.database.support.get(String(supportRequestId));
+        if (!support?.reply_email) return changed(0);
+        this.database.notificationJobs.push({
+          id: String(jobId),
+          supportRequestId: support.id,
+          eventType: "requester_created",
+          revision: 1,
+          recipientEmail: support.reply_email,
+        });
+        return changed(1);
+      }
+      const [jobId, revision, , , , , supportRequestId] = this.values;
+      const support = this.database.support.get(String(supportRequestId));
+      const creation = this.database.notificationJobs.find(
+        (job) =>
+          job.supportRequestId === String(supportRequestId) &&
+          job.eventType === "requester_created",
+      );
+      if (
+        this.database.lastChanges !== 1 ||
+        !support ||
+        !creation?.recipientEmail
+      ) {
+        return changed(0);
+      }
+      this.database.notificationJobs.push({
+        id: String(jobId),
+        supportRequestId: support.id,
+        eventType: "requester_status",
+        revision: Number(revision),
+        recipientEmail: creation.recipientEmail,
       });
       return changed(1);
     }
@@ -960,6 +1132,8 @@ describe("admin CMS and support APIs", () => {
       USER_KEY_SECRET: "test-user-key-secret-with-more-than-thirty-two-characters",
       TURNSTILE_SITE_KEY: TEST_TURNSTILE_SITE_KEY,
       TURNSTILE_SECRET: TEST_TURNSTILE_SECRET,
+      SUPPORT_RATE_LIMIT_SECRET:
+        "test-support-rate-limit-secret-with-more-than-thirty-two-characters",
     });
     vi.stubGlobal(
       "fetch",
@@ -1130,7 +1304,10 @@ describe("admin CMS and support APIs", () => {
           revision: 1,
           slug: "metro-reviewed-copy",
           title: "Edited after approval",
-          content: validVocabulary(),
+          content: validVocabulary({
+            lesson: 2,
+            topic: "public transport",
+          }),
         }),
       }),
       reviewedContext,
@@ -1145,6 +1322,28 @@ describe("admin CMS and support APIs", () => {
         reviewedByEmail: null,
         approvedRevision: null,
       },
+    });
+    expect(
+      (
+        await CONTENT_REVIEW(
+          adminRequest(`/api/admin/content/${reviewed.entry.id}/review`, {
+            method: "POST",
+            body: JSON.stringify({ revision: 2, action: "submit" }),
+          }),
+          reviewedContext,
+        )
+      ).status,
+    ).toBe(200);
+    const movedCompiledOverride = await CONTENT_REVIEW(
+      reviewerRequest(`/api/admin/content/${reviewed.entry.id}/review`, {
+        method: "POST",
+        body: JSON.stringify({ revision: 2, action: "approve" }),
+      }),
+      reviewedContext,
+    );
+    expect(movedCompiledOverride.status).toBe(422);
+    expect(await json(movedCompiledOverride)).toMatchObject({
+      code: "VOCABULARY_METADATA_MISMATCH",
     });
 
     const misalignedLesson = await CONTENT_CREATE(
@@ -1948,6 +2147,21 @@ describe("admin CMS and support APIs", () => {
     expect(limited.headers.get("retry-after")).toBe("3600");
   });
 
+  it("reports a healthy but empty CMS as the compiled bundle, not a live sync", async () => {
+    const response = await CURRICULUM_GET(
+      new Request("https://paretto.test/api/curriculum"),
+    );
+    expect(response.status).toBe(200);
+    expect(response.headers.get("cache-control")).toContain("max-age=60");
+    expect(await json(response)).toEqual({
+      schemaVersion: 1,
+      course: DEFAULT_COURSE,
+      source: "compiled",
+      revision: "compiled-v1",
+      records: [],
+    });
+  });
+
   it("serves a compiled-curriculum fallback instead of failing when D1 is unavailable", async () => {
     setCloudflareEnv({
       DB: {
@@ -1967,6 +2181,7 @@ describe("admin CMS and support APIs", () => {
     expect(response.headers.get("cache-control")).toContain("max-age=15");
     expect(await json(response)).toEqual({
       schemaVersion: 1,
+      course: DEFAULT_COURSE,
       source: "compiled-fallback",
       revision: "compiled-v1",
       records: [],

@@ -33,9 +33,14 @@ export default function ErrorPage({
           Your saved learning progress has not been deleted. Retry the page; if
           it happens again, send the reference below to Support.
         </p>
-        <button className="primary-button large" type="button" onClick={reset}>
-          Try again
-        </button>
+        <div className="recovery-actions">
+          <button className="primary-button large" type="button" onClick={reset}>
+            Try again
+          </button>
+          <a className="text-link" href="/support">
+            Contact Support
+          </a>
+        </div>
         {error.digest && <small>Reference: {error.digest}</small>}
       </div>
     </main>

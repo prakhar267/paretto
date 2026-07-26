@@ -58,7 +58,7 @@ async function sha256(filePath) {
   return createHash("sha256").update(contents).digest("hex");
 }
 
-function inspectWav(bytes, assetPath) {
+export function inspectWav(bytes, assetPath) {
   invariant(bytes.length >= 44, `${assetPath} is too small to be a WAVE file`);
   invariant(
     bytes.subarray(0, 4).toString("ascii") === "RIFF" &&
@@ -306,6 +306,34 @@ async function main() {
         expected.text.normalize("NFC").trim().length > 0,
       `Missing audio transcript for ${wordId}`,
     );
+    if (CMS_AUDIO_WORD_ID_PATTERN.test(wordId)) {
+      const provenance = expected.provenance;
+      invariant(
+        provenance &&
+          Number.isInteger(provenance.contentRevision) &&
+          provenance.contentRevision >= 1,
+        `Missing CMS content revision provenance for ${wordId}`,
+      );
+      invariant(
+        validTimestamp(provenance.pronunciationReviewedAt),
+        `Missing human pronunciation review provenance for ${wordId}`,
+      );
+      invariant(
+        (provenance.sourceType === "synthetic" ||
+          provenance.sourceType === "human") &&
+          typeof provenance.generator === "string" &&
+          provenance.generator.trim().length >= 2 &&
+          typeof provenance.voice === "string" &&
+          provenance.voice.trim().length >= 2 &&
+          typeof provenance.license?.name === "string" &&
+          provenance.license.name.trim().length >= 2 &&
+          validPublicHttpsUrl(provenance.license?.url) &&
+          validTimestamp(provenance.distributionClearedAt) &&
+          typeof provenance.intakeSha256 === "string" &&
+          /^[a-f0-9]{64}$/.test(provenance.intakeSha256),
+        `Missing distribution-rights provenance for ${wordId}`,
+      );
+    }
     verifiedSignals.push(
       await verifyAsset(path.join(releaseDirectory, `${wordId}.wav`), expected),
     );
@@ -318,6 +346,20 @@ async function main() {
   console.log(
     `French audio release valid: ${manifest.availableWordIds.length} licensed synthetic clips cover ${wordIds.length} compiled words plus ${cmsWordIds.length} CMS words; ${verifiedSignals.reduce((sum, signal) => sum + signal.clippedSamples, 0)} clipped samples.`,
   );
+}
+
+function validTimestamp(value) {
+  return typeof value === "string" && Number.isFinite(Date.parse(value));
+}
+
+function validPublicHttpsUrl(value) {
+  if (typeof value !== "string") return false;
+  try {
+    const url = new URL(value);
+    return url.protocol === "https:" && Boolean(url.hostname);
+  } catch {
+    return false;
+  }
 }
 
 if (

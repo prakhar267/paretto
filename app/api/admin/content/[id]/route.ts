@@ -60,7 +60,11 @@ export async function PUT(request: Request, context: RouteContext) {
         "STATUS_CONFLICT",
       );
     }
-    const parsed = validateContentUpdate(body.value, existing.kind);
+    const parsed = validateContentUpdate(
+      body.value,
+      existing.kind,
+      existing.course_id,
+    );
     if (!parsed.ok) return apiError(400, parsed.error);
     if (parsed.value.revision !== existing.revision) return revisionConflict();
 
@@ -78,7 +82,8 @@ export async function PUT(request: Request, context: RouteContext) {
            WHERE id = ? AND revision = ? AND status = 'draft'
              AND NOT EXISTS (
                SELECT 1 FROM cms_slug_tombstones AS retired_slug
-               WHERE retired_slug.kind = cms_content.kind
+               WHERE retired_slug.course_id = cms_content.course_id
+                 AND retired_slug.kind = cms_content.kind
                  AND retired_slug.slug = ?
                  AND retired_slug.content_id <> cms_content.id
              )`,
@@ -96,10 +101,10 @@ export async function PUT(request: Request, context: RouteContext) {
       database
         .prepare(
           `INSERT INTO cms_content_revisions (
-            content_id, revision, kind, slug, stable_key, title, content, status,
+            course_id, content_id, revision, kind, slug, stable_key, title, content, status,
             published_at, actor_email, action, created_at
           )
-          SELECT id, revision, kind, slug, stable_key, title, content, status,
+          SELECT course_id, id, revision, kind, slug, stable_key, title, content, status,
                  published_at, ?, 'UPDATE', ?
           FROM cms_content
           WHERE id = ? AND revision = ? AND status = 'draft'
@@ -135,7 +140,10 @@ export async function PUT(request: Request, context: RouteContext) {
           admin.email,
           existing.revision,
           nextRevision,
-          JSON.stringify({ slug: parsed.value.slug }),
+          JSON.stringify({
+            courseId: existing.course_id,
+            slug: parsed.value.slug,
+          }),
           now,
           id,
           nextRevision,
@@ -148,9 +156,9 @@ export async function PUT(request: Request, context: RouteContext) {
       database
         .prepare(
           `INSERT OR IGNORE INTO cms_slug_tombstones (
-            kind, slug, stable_key, content_id, retired_at, retired_by_email
+            course_id, kind, slug, stable_key, content_id, retired_at, retired_by_email
           )
-          SELECT kind, ?, stable_key, id, ?, ?
+          SELECT course_id, kind, ?, stable_key, id, ?, ?
           FROM cms_content
           WHERE id = ? AND revision = ? AND status = 'draft'
             AND slug = ? AND title = ? AND content = ?
@@ -175,9 +183,9 @@ export async function PUT(request: Request, context: RouteContext) {
       database
         .prepare(
           `INSERT OR IGNORE INTO cms_vocabulary_aliases (
-            alias, content_id, stable_key, created_at
+            course_id, alias, content_id, stable_key, created_at
           )
-          SELECT slug, id, stable_key, ?
+          SELECT course_id, slug, id, stable_key, ?
           FROM cms_content
           WHERE id = ? AND revision = ? AND kind = 'vocabulary'`,
         )
@@ -187,9 +195,14 @@ export async function PUT(request: Request, context: RouteContext) {
       const retired = await database
         .prepare(
           `SELECT content_id FROM cms_slug_tombstones
-           WHERE kind = ? AND slug = ? AND content_id <> ?`,
+           WHERE course_id = ? AND kind = ? AND slug = ? AND content_id <> ?`,
         )
-        .bind(existing.kind, parsed.value.slug, id)
+        .bind(
+          existing.course_id,
+          existing.kind,
+          parsed.value.slug,
+          id,
+        )
         .first<{ content_id: string }>();
       if (retired) {
         return apiError(
@@ -248,9 +261,9 @@ export async function DELETE(request: Request, context: RouteContext) {
       database
         .prepare(
           `INSERT OR IGNORE INTO cms_slug_tombstones (
-            kind, slug, stable_key, content_id, retired_at, retired_by_email
+            course_id, kind, slug, stable_key, content_id, retired_at, retired_by_email
           )
-          SELECT kind, slug, stable_key, id, ?, ?
+          SELECT course_id, kind, slug, stable_key, id, ?, ?
           FROM cms_content
           WHERE id = ? AND revision = ? AND status = 'draft'`,
         )
@@ -268,6 +281,7 @@ export async function DELETE(request: Request, context: RouteContext) {
           admin.email,
           JSON.stringify({
             kind: existing.kind,
+            courseId: existing.course_id,
             slug: existing.slug,
             status: existing.status,
           }),

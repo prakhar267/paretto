@@ -6,11 +6,7 @@ import {
   readJsonBody,
 } from "@/app/api/_lib/api-utils";
 import { REGIONS } from "@/app/learning-data";
-import { stateFromUnknown } from "@/app/learning-engine";
-import {
-  RETENTION_FALLBACK_INTERVAL_MS,
-  runRetentionMaintenance,
-} from "@/app/retention-policy";
+import { stateFromUnknown, STATE_VERSION } from "@/app/learning-engine";
 import { resolveRequestIdentity } from "@/app/server-auth";
 import { getDatabase } from "@/db";
 
@@ -103,8 +99,6 @@ type EventName = keyof typeof EVENT_PROPERTY_SCHEMAS;
 type Scalar = string | number | boolean;
 
 const MAX_EVENTS_PER_HOUR = 240;
-let lastRetentionSweep = 0;
-
 export async function POST(request: Request) {
   const identity = await resolveRequestIdentity(request).catch((error: unknown) => {
     logApiError("event_identity_failed", error);
@@ -126,19 +120,7 @@ export async function POST(request: Request) {
   const oneHourAgo = now - 60 * 60 * 1000;
   try {
     const database = await getDatabase();
-    const consent = await database
-      .prepare("SELECT payload FROM learning_state WHERE user_key = ?")
-      .bind(identity.userKey)
-      .first<{ payload: string }>();
-    let analyticsEnabled = false;
-    if (consent?.payload) {
-      try {
-        analyticsEnabled = stateFromUnknown(JSON.parse(consent.payload)).settings.analytics;
-      } catch {
-        analyticsEnabled = false;
-      }
-    }
-    if (!analyticsEnabled) {
+    if (!(await hasCurrentAnalyticsOptIn(database, identity.userKey))) {
       return apiError(403, "Optional analytics are not enabled for this account.");
     }
     const result = await database
@@ -150,7 +132,25 @@ export async function POST(request: Request) {
         WHERE (
           SELECT COUNT(*) FROM product_events
           WHERE user_key = ? AND received_at >= ?
-        ) < ?`,
+        ) < ?
+          AND EXISTS (
+            SELECT 1 FROM learning_state AS consent
+            WHERE consent.user_key = ?
+              AND CASE
+                WHEN json_valid(consent.payload) THEN
+                  json_type(consent.payload, '$.version') IN ('integer', 'real')
+                  AND json_extract(consent.payload, '$.version') = ?
+                  AND json_type(
+                    consent.payload,
+                    '$.settings.analytics'
+                  ) = 'true'
+                ELSE 0
+              END
+          )
+          AND NOT EXISTS (
+            SELECT 1 FROM learner_deletion_jobs
+            WHERE user_key = ?
+          )`,
       )
       .bind(
         crypto.randomUUID(),
@@ -163,31 +163,45 @@ export async function POST(request: Request) {
         identity.userKey,
         oneHourAgo,
         MAX_EVENTS_PER_HOUR,
+        identity.userKey,
+        STATE_VERSION,
+        identity.userKey,
       )
       .run();
 
     if ((result.meta.changes ?? 0) !== 1) {
+      if (!(await hasCurrentAnalyticsOptIn(database, identity.userKey))) {
+        return apiError(
+          403,
+          "Optional analytics are not enabled for this account.",
+        );
+      }
       return new Response(null, {
         status: 429,
         headers: privateHeaders({ "retry-after": "3600" }),
       });
     }
 
-    if (now - lastRetentionSweep > RETENTION_FALLBACK_INTERVAL_MS) {
-      lastRetentionSweep = now;
-      try {
-        await runRetentionMaintenance(database, now);
-      } catch (error) {
-        // Retention has a daily scheduled owner. This request-time fallback is
-        // best-effort and must never turn an accepted analytics event into a 5xx.
-        logApiError("event_retention_fallback_failed", error);
-      }
-    }
-
     return new Response(null, { status: 204, headers: privateHeaders() });
   } catch (error) {
     logApiError("event_write_failed", error);
     return apiError(503, "Analytics is temporarily unavailable.");
+  }
+}
+
+async function hasCurrentAnalyticsOptIn(
+  database: D1Database,
+  userKey: string,
+): Promise<boolean> {
+  const consent = await database
+    .prepare("SELECT payload FROM learning_state WHERE user_key = ?")
+    .bind(userKey)
+    .first<{ payload: string }>();
+  if (!consent?.payload) return false;
+  try {
+    return stateFromUnknown(JSON.parse(consent.payload)).settings.analytics;
+  } catch {
+    return false;
   }
 }
 

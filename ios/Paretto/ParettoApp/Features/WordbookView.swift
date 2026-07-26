@@ -64,7 +64,13 @@ private struct WordDetailView: View {
                             Text(word.exampleEn).foregroundStyle(.secondary)
                         }
                     }
-                    Button { model.audio.play(word, enabled: model.state.settings.sound) } label: {
+                    Button {
+                        model.audio.play(
+                            word,
+                            course: model.curriculum.course,
+                            enabled: model.state.settings.sound
+                        )
+                    } label: {
                         Label("Hear the French", systemImage: "speaker.wave.2.fill")
                     }
                     .buttonStyle(.borderedProminent)

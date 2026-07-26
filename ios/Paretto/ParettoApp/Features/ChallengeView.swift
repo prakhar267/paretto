@@ -78,7 +78,11 @@ struct ChallengeView: View {
                 }
 
                 Button {
-                    model.audio.play(word, enabled: model.state.settings.sound)
+                    model.audio.play(
+                        word,
+                        course: model.curriculum.course,
+                        enabled: model.state.settings.sound
+                    )
                 } label: {
                     Label("Hear the prompt", systemImage: "speaker.wave.2.fill")
                 }

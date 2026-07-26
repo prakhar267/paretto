@@ -1,4 +1,7 @@
-import { resolveRequestIdentity } from "@/app/server-auth";
+import {
+  getRuntimeConfigurationReadiness,
+  resolveRequestIdentity,
+} from "@/app/server-auth";
 import {
   apiError,
   apiJson,
@@ -8,6 +11,15 @@ import {
 import { getCmsDatabase } from "@/app/api/_lib/cms-database";
 import { validateSupportCreate } from "@/app/api/_lib/content-validation";
 import { verifySupportTurnstile } from "@/app/turnstile";
+import {
+  enqueueSupportCreatedNotifications,
+  scheduleSupportNotificationDelivery,
+} from "@/app/support-notification-outbox";
+import {
+  opaqueSupportIpBucket,
+  reserveSupportIpQuota,
+  SUPPORT_IP_RATE_LIMIT_MAX_REQUESTS,
+} from "@/app/support-rate-limit";
 
 export const dynamic = "force-dynamic";
 
@@ -42,9 +54,20 @@ export async function POST(request: Request) {
   const oneHourAgo = now - 60 * 60 * 1000;
 
   try {
+    const ipBucket = await opaqueSupportIpBucket(request);
     const database = await getCmsDatabase();
-    const result = await database
-      .prepare(
+    const notificationDeliveryConfigured =
+      (await getRuntimeConfigurationReadiness()).supportNotifications;
+    const results = await database.batch([
+      reserveSupportIpQuota(database, {
+        bucketHash: ipBucket,
+        reservationId: id,
+        now,
+        userKey: identity.userKey,
+        userWindowStartedAt: oneHourAgo,
+        userMaxRequests: MAX_REQUESTS_PER_HOUR,
+      }),
+      database.prepare(
         `INSERT INTO support_requests (
           id, user_key, reply_email, category, subject, body, status,
           revision, created_at, updated_at
@@ -53,9 +76,18 @@ export async function POST(request: Request) {
         WHERE (
           SELECT COUNT(*) FROM support_requests
           WHERE user_key = ? AND created_at >= ?
-        ) < ?`,
-      )
-      .bind(
+        ) < ?
+          AND EXISTS (
+            SELECT 1 FROM support_rate_limits
+            WHERE bucket_hash = ?
+              AND last_reservation_id = ?
+              AND request_count <= ?
+          )
+          AND NOT EXISTS (
+            SELECT 1 FROM learner_deletion_jobs
+            WHERE user_key = ?
+          )`,
+      ).bind(
         id,
         identity.userKey,
         parsed.value.replyEmail,
@@ -67,15 +99,33 @@ export async function POST(request: Request) {
         identity.userKey,
         oneHourAgo,
         MAX_REQUESTS_PER_HOUR,
-      )
-      .run();
+        ipBucket,
+        id,
+        SUPPORT_IP_RATE_LIMIT_MAX_REQUESTS,
+        identity.userKey,
+      ),
+      ...(notificationDeliveryConfigured
+        ? enqueueSupportCreatedNotifications(database, {
+            supportRequestId: id,
+            userKey: identity.userKey,
+            accountId: identity.accountId,
+            createdAt: now,
+          })
+        : []),
+    ]);
 
-    if ((result.meta.changes ?? 0) !== 1) {
+    if (
+      (results[0].meta.changes ?? 0) !== 1 ||
+      (results[1].meta.changes ?? 0) !== 1
+    ) {
       return apiJson(
         { error: "Too many support requests. Please try again later." },
         429,
         { "retry-after": "3600" },
       );
+    }
+    if (notificationDeliveryConfigured) {
+      scheduleSupportNotificationDelivery(database);
     }
     return apiJson(
       {

@@ -12,6 +12,10 @@ import {
   type SupportRow,
 } from "@/app/api/_lib/cms-database";
 import { validateSupportStatusUpdate } from "@/app/api/_lib/content-validation";
+import {
+  enqueueSupportStatusNotification,
+  scheduleSupportNotificationDelivery,
+} from "@/app/support-notification-outbox";
 
 export const dynamic = "force-dynamic";
 
@@ -79,9 +83,16 @@ export async function PUT(request: Request, context: RouteContext) {
           parsed.value.status,
           now,
         ),
+      enqueueSupportStatusNotification(database, {
+        supportRequestId: id,
+        revision: nextRevision,
+        status: parsed.value.status,
+        updatedAt: now,
+      }),
     ]);
     if ((results[0].meta.changes ?? 0) !== 1) return revisionConflict();
 
+    scheduleSupportNotificationDelivery(database);
     return apiJson({
       request: supportRecordFromRow({
         ...existing,

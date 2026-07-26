@@ -11,6 +11,32 @@ const { d1, r2 } = hostingConfig;
 
 // macOS Seatbelt blocks FSEvents, so Codex previews need polling for HMR.
 const isCodexSeatbeltSandbox = process.env.CODEX_SANDBOX === "seatbelt";
+const e2eTurnstileSiteKey =
+  process.env.PARETTO_E2E_TURNSTILE_SITE_KEY?.trim() || null;
+
+const localRuntimeVars = {
+  // Local-only identity material makes a fresh checkout usable without
+  // weakening or embedding any production credential.
+  USER_KEY_SECRET: "local-only-paretto-user-key-secret-never-deploy",
+  SUPPORT_RATE_LIMIT_SECRET:
+    "local-only-paretto-support-rate-limit-secret-never-deploy",
+  BETTER_AUTH_RATE_LIMIT_SECRET:
+    "local-only-paretto-better-auth-rate-limit-secret-never-deploy",
+  LAUNCH_MODE: "controlled-beta",
+  NATIVE_API_ENABLED: "false",
+  ...(e2eTurnstileSiteKey
+    ? {
+        // Cloudflare's public test credentials are included only in a
+        // Playwright-managed build. They are intentionally not valid for a
+        // production widget.
+        TURNSTILE_SITE_KEY: e2eTurnstileSiteKey,
+        TURNSTILE_SECRET: "1x0000000000000000000000000000000AA",
+        BETTER_AUTH_SECRET:
+          "local-only-paretto-browser-gate-auth-secret-never-deploy",
+        BETTER_AUTH_URL: "https://localhost:4173",
+      }
+    : {}),
+};
 
 const localBindingConfig = {
   main: "./worker/index.ts",
@@ -39,6 +65,7 @@ const localBindingConfig = {
   },
   assets: {
     binding: "ASSETS",
+    html_handling: "none" as const,
   },
 };
 
@@ -63,16 +90,10 @@ export default defineConfig(async ({ command }) => {
       cloudflare({
         viteEnvironment: { name: "rsc", childEnvironments: ["ssr"] },
         config:
-          command === "serve"
+          command === "serve" || e2eTurnstileSiteKey
             ? {
                 ...localBindingConfig,
-                vars: {
-                  // Local-only identity material makes a fresh checkout usable
-                  // without weakening or embedding any production credential.
-                  USER_KEY_SECRET:
-                    "local-only-paretto-user-key-secret-never-deploy",
-                  NATIVE_API_ENABLED: "false",
-                },
+                vars: localRuntimeVars,
               }
             : localBindingConfig,
       }),

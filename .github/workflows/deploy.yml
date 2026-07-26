@@ -1,0 +1,569 @@
+name: Deploy Cloudflare release
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: Protected GitHub Environment to deploy
+        required: true
+        type: choice
+        options:
+          - staging
+          - production
+      launch_mode:
+        description: Controlled beta permits no email delivery; public is strict
+        required: true
+        default: controlled-beta
+        type: choice
+        options:
+          - controlled-beta
+          - public
+
+permissions:
+  actions: read
+  contents: read
+
+concurrency:
+  group: deploy-${{ inputs.environment }}
+  cancel-in-progress: false
+
+jobs:
+  release-policy:
+    name: Validate the selected release
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    env:
+      DEPLOY_ENVIRONMENT: ${{ inputs.environment }}
+    steps:
+      - name: Check out exact source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Require a deployable release ref
+        shell: bash
+        run: |
+          set -euo pipefail
+          case "$DEPLOY_ENVIRONMENT:$GITHUB_REF" in
+            staging:refs/heads/main|staging:refs/tags/v*|production:refs/tags/v*) ;;
+            *)
+              echo "Staging requires main or v*; production requires an exact v* release tag." >&2
+              exit 1
+              ;;
+          esac
+
+      - name: Use Node.js 24
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 24.x
+
+      - name: Require successful exact-SHA CI before production
+        if: ${{ inputs.environment == 'production' }}
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: node scripts/verify-github-ci-run.mjs
+
+  browser-gate:
+    name: Pre-deploy browser journeys (${{ matrix.browser }})
+    needs: release-policy
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        browser: [chromium, firefox, webkit]
+    env:
+      CI: true
+      NPM_CONFIG_AUDIT: "false"
+      NPM_CONFIG_FUND: "false"
+      WRANGLER_SEND_METRICS: "false"
+      DEPLOY_ENVIRONMENT: ${{ inputs.environment }}
+    steps:
+      - name: Check out exact source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Recheck the deployable release ref
+        shell: bash
+        run: |
+          set -euo pipefail
+          case "$DEPLOY_ENVIRONMENT:$GITHUB_REF" in
+            staging:refs/heads/main|staging:refs/tags/v*|production:refs/tags/v*) ;;
+            *)
+              echo "Staging requires main or v*; production requires an exact v* release tag." >&2
+              exit 1
+              ;;
+          esac
+
+      - name: Use Node.js 24
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 24.x
+          cache: npm
+
+      - name: Install the locked dependency graph
+        run: npm ci
+
+      - name: Install the exact Playwright browser
+        run: npx playwright install --with-deps "${{ matrix.browser }}"
+
+      - name: Run critical browser journeys against the isolated Worker
+        run: npm run test:e2e -- --project="${{ matrix.browser }}"
+
+      - name: Preserve pre-deploy browser evidence and failure traces
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: predeploy-playwright-${{ matrix.browser }}
+          path: |
+            playwright-report/
+            test-results/playwright/
+          if-no-files-found: warn
+          retention-days: 14
+
+  deploy:
+    name: Deploy ${{ inputs.environment }} (${{ inputs.launch_mode }})
+    needs:
+      - release-policy
+      - browser-gate
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    environment:
+      name: ${{ inputs.environment }}
+      url: ${{ vars.APP_ORIGIN }}
+    env:
+      CI: true
+      NPM_CONFIG_AUDIT: "false"
+      NPM_CONFIG_FUND: "false"
+      WRANGLER_SEND_METRICS: "false"
+      DEPLOY_ENVIRONMENT: ${{ inputs.environment }}
+      LAUNCH_MODE: ${{ inputs.launch_mode }}
+      APP_ORIGIN: ${{ vars.APP_ORIGIN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
+      D1_DATABASE_ID: ${{ vars.D1_DATABASE_ID }}
+      D1_DATABASE_NAME: ${{ vars.D1_DATABASE_NAME }}
+      # ADMIN_EMAIL remains a backwards-compatible single-admin variable.
+      # New environments should set normalized comma-separated ADMIN_EMAILS.
+      ADMIN_EMAILS: ${{ vars.ADMIN_EMAILS || vars.ADMIN_EMAIL }}
+      AUTH_EMAIL_FROM: ${{ vars.AUTH_EMAIL_FROM }}
+      SUPPORT_NOTIFICATION_EMAIL: ${{ vars.SUPPORT_NOTIFICATION_EMAIL }}
+      TURNSTILE_SITE_KEY: ${{ vars.TURNSTILE_SITE_KEY }}
+    steps:
+      - name: Check out exact source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Recheck the deployable release ref
+        shell: bash
+        run: |
+          set -euo pipefail
+          case "$DEPLOY_ENVIRONMENT:$GITHUB_REF" in
+            staging:refs/heads/main|staging:refs/tags/v*|production:refs/tags/v*) ;;
+            *)
+              echo "Staging requires main or v*; production requires an exact v* release tag." >&2
+              exit 1
+              ;;
+          esac
+
+      - name: Use Node.js 24
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 24.x
+          cache: npm
+
+      - name: Validate protected environment configuration
+        shell: bash
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          USER_KEY_SECRET: ${{ secrets.USER_KEY_SECRET }}
+          SUPPORT_RATE_LIMIT_SECRET: ${{ secrets.SUPPORT_RATE_LIMIT_SECRET }}
+          BETTER_AUTH_RATE_LIMIT_SECRET: ${{ secrets.BETTER_AUTH_RATE_LIMIT_SECRET }}
+          BETTER_AUTH_SECRET: ${{ secrets.BETTER_AUTH_SECRET }}
+          ADMIN_PASSWORD_VERIFIER: ${{ secrets.ADMIN_PASSWORD_VERIFIER }}
+          ADMIN_PASSWORD_VERIFIERS: ${{ secrets.ADMIN_PASSWORD_VERIFIERS }}
+          ADMIN_SESSION_SECRET: ${{ secrets.ADMIN_SESSION_SECRET }}
+          TURNSTILE_SECRET: ${{ secrets.TURNSTILE_SECRET }}
+          RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
+          D1_BACKUP_ENCRYPTION_PASSPHRASE: ${{ secrets.D1_BACKUP_ENCRYPTION_PASSPHRASE }}
+        run: |
+          set -euo pipefail
+          required=(
+            APP_ORIGIN
+            CLOUDFLARE_ACCOUNT_ID
+            D1_DATABASE_ID
+            D1_DATABASE_NAME
+            ADMIN_EMAILS
+            TURNSTILE_SITE_KEY
+            CLOUDFLARE_API_TOKEN
+            USER_KEY_SECRET
+            SUPPORT_RATE_LIMIT_SECRET
+            BETTER_AUTH_RATE_LIMIT_SECRET
+            BETTER_AUTH_SECRET
+            ADMIN_SESSION_SECRET
+            TURNSTILE_SECRET
+          )
+          for name in "${required[@]}"; do
+            if [[ -z "${!name:-}" ]]; then
+              echo "Missing GitHub Environment variable or secret: $name" >&2
+              exit 1
+            fi
+          done
+          case "$LAUNCH_MODE" in
+            public)
+              delivery_required=(
+                AUTH_EMAIL_FROM
+                SUPPORT_NOTIFICATION_EMAIL
+                RESEND_API_KEY
+              )
+              for name in "${delivery_required[@]}"; do
+                if [[ -z "${!name:-}" ]]; then
+                  echo "Public launch requires GitHub Environment value: $name" >&2
+                  exit 1
+                fi
+              done
+              ;;
+            controlled-beta)
+              ;;
+            *)
+              echo "LAUNCH_MODE must be controlled-beta or public." >&2
+              exit 1
+              ;;
+          esac
+          if [[ "$DEPLOY_ENVIRONMENT" == "production" ]] &&
+             [[ ${#D1_BACKUP_ENCRYPTION_PASSPHRASE} -lt 32 ]]; then
+            echo "Production requires D1_BACKUP_ENCRYPTION_PASSPHRASE with at least 32 characters." >&2
+            exit 1
+          fi
+          node -e '
+            const value = new URL(process.env.APP_ORIGIN);
+            if (value.protocol !== "https:" || value.origin !== process.env.APP_ORIGIN) {
+              throw new Error("APP_ORIGIN must be an exact HTTPS origin.");
+            }
+          '
+          node --input-type=module <<'NODE'
+          import { appendFileSync } from "node:fs";
+
+          const raw = process.env.ADMIN_EMAILS ?? "";
+          const emails = raw.split(",").map((value) => value.trim().toLowerCase());
+          if (
+            emails.length < 1 ||
+            emails.length > 25 ||
+            emails.join(",") !== raw ||
+            new Set(emails).size !== emails.length ||
+            emails.some(
+              (email) =>
+                email.length < 3 ||
+                email.length > 254 ||
+                !/^[^\s,@]+@[^\s,@]+\.[^\s,@]+$/.test(email),
+            )
+          ) {
+            throw new Error(
+              "ADMIN_EMAILS must contain 1–25 normalized, unique comma-separated email addresses.",
+            );
+          }
+
+          const single = process.env.ADMIN_PASSWORD_VERIFIER ?? "";
+          const multiple = process.env.ADMIN_PASSWORD_VERIFIERS ?? "";
+          let secretName;
+          if (emails.length === 1) {
+            if (!/^sha256\$[A-Za-z0-9_-]{43}$/.test(single)) {
+              throw new Error(
+                "A single administrator requires ADMIN_PASSWORD_VERIFIER.",
+              );
+            }
+            secretName = "ADMIN_PASSWORD_VERIFIER";
+          } else {
+            let parsed;
+            try {
+              parsed = JSON.parse(multiple);
+            } catch {
+              throw new Error(
+                "Multiple administrators require a valid ADMIN_PASSWORD_VERIFIERS JSON object.",
+              );
+            }
+            const entries =
+              parsed && typeof parsed === "object" && !Array.isArray(parsed)
+                ? Object.entries(parsed)
+                : [];
+            if (
+              entries.length !== emails.length ||
+              entries.some(
+                ([email, verifier], index) =>
+                  email !== emails[index] ||
+                  !/^sha256\$[A-Za-z0-9_-]{43}$/.test(verifier),
+              ) ||
+              new Set(entries.map(([, verifier]) => verifier)).size !==
+                entries.length ||
+              JSON.stringify(parsed) !== multiple
+            ) {
+              throw new Error(
+                "ADMIN_PASSWORD_VERIFIERS must map every ADMIN_EMAILS entry, in order, to a distinct SHA-256 verifier.",
+              );
+            }
+            secretName = "ADMIN_PASSWORD_VERIFIERS";
+          }
+          appendFileSync(
+            process.env.GITHUB_ENV,
+            `ADMIN_PASSWORD_SECRET_NAME=${secretName}\n`,
+          );
+          NODE
+
+      - name: Install the locked dependency graph
+        run: npm ci
+
+      - name: Run the complete release gate
+        run: npm run release:verify
+
+      - name: Prepare the environment-specific Worker configuration
+        shell: bash
+        run: |
+          set -euo pipefail
+          prepare_args=(
+            --environment "$DEPLOY_ENVIRONMENT"
+            --account-id "$CLOUDFLARE_ACCOUNT_ID"
+            --database-name "$D1_DATABASE_NAME"
+            --database-id "$D1_DATABASE_ID"
+            --admin-emails "$ADMIN_EMAILS"
+            --turnstile-site-key "$TURNSTILE_SITE_KEY"
+            --auth-url "$APP_ORIGIN"
+            --launch-mode "$LAUNCH_MODE"
+          )
+          if [[ "$LAUNCH_MODE" == "public" ]]; then
+            prepare_args+=(
+              --auth-email-from "$AUTH_EMAIL_FROM"
+              --support-notification-email "$SUPPORT_NOTIFICATION_EMAIL"
+            )
+          fi
+          npm run cloudflare:prepare -- "${prepare_args[@]}"
+
+      - name: Materialize the ephemeral Wrangler secret file
+        shell: bash
+        env:
+          USER_KEY_SECRET: ${{ secrets.USER_KEY_SECRET }}
+          SUPPORT_RATE_LIMIT_SECRET: ${{ secrets.SUPPORT_RATE_LIMIT_SECRET }}
+          BETTER_AUTH_RATE_LIMIT_SECRET: ${{ secrets.BETTER_AUTH_RATE_LIMIT_SECRET }}
+          BETTER_AUTH_SECRET: ${{ secrets.BETTER_AUTH_SECRET }}
+          ADMIN_PASSWORD_VERIFIER: ${{ secrets.ADMIN_PASSWORD_VERIFIER }}
+          ADMIN_PASSWORD_VERIFIERS: ${{ secrets.ADMIN_PASSWORD_VERIFIERS }}
+          ADMIN_SESSION_SECRET: ${{ secrets.ADMIN_SESSION_SECRET }}
+          TURNSTILE_SECRET: ${{ secrets.TURNSTILE_SECRET }}
+          RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
+        run: |
+          set -euo pipefail
+          umask 077
+          secret_file=".env.${DEPLOY_ENVIRONMENT}"
+          {
+            printf 'USER_KEY_SECRET=%s\n' "$USER_KEY_SECRET"
+            printf 'SUPPORT_RATE_LIMIT_SECRET=%s\n' "$SUPPORT_RATE_LIMIT_SECRET"
+            printf 'BETTER_AUTH_RATE_LIMIT_SECRET=%s\n' "$BETTER_AUTH_RATE_LIMIT_SECRET"
+            printf 'BETTER_AUTH_SECRET=%s\n' "$BETTER_AUTH_SECRET"
+            if [[ "$ADMIN_PASSWORD_SECRET_NAME" == "ADMIN_PASSWORD_VERIFIER" ]]; then
+              printf 'ADMIN_PASSWORD_VERIFIER=%s\n' "$ADMIN_PASSWORD_VERIFIER"
+            else
+              printf 'ADMIN_PASSWORD_VERIFIERS=%s\n' "$ADMIN_PASSWORD_VERIFIERS"
+            fi
+            printf 'ADMIN_SESSION_SECRET=%s\n' "$ADMIN_SESSION_SECRET"
+            printf 'TURNSTILE_SECRET=%s\n' "$TURNSTILE_SECRET"
+            if [[ "$LAUNCH_MODE" == "public" ]]; then
+              printf 'RESEND_API_KEY=%s\n' "$RESEND_API_KEY"
+            fi
+          } > "$secret_file"
+          chmod 600 "$secret_file"
+          npm run "cloudflare:secrets:verify:${DEPLOY_ENVIRONMENT}"
+
+      - name: Verify Cloudflare identity
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+        run: npx wrangler whoami
+
+      - name: Capture and encrypt production D1 recovery evidence
+        if: ${{ inputs.environment == 'production' }}
+        shell: bash
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          D1_BACKUP_ENCRYPTION_PASSPHRASE: ${{ secrets.D1_BACKUP_ENCRYPTION_PASSPHRASE }}
+        run: |
+          set -euo pipefail
+          recovery_dir="work/d1-production-recovery"
+          bookmark_file="$recovery_dir/time-travel-bookmark.json"
+          plaintext_export="$recovery_dir/pre-migration.sql"
+          encrypted_export="$recovery_dir/pre-migration.sql.enc"
+          roundtrip_export="$recovery_dir/pre-migration.roundtrip.sql"
+          restore_report="$recovery_dir/restore-validation.json"
+          manifest_file="$recovery_dir/manifest.json"
+
+          mkdir -p "$recovery_dir"
+          chmod 700 "$recovery_dir"
+          cleanup_plaintext() {
+            for file in "$plaintext_export" "$roundtrip_export"; do
+              if [[ -f "$file" ]]; then
+                chmod u+w "$file"
+                : > "$file"
+                rm -f -- "$file"
+              fi
+            done
+          }
+          trap cleanup_plaintext EXIT
+          npx wrangler d1 time-travel info DB \
+            --config wrangler.production.jsonc \
+            --json > "$bookmark_file"
+          npx wrangler d1 export DB \
+            --remote \
+            --config wrangler.production.jsonc \
+            --output "$plaintext_export" \
+            --skip-confirmation
+          test -s "$bookmark_file"
+          test -s "$plaintext_export"
+
+          openssl enc \
+            -aes-256-cbc \
+            -salt \
+            -pbkdf2 \
+            -iter 250000 \
+            -md sha256 \
+            -pass env:D1_BACKUP_ENCRYPTION_PASSPHRASE \
+            -in "$plaintext_export" \
+            -out "$encrypted_export"
+          openssl enc \
+            -d \
+            -aes-256-cbc \
+            -pbkdf2 \
+            -iter 250000 \
+            -md sha256 \
+            -pass env:D1_BACKUP_ENCRYPTION_PASSPHRASE \
+            -in "$encrypted_export" \
+            -out "$roundtrip_export"
+          cmp -s "$plaintext_export" "$roundtrip_export"
+          npm run d1:export:verify -- "$roundtrip_export" > "$restore_report"
+
+          plaintext_sha256="$(sha256sum "$plaintext_export" | cut -d ' ' -f 1)"
+          encrypted_sha256="$(sha256sum "$encrypted_export" | cut -d ' ' -f 1)"
+          encrypted_bytes="$(wc -c < "$encrypted_export" | tr -d '[:space:]')"
+
+          RECOVERY_DIR="$recovery_dir" \
+          PLAINTEXT_EXPORT_SHA256="$plaintext_sha256" \
+          ENCRYPTED_EXPORT_SHA256="$encrypted_sha256" \
+          ENCRYPTED_EXPORT_BYTES="$encrypted_bytes" \
+          node --input-type=module <<'NODE'
+          import { readFile, writeFile } from "node:fs/promises";
+          import { join } from "node:path";
+
+          const directory = process.env.RECOVERY_DIR;
+          const bookmarkPath = join(directory, "time-travel-bookmark.json");
+          const restoreReportPath = join(directory, "restore-validation.json");
+          const manifestPath = join(directory, "manifest.json");
+          const bookmarkDocument = JSON.parse(
+            await readFile(bookmarkPath, "utf8"),
+          );
+          const restoreReport = JSON.parse(
+            await readFile(restoreReportPath, "utf8"),
+          );
+          if (
+            typeof bookmarkDocument.bookmark !== "string" ||
+            !/^[A-Za-z0-9-]{16,256}$/.test(bookmarkDocument.bookmark)
+          ) {
+            throw new Error("Cloudflare did not return a valid Time Travel bookmark.");
+          }
+          const encryptedBytes = Number(process.env.ENCRYPTED_EXPORT_BYTES);
+          const plaintextSha256 = process.env.PLAINTEXT_EXPORT_SHA256;
+          const encryptedSha256 = process.env.ENCRYPTED_EXPORT_SHA256;
+          if (
+            !Number.isSafeInteger(encryptedBytes) ||
+            encryptedBytes < 32 ||
+            !/^[a-f0-9]{64}$/.test(plaintextSha256 ?? "") ||
+            !/^[a-f0-9]{64}$/.test(encryptedSha256 ?? "")
+          ) {
+            throw new Error("The encrypted production D1 export is empty.");
+          }
+          if (
+            restoreReport.integrity !== "ok" ||
+            restoreReport.foreignKeys !== "ok" ||
+            !Number.isSafeInteger(restoreReport.appliedMigrations) ||
+            restoreReport.appliedMigrations < 1 ||
+            typeof restoreReport.newestMigration !== "string"
+          ) {
+            throw new Error("The production D1 export did not pass its restore rehearsal.");
+          }
+          await writeFile(
+            manifestPath,
+            `${JSON.stringify(
+              {
+                database: process.env.D1_DATABASE_NAME,
+                sourceCommit: process.env.GITHUB_SHA,
+                workflowRunId: process.env.GITHUB_RUN_ID,
+                capturedAt: new Date().toISOString(),
+                timeTravelBookmark: bookmarkDocument.bookmark,
+                plaintextExportSha256: plaintextSha256,
+                encryptedExportBytes: encryptedBytes,
+                encryptedExportSha256: encryptedSha256,
+                encryption: "AES-256-CBC/PBKDF2-SHA256/250000",
+                restoreValidation: {
+                  integrity: restoreReport.integrity,
+                  foreignKeys: restoreReport.foreignKeys,
+                  appliedMigrations: restoreReport.appliedMigrations,
+                  newestMigration: restoreReport.newestMigration,
+                  applicationTables: restoreReport.applicationTables,
+                  applicationIndexes: restoreReport.applicationIndexes,
+                },
+              },
+              null,
+              2,
+            )}\n`,
+            { mode: 0o600 },
+          );
+          NODE
+
+          cleanup_plaintext
+          trap - EXIT
+          chmod 600 \
+            "$bookmark_file" \
+            "$encrypted_export" \
+            "$restore_report" \
+            "$manifest_file"
+
+      - name: Retain production D1 recovery evidence before migration
+        if: ${{ inputs.environment == 'production' }}
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: d1-production-pre-migration-${{ github.run_id }}-${{ github.run_attempt }}
+          path: work/d1-production-recovery/
+          if-no-files-found: error
+          retention-days: 7
+          compression-level: 0
+
+      - name: Apply verified D1 migrations
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+        run: npm run "cloudflare:migrate:${DEPLOY_ENVIRONMENT}"
+
+      - name: Deploy the verified Worker artifact
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+        run: npm run "cloudflare:deploy:${DEPLOY_ENVIRONMENT}"
+
+      - name: Run mandatory read-only smoke tests
+        run: >-
+          npm run smoke:deployment --
+          "$APP_ORIGIN"
+          --mode "$LAUNCH_MODE"
+
+      - name: Remove ephemeral deployment files
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          for file in \
+            ".env.${DEPLOY_ENVIRONMENT}" \
+            "wrangler.${DEPLOY_ENVIRONMENT}.jsonc"; do
+            if [[ -f "$file" ]]; then
+              chmod u+w "$file"
+              : > "$file"
+              rm -f -- "$file"
+            fi
+          done
+          if [[ -d "work/d1-production-recovery" ]]; then
+            chmod -R u+w "work/d1-production-recovery"
+            rm -rf -- "work/d1-production-recovery"
+          fi

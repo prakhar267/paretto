@@ -16,8 +16,8 @@ settings:
     SWIFT_VERSION: 6.0
     IPHONEOS_DEPLOYMENT_TARGET: 17.0
     TARGETED_DEVICE_FAMILY: "1,2"
-    MARKETING_VERSION: 1.2.0
-    CURRENT_PROJECT_VERSION: 4
+    MARKETING_VERSION: 1.3.0
+    CURRENT_PROJECT_VERSION: 5
     CODE_SIGN_STYLE: Automatic
     DEVELOPMENT_TEAM: ""
 targets:
@@ -49,6 +49,7 @@ targets:
           SWIFT_ACTIVE_COMPILATION_CONDITIONS: DEBUG
           PARETTO_API_BASE_URL: http:/$()/localhost:3000
         Staging:
+          ENABLE_TESTABILITY: YES
           SWIFT_ACTIVE_COMPILATION_CONDITIONS: STAGING
           PARETTO_API_BASE_URL: $(PARETTO_STAGING_API_BASE_URL)
         Release:
@@ -90,6 +91,7 @@ targets:
       - package: ParettoCore
     settings:
       base:
+        GENERATE_INFOPLIST_FILE: YES
         TEST_HOST: "$(BUILT_PRODUCTS_DIR)/Paretto.app/Paretto"
         BUNDLE_LOADER: "$(TEST_HOST)"
   ParettoUITests:
@@ -98,6 +100,9 @@ targets:
     sources: [ParettoUITests]
     dependencies:
       - target: Paretto
+    settings:
+      base:
+        GENERATE_INFOPLIST_FILE: YES
 schemes:
   Paretto-Staging:
     build:

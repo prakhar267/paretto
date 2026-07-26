@@ -31,12 +31,14 @@ import {
   Star,
   Target,
   Trophy,
+  Upload,
   Volume2,
   WifiOff,
   X,
   Zap,
   type LucideIcon,
 } from "lucide-react";
+import Link from "next/link";
 import {
   useEffect,
   useMemo,
@@ -47,16 +49,20 @@ import {
 } from "react";
 import {
   MASTERY_STAGE_LABELS,
+  CEFR_LEVELS,
   CURRICULUM_PLAN,
   REGIONS,
   SEED_COLLECTIBLES,
   type Region,
+  type CurriculumLessonPlan,
   type RegionId,
   type Word,
 } from "./learning-data";
 import {
+  activeWordProgress,
+  applyRewardClaim,
+  MASTERY_INTERVALS_MS,
   completeSession,
-  dueCount,
   isDue,
   learnedCount,
   levelFromXp,
@@ -64,10 +70,23 @@ import {
   markWordKnown,
   masteredCount,
   rateWord,
+  STATE_VERSION,
+  stateFromUnknown,
   type LearningState,
   type Rating,
+  type WordProgress,
 } from "./learning-engine";
-import { useProgress, type SyncStatus } from "./use-progress";
+import { getOrCreateRewardReplicaId } from "./reward-replica";
+import {
+  useProgress,
+  type OfflineCacheStatus,
+  type SyncStatus,
+} from "./use-progress";
+import {
+  transitionClaimedProgressCache,
+  type LegacyCachePolicy,
+} from "./progress-cache";
+import { authClient } from "./auth-client";
 import { trackProductEvent } from "./product-analytics";
 import { FrenchAudioButton } from "./audio/FrenchAudioButton";
 import {
@@ -76,18 +95,199 @@ import {
   type PublishedLesson,
   type PublishedRecordInput,
 } from "./runtime-curriculum";
+import {
+  DEFAULT_COURSE_ID,
+  type CourseId,
+} from "./course-catalog";
 
 type Screen = "today" | "journey" | "review" | "wordbook" | "profile";
+type LearnerAccountSession = typeof authClient.$Infer.Session;
+type AccountDeletionFailure = {
+  code?: string;
+};
+type AccountPrivacyTransition = {
+  kind: "sign-out" | "account-deletion";
+  status: "rotating" | "error";
+};
 
 type LessonState = {
   mode: "learn" | "review";
   words: Word[];
   regionId: string;
+  origin: Screen;
   editorialTitle?: string;
   editorialIntro?: string;
 };
 
+export type CurriculumContentSummary = {
+  contextCount: number;
+  lessonCount: number;
+  wordCount: number;
+  cefrLevels: readonly Word["cefr"][];
+};
+
 const REGION_UNLOCK_WORDS = 5;
+const DAY_MS = 24 * 60 * 60 * 1000;
+const SCREEN_LABELS: Record<Screen, string> = {
+  today: "Today",
+  journey: "Journey",
+  review: "Review",
+  wordbook: "Wordbook",
+  profile: "Profile",
+};
+
+export function curriculumContentSummary(
+  words: readonly Word[],
+): CurriculumContentSummary {
+  return {
+    contextCount: new Set(words.map((word) => word.regionId)).size,
+    lessonCount: new Set(
+      words.map((word) => `${word.regionId}:${word.lesson}`),
+    ).size,
+    wordCount: words.length,
+    cefrLevels: [...new Set(words.map((word) => word.cefr))].sort(
+      (first, second) => CEFR_LEVELS.indexOf(first) - CEFR_LEVELS.indexOf(second),
+    ),
+  };
+}
+
+function accountDeletionError(error: AccountDeletionFailure): string {
+  if (error.code === "SESSION_EXPIRED") {
+    return "For security, sign out and sign in again before deleting this social-only account.";
+  }
+  if (error.code === "INVALID_PASSWORD") {
+    return "The current password is incorrect.";
+  }
+  if (error.code === "CREDENTIAL_ACCOUNT_NOT_FOUND") {
+    return "This account uses social sign-in. Leave the password blank; if needed, sign out and sign in again first.";
+  }
+  return "The account could not be deleted. Please retry.";
+}
+
+function compareFairPracticeWords(
+  state: Pick<LearningState, "wordProgress">,
+  first: Word,
+  second: Word,
+): number {
+  const firstProgress = state.wordProgress[first.id];
+  const secondProgress = state.wordProgress[second.id];
+  return (
+    (firstProgress?.seen ?? 0) - (secondProgress?.seen ?? 0) ||
+    Date.parse(firstProgress?.lastReviewedAt ?? "") -
+      Date.parse(secondProgress?.lastReviewedAt ?? "") ||
+    first.id.localeCompare(second.id)
+  );
+}
+
+function selectFairPracticeWords(
+  state: Pick<LearningState, "wordProgress">,
+  words: readonly Word[],
+  limit = 5,
+): Word[] {
+  return words
+    .filter((word) => state.wordProgress[word.id])
+    .sort((first, second) =>
+      compareFairPracticeWords(state, first, second),
+    )
+    .slice(0, limit);
+}
+
+export function selectReviewWords(
+  state: Pick<LearningState, "wordProgress">,
+  words: readonly Word[],
+  now = new Date(),
+  limit = 5,
+): Word[] {
+  const learned = words.filter((word) => state.wordProgress[word.id]);
+  const due = learned
+    .filter((word) => isDue(state.wordProgress[word.id], now))
+    .sort((first, second) => {
+      const firstProgress = state.wordProgress[first.id];
+      const secondProgress = state.wordProgress[second.id];
+      return (
+        Date.parse(firstProgress.nextReviewAt) -
+          Date.parse(secondProgress.nextReviewAt) ||
+        compareFairPracticeWords(state, first, second)
+      );
+    });
+
+  return due.length
+    ? due.slice(0, limit)
+    : selectFairPracticeWords(state, learned, limit);
+}
+
+export function selectChallengeWords(
+  state: Pick<LearningState, "wordProgress">,
+  words: readonly Word[],
+  todayKey = localDateKey(),
+  limit = 5,
+): Word[] {
+  const learned = words.filter((word) => state.wordProgress[word.id]);
+  if (!learned.length) return [];
+
+  const [year, month, day] = todayKey.split("-").map(Number);
+  const dayNumber = Math.floor(Date.UTC(year, month - 1, day) / DAY_MS);
+  const offset = ((dayNumber % learned.length) + learned.length) % learned.length;
+  const rotated = [...learned.slice(offset), ...learned.slice(0, offset)];
+  return rotated.slice(0, limit);
+}
+
+export function applyInitialPlacement(
+  state: LearningState,
+  level: LearningState["level"],
+  words: readonly Word[],
+  now = new Date(),
+): LearningState {
+  if (level === "new") return state;
+
+  const parisWords = words
+    .filter((word) => word.regionId === "ile-de-france")
+    .sort((first, second) => first.lesson - second.lesson);
+  const placedWords = parisWords.slice(0, level === "some" ? 5 : 10);
+  const timestamp = now.toISOString();
+  const stage: WordProgress["stage"] = level === "some" ? 1 : 0;
+  const nextReviewAt =
+    level === "some"
+      ? new Date(now.getTime() + DAY_MS).toISOString()
+      : timestamp;
+  const wordProgress = { ...state.wordProgress };
+
+  for (const word of placedWords) {
+    if (wordProgress[word.id]) continue;
+    wordProgress[word.id] = {
+      stage,
+      seen: 1,
+      correct: 1,
+      incorrect: 0,
+      nextReviewAt,
+      lastReviewedAt: timestamp,
+    };
+  }
+
+  return applyUnlocksAndCollectibles(
+    {
+      ...state,
+      level,
+      currentRegionId: "ile-de-france",
+      wordProgress,
+      updatedAt: timestamp,
+    },
+    "ile-de-france",
+    words,
+  );
+}
+
+export function hardRatingTiming(progress?: WordProgress): string {
+  const stage = progress?.stage ?? 0;
+  const interval = Math.max(
+    4 * 60 * 60 * 1000,
+    Math.round(MASTERY_INTERVALS_MS[stage] * 0.5),
+  );
+  const hours = interval / (60 * 60 * 1000);
+  if (hours < 24) return `In ${formatCount(Math.round(hours), "hour")}`;
+  const days = hours / 24;
+  return `${Number.isInteger(days) ? "In" : "In about"} ${formatCount(Math.round(days), "day")}`;
+}
 
 export function activeCurriculumLesson(
   state: Pick<LearningState, "wordProgress">,
@@ -95,7 +295,10 @@ export function activeCurriculumLesson(
   words: readonly Word[],
 ): Word["lesson"] {
   const regionWords = words.filter((word) => word.regionId === regionId);
-  for (const lessonNumber of [1, 2, 3] as const) {
+  const lessonNumbers = [
+    ...new Set(regionWords.map((word) => word.lesson)),
+  ].sort((first, second) => first - second);
+  for (const lessonNumber of lessonNumbers) {
     if (
       regionWords.some(
         (word) =>
@@ -106,10 +309,43 @@ export function activeCurriculumLesson(
     }
   }
 
-  return regionWords.reduce<Word["lesson"]>(
-    (latest, word) => Math.max(latest, word.lesson) as Word["lesson"],
-    1,
+  return lessonNumbers.at(-1) ?? 1;
+}
+
+function curriculumLessonPlan(
+  regionId: string,
+  lessonNumber: number,
+  words: readonly Word[],
+  publishedLessons: readonly PublishedLesson[] = [],
+): CurriculumLessonPlan {
+  const compiled = CURRICULUM_PLAN[regionId as RegionId]?.find(
+    (candidate) => candidate.lesson === lessonNumber,
   );
+  if (compiled) return compiled;
+
+  const editorial = publishedLessons.find(
+    (candidate) =>
+      candidate.regionId === regionId && candidate.lesson === lessonNumber,
+  );
+  if (editorial) {
+    return {
+      lesson: editorial.lesson,
+      title: editorial.title,
+      topic: editorial.topic,
+      cefr: editorial.cefr,
+    };
+  }
+
+  const word = words.find(
+    (candidate) =>
+      candidate.regionId === regionId && candidate.lesson === lessonNumber,
+  );
+  return {
+    lesson: lessonNumber,
+    title: word ? titleCase(word.topic) : `Lesson ${lessonNumber}`,
+    topic: word?.topic ?? "curriculum",
+    cefr: word?.cefr ?? "A1",
+  };
 }
 
 export function selectLearningLesson(
@@ -122,6 +358,14 @@ export function selectLearningLesson(
   editorialLesson?: PublishedLesson;
 } {
   const regionWords = words.filter((word) => word.regionId === regionId);
+  if (
+    regionWords.length > 0 &&
+    regionWords.every((word) => state.wordProgress[word.id])
+  ) {
+    return {
+      words: selectFairPracticeWords(state, regionWords),
+    };
+  }
   const lessonNumber = activeCurriculumLesson(state, regionId, words);
   const activeWords = regionWords.filter(
     (word) => word.lesson === lessonNumber,
@@ -173,20 +417,54 @@ const EMPTY_PUBLISHED_RECORDS: readonly PublishedRecordInput[] = [];
 
 export default function ParettoApp({
   storageKey,
+  legacyCachePolicy = "ignore",
+  serverAccountId,
   publishedRecords = EMPTY_PUBLISHED_RECORDS,
+  courseId = DEFAULT_COURSE_ID,
   curriculumRevision = "compiled-v1",
+  curriculumSource = "compiled",
 }: {
   storageKey?: string;
+  legacyCachePolicy?: LegacyCachePolicy;
+  serverAccountId?: string | null;
   publishedRecords?: readonly PublishedRecordInput[];
+  courseId?: CourseId;
   curriculumRevision?: string;
+  curriculumSource?: "cms" | "compiled" | "compiled-fallback";
 } = {}) {
-  const { state, setState, status, ready, savedAt, retry, deleteProgress } =
-    useProgress(storageKey);
+  const {
+    state,
+    setState,
+    status,
+    offlineCacheStatus,
+    ready,
+    savedAt,
+    retry,
+    deleteProgress,
+    clearLocalProgress,
+  } = useProgress(storageKey, { legacyCachePolicy });
+  const account = authClient.useSession();
+  const rewardReplicaId = getOrCreateRewardReplicaId(
+    storageKey ?? "guest",
+  );
+  const clientAccountId = account.data?.user.id ?? null;
+  const accountIdentityMismatch =
+    serverAccountId !== undefined &&
+    !account.isPending &&
+    clientAccountId !== serverAccountId;
   const runtimeCurriculum = useMemo(
-    () => buildRuntimeCurriculum(publishedRecords),
-    [publishedRecords],
+    () => buildRuntimeCurriculum(publishedRecords, courseId),
+    [courseId, publishedRecords],
   );
   const words = runtimeCurriculum.words;
+  const curriculumSummary = useMemo(
+    () => curriculumContentSummary(words),
+    [words],
+  );
+  const activeWordIds = useMemo(
+    () => new Set(words.map((word) => word.id)),
+    [words],
+  );
   const publishedLessons = runtimeCurriculum.lessons;
   const [screen, setScreen] = useState<Screen>("today");
   const [lesson, setLesson] = useState<LessonState | null>(null);
@@ -194,7 +472,78 @@ export default function ParettoApp({
   const [selectedRegion, setSelectedRegion] = useState<Region | null>(null);
   const [showDice, setShowDice] = useState(false);
   const [showChallenge, setShowChallenge] = useState(false);
+  const [accountPrivacyTransition, setAccountPrivacyTransition] =
+    useState<AccountPrivacyTransition | null>(null);
   const appOpenTracked = useRef(false);
+  const accountTransitionRef = useRef(false);
+  const mainRef = useRef<HTMLElement>(null);
+  const previousScreenRef = useRef(screen);
+
+  useEffect(() => {
+    if (!accountIdentityMismatch || accountTransitionRef.current) return;
+    window.location.reload();
+  }, [accountIdentityMismatch]);
+
+  useEffect(() => {
+    if (accountPrivacyTransition?.status !== "rotating") return;
+    let active = true;
+
+    async function rotateBrowserProfile() {
+      try {
+        const response = await fetch("/api/account/browser-profile", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          credentials: "same-origin",
+        });
+        if (!response.ok) throw new Error("Browser profile rotation failed.");
+        window.location.assign("/");
+      } catch {
+        if (active) {
+          setAccountPrivacyTransition((current) =>
+            current
+              ? {
+                  ...current,
+                  status: "error",
+                }
+              : null,
+          );
+        }
+      }
+    }
+
+    void rotateBrowserProfile();
+    return () => {
+      active = false;
+    };
+  }, [accountPrivacyTransition?.status]);
+
+  useEffect(() => {
+    if (!ready || state.activeCourseId !== courseId) return;
+    const metadata = state.courseProgress[courseId];
+    if (metadata?.curriculumRevision === curriculumRevision) return;
+    const updatedAt = new Date().toISOString();
+    setState((current) => ({
+      ...current,
+      courseProgress: {
+        ...current.courseProgress,
+        [courseId]: {
+          currentContextId:
+            current.courseProgress[courseId]?.currentContextId ??
+            current.currentRegionId,
+          curriculumRevision,
+          updatedAt,
+        },
+      },
+      updatedAt,
+    }));
+  }, [
+    courseId,
+    curriculumRevision,
+    ready,
+    setState,
+    state.activeCourseId,
+    state.courseProgress,
+  ]);
 
   useEffect(() => {
     document.documentElement.dataset.reduceMotion = state.settings.reducedMotion
@@ -207,7 +556,13 @@ export default function ParettoApp({
 
   const currentRegion =
     REGIONS.find((region) => region.id === state.currentRegionId) ?? REGIONS[0];
-  const reviewsDue = dueCount(state);
+  const reviewsDue = words.filter((word) => {
+    const progress = state.wordProgress[word.id];
+    return progress && isDue(progress);
+  }).length;
+  const availableLearnedWords = words.filter(
+    (word) => state.wordProgress[word.id],
+  ).length;
   const level = levelFromXp(state.xp);
 
   useEffect(() => {
@@ -217,14 +572,35 @@ export default function ParettoApp({
     appOpenTracked.current = true;
     trackProductEvent(true, "app_opened", {
       currentRegionId: state.currentRegionId,
-      learnedWords: learnedCount(state),
+      learnedWords: learnedCount(state, activeWordIds),
     });
-  }, [ready, state]);
+  }, [activeWordIds, ready, state]);
 
   useEffect(() => {
     if (!ready || !state.onboarded) return;
     trackProductEvent(state.settings.analytics, "navigation_changed", { screen });
   }, [ready, screen, state.onboarded, state.settings.analytics]);
+
+  useEffect(() => {
+    if (previousScreenRef.current === screen) return;
+    previousScreenRef.current = screen;
+    mainRef.current?.focus({ preventScroll: true });
+  }, [screen]);
+
+  function navigateTo(nextScreen: Screen) {
+    setScreen(nextScreen);
+  }
+
+  function protectCompletedAccountTransition(
+    kind: AccountPrivacyTransition["kind"],
+  ) {
+    accountTransitionRef.current = true;
+    setAccountPrivacyTransition({ kind, status: "rotating" });
+    // Server sign-out/deletion has already succeeded. Retire the account cache
+    // and replace the rendered state before any fallible browser-profile
+    // rotation so a shared browser can never keep showing the prior learner.
+    clearLocalProgress();
+  }
 
   function startLesson(mode: "learn" | "review", regionId = state.currentRegionId) {
     const regionWords = words.filter((word) => word.regionId === regionId);
@@ -237,12 +613,7 @@ export default function ParettoApp({
     let lessonWords: Word[];
 
     if (mode === "review") {
-      const due = words.filter((word) => {
-        const progress = state.wordProgress[word.id];
-        return progress && isDue(progress);
-      });
-      const learned = words.filter((word) => state.wordProgress[word.id]);
-      lessonWords = (due.length ? due : learned).slice(0, 5);
+      lessonWords = selectReviewWords(state, words);
       if (!lessonWords.length) return;
     } else {
       lessonWords = learningLesson.words;
@@ -257,6 +628,7 @@ export default function ParettoApp({
       mode,
       words: lessonWords,
       regionId,
+      origin: screen,
       ...(mode === "learn" && learningLesson.editorialLesson
         ? {
             editorialTitle: learningLesson.editorialLesson.title,
@@ -290,26 +662,50 @@ export default function ParettoApp({
         },
         new Date(),
         localDateKey(),
+        rewardReplicaId,
       );
       return applyUnlocksAndCollectibles(completed, regionId, words);
     });
   }
 
+  if (accountPrivacyTransition) {
+    return (
+      <AccountPrivacyRecoveryScreen
+        transition={accountPrivacyTransition}
+        onRetry={() =>
+          setAccountPrivacyTransition((current) =>
+            current ? { ...current, status: "rotating" } : null,
+          )
+        }
+      />
+    );
+  }
+  if (accountIdentityMismatch) return <LoadingScreen />;
   if (status === "loading" && !ready) return <LoadingScreen />;
   if (!ready) return <RecoveryScreen status={status} onRetry={retry} />;
 
   if (!state.onboarded) {
     return (
       <Onboarding
+        curriculumSummary={curriculumSummary}
         onComplete={(details) => {
           const { analyticsEnabled, ...profile } = details;
-          setState((current) => ({
-            ...current,
-            ...profile,
-            settings: { ...current.settings, analytics: analyticsEnabled },
-            onboarded: true,
-            updatedAt: new Date().toISOString(),
-          }));
+          setState((current) =>
+            applyInitialPlacement(
+              {
+                ...current,
+                ...profile,
+                settings: {
+                  ...current.settings,
+                  analytics: analyticsEnabled,
+                },
+                onboarded: true,
+                updatedAt: new Date().toISOString(),
+              },
+              profile.level,
+              words,
+            ),
+          );
           trackProductEvent(analyticsEnabled, "onboarding_completed", {
             level: profile.level,
             dailyGoal: profile.dailyGoal,
@@ -334,15 +730,20 @@ export default function ParettoApp({
               active={screen === item.id}
               icon={item.icon}
               label={item.label}
-              onClick={() => setScreen(item.id)}
+              onClick={() => navigateTo(item.id)}
             />
           ))}
         </nav>
 
         <div className="rail-spacer" />
+        {!account.isPending && !account.data && (
+          <Link className="rail-sign-in" href="/sign-in">
+            Sign in
+          </Link>
+        )}
         <button
           className={`profile-button ${screen === "profile" ? "is-active" : ""}`}
-          onClick={() => setScreen("profile")}
+          onClick={() => navigateTo("profile")}
           type="button"
         >
           <span className="avatar avatar-small" aria-hidden="true">
@@ -359,14 +760,19 @@ export default function ParettoApp({
       <div className="app-stage">
         <header className="mobile-header">
           <Brand compact />
-          <button
-            className="icon-button"
-            type="button"
-            aria-label="Open profile"
-            onClick={() => setScreen("profile")}
-          >
-            <CircleUserRound aria-hidden="true" />
-          </button>
+          <div className="mobile-account-actions">
+            {!account.isPending && !account.data && (
+              <Link href="/sign-in">Sign in</Link>
+            )}
+            <button
+              className="icon-button"
+              type="button"
+              aria-label="Open profile"
+              onClick={() => navigateTo("profile")}
+            >
+              <CircleUserRound aria-hidden="true" />
+            </button>
+          </div>
         </header>
 
         <header className="stats-bar" aria-label="Learning status">
@@ -378,17 +784,32 @@ export default function ParettoApp({
           <SyncPill status={status} savedAt={savedAt} onRetry={retry} />
         </header>
 
-        <main id="main-content" className="main-canvas" tabIndex={-1}>
+        <p
+          className="sr-only"
+          role="status"
+          aria-live="polite"
+          aria-atomic="true"
+        >
+          {SCREEN_LABELS[screen]} view
+        </p>
+        <main
+          ref={mainRef}
+          id="main-content"
+          className="main-canvas"
+          tabIndex={-1}
+        >
           {screen === "today" && (
             <TodayScreen
               state={state}
               words={words}
               currentRegion={currentRegion}
+              publishedLessons={publishedLessons}
               reviewsDue={reviewsDue}
               status={status}
+              offlineCacheStatus={offlineCacheStatus}
               onStart={() => startLesson("learn")}
               onReview={() => startLesson("review")}
-              onJourney={() => setScreen("journey")}
+              onJourney={() => navigateTo("journey")}
               onOpenWord={(word) => setSelectedWord(word)}
             />
           )}
@@ -397,6 +818,8 @@ export default function ParettoApp({
               state={state}
               words={words}
               curriculumRevision={curriculumRevision}
+              curriculumSource={curriculumSource}
+              publishedRecordCount={publishedRecords.length}
               onOpenRegion={(region) => setSelectedRegion(region)}
               onSelectRegion={(region) => {
                 setState((current) => ({
@@ -411,17 +834,21 @@ export default function ParettoApp({
           {screen === "review" && (
             <ReviewScreen
               state={state}
+              words={words}
               reviewsDue={reviewsDue}
+              learned={availableLearnedWords}
               onReview={() => startLesson("review")}
               onStart={() => startLesson("learn")}
               onChallenge={() => {
+                const challengeWords = selectChallengeWords(state, words);
+                if (challengeWords.length < 3) return;
                 trackProductEvent(state.settings.analytics, "challenge_started", {
-                  wordCount: Math.min(5, learnedCount(state)),
+                  wordCount: challengeWords.length,
                 });
                 setShowChallenge(true);
               }}
               onDice={() => setShowDice(true)}
-              onProfile={() => setScreen("profile")}
+              onProfile={() => navigateTo("profile")}
             />
           )}
           {screen === "wordbook" && (
@@ -435,11 +862,19 @@ export default function ParettoApp({
           {screen === "profile" && (
             <ProfileScreen
               state={state}
+              words={words}
               setState={setState}
               status={status}
+              offlineCacheStatus={offlineCacheStatus}
               savedAt={savedAt}
               onRetry={retry}
               onDelete={deleteProgress}
+              accountSession={account.data ?? null}
+              accountPending={account.isPending}
+              onAccountPrivacyTransition={protectCompletedAccountTransition}
+              onAccountTransitionChange={(transitioning) => {
+                accountTransitionRef.current = transitioning;
+              }}
             />
           )}
         </main>
@@ -452,7 +887,7 @@ export default function ParettoApp({
                 className={screen === item.id ? "is-active" : ""}
                 key={item.id}
                 type="button"
-                onClick={() => setScreen(item.id)}
+                onClick={() => navigateTo(item.id)}
                 aria-current={screen === item.id ? "page" : undefined}
               >
                 <Icon size={21} aria-hidden="true" />
@@ -472,12 +907,38 @@ export default function ParettoApp({
         <LessonOverlay
           lesson={lesson}
           state={state}
-          onClose={() => setLesson(null)}
+          syncStatus={status}
+          offlineCacheStatus={offlineCacheStatus}
+          returnLabel={`Back to ${SCREEN_LABELS[lesson.origin].toLowerCase()}`}
+          onClose={() => {
+            const origin = lesson.origin;
+            setLesson(null);
+            if (origin !== screen) navigateTo(origin);
+          }}
           onRate={(wordId, rating) =>
-            setState((current) => applyCollectibles(rateWord(current, wordId, rating)))
+            setState((current) =>
+              applyCollectibles(
+                rateWord(
+                  current,
+                  wordId,
+                  rating,
+                  new Date(),
+                  rewardReplicaId,
+                ),
+              ),
+            )
           }
           onMarkKnown={(wordId) =>
-            setState((current) => applyCollectibles(markWordKnown(current, wordId)))
+            setState((current) =>
+              applyCollectibles(
+                markWordKnown(
+                  current,
+                  wordId,
+                  new Date(),
+                  rewardReplicaId,
+                ),
+              ),
+            )
           }
           onComplete={(correct, count) =>
             finishLesson(lesson.mode, lesson.regionId, correct, count)
@@ -512,6 +973,7 @@ export default function ParettoApp({
         <DiceModal
           state={state}
           setState={setState}
+          rewardReplicaId={rewardReplicaId}
           onClose={() => setShowDice(false)}
         />
       )}
@@ -520,6 +982,7 @@ export default function ParettoApp({
           state={state}
           words={words}
           setState={setState}
+          rewardReplicaId={rewardReplicaId}
           onClose={() => setShowChallenge(false)}
         />
       )}
@@ -560,12 +1023,60 @@ function RecoveryScreen({
         <h1>We couldn’t open your saved progress.</h1>
         <p>
           No blank account has been created and nothing has been overwritten.
-          Check your connection or sign-in, then try again.
+          Check your connection. If you use a Paretto account, you can also
+          sign in again before retrying.
         </p>
         <button className="primary-button large" type="button" onClick={onRetry}>
           <RefreshCw size={18} aria-hidden="true" /> Try again
         </button>
         <small>{status === "offline" ? "You appear to be offline." : "Your existing data remains untouched."}</small>
+      </div>
+    </main>
+  );
+}
+
+function AccountPrivacyRecoveryScreen({
+  transition,
+  onRetry,
+}: {
+  transition: AccountPrivacyTransition;
+  onRetry: () => void;
+}) {
+  const deleted = transition.kind === "account-deletion";
+  const rotating = transition.status === "rotating";
+  return (
+    <main className="recovery-screen">
+      <div
+        className="recovery-card"
+        role={rotating ? "status" : "alert"}
+        aria-live="polite"
+      >
+        <Brand />
+        <span className="recovery-icon" aria-hidden="true">
+          <ShieldCheck />
+        </span>
+        <p className="eyebrow">Previous learning data is hidden</p>
+        <h1>
+          {deleted ? "Your account was deleted." : "You are signed out."}
+        </h1>
+        <p>
+          {rotating
+            ? "Paretto is preparing a fresh private browser profile. The previous learner’s name, progress, and local copy will not be shown."
+            : "Paretto could not finish creating a fresh browser profile. The previous learner’s data remains hidden; retry before another learner uses this browser."}
+        </p>
+        {rotating ? (
+          <small>
+            <Loader2 className="spin" aria-hidden="true" /> Securing this browser…
+          </small>
+        ) : (
+          <button
+            className="primary-button large"
+            type="button"
+            onClick={onRetry}
+          >
+            <RefreshCw size={18} aria-hidden="true" /> Retry secure profile
+          </button>
+        )}
       </div>
     </main>
   );
@@ -668,8 +1179,10 @@ function SyncPill({
 }
 
 function Onboarding({
+  curriculumSummary,
   onComplete,
 }: {
+  curriculumSummary: CurriculumContentSummary;
   onComplete: (
     details: Pick<LearningState, "displayName" | "level" | "dailyGoal"> & {
       analyticsEnabled: boolean;
@@ -681,6 +1194,16 @@ function Onboarding({
   const [level, setLevel] = useState<LearningState["level"]>("new");
   const [dailyGoal, setDailyGoal] = useState<LearningState["dailyGoal"]>(5);
   const [analyticsEnabled, setAnalyticsEnabled] = useState(false);
+  const previousStepRef = useRef(step);
+  const beginButtonRef = useRef<HTMLButtonElement>(null);
+  const setupHeadingRef = useRef<HTMLHeadingElement>(null);
+
+  useEffect(() => {
+    if (previousStepRef.current === step) return;
+    previousStepRef.current = step;
+    if (step === 0) beginButtonRef.current?.focus({ preventScroll: true });
+    else setupHeadingRef.current?.focus({ preventScroll: true });
+  }, [step]);
 
   return (
     <main className="onboarding-shell">
@@ -695,21 +1218,30 @@ function Onboarding({
                 <br /> one region at a time.
               </h1>
               <p className="onboarding-lede">
-                Build a 270-word French foundation, hear French pronunciation, and
-                fill a travel journal across all 18 regions of France.
+                Build a {formatCount(curriculumSummary.wordCount, "word")} French
+                foundation, hear French pronunciation, and fill a travel journal
+                across {formatCount(curriculumSummary.contextCount, "region")} of
+                France.
               </p>
               <div className="onboarding-points">
                 <OnboardingPoint icon={Headphones} text="French audio on every card" />
                 <OnboardingPoint icon={RefreshCw} text="Reviews that adapt to your memory" />
-                <OnboardingPoint icon={MapPin} text="Vocabulary with genuine regional context" />
+                <OnboardingPoint icon={MapPin} text="Vocabulary organized around French regions" />
               </div>
-              <button className="primary-button large" type="button" onClick={() => setStep(1)}>
+              <button
+                ref={beginButtonRef}
+                className="primary-button large"
+                type="button"
+                onClick={() => setStep(1)}
+              >
                 Begin the journey <ChevronRight aria-hidden="true" />
               </button>
               <p className="privacy-note">
                 <ShieldCheck size={15} aria-hidden="true" /> Private progress, saved to
-                this browser&apos;s anonymous learning journal.
+                this browser&apos;s anonymous learning journal until you choose
+                to connect an account.
               </p>
+              <OnboardingInformationLinks />
             </>
           ) : (
             <form
@@ -725,7 +1257,9 @@ function Onboarding({
               }}
             >
               <p className="eyebrow">Make it yours</p>
-              <h1 id="welcome-title">Your first stop</h1>
+              <h1 ref={setupHeadingRef} id="welcome-title" tabIndex={-1}>
+                Your first stop
+              </h1>
               <label className="field-label" htmlFor="learner-name">
                 What should we call you?
               </label>
@@ -743,9 +1277,9 @@ function Onboarding({
                 <div className="choice-grid three">
                   {(
                     [
-                      ["new", "Fresh start", "Bonjour is familiar"],
-                      ["some", "Some French", "I know useful basics"],
-                      ["returning", "Returning", "I want a gentle restart"],
+                      ["new", "Fresh start", "Begin with the Paris basics"],
+                      ["some", "Some French", "Place me after five basics"],
+                      ["returning", "Returning", "Refresh ten familiar words"],
                     ] as const
                   ).map(([value, title, copy]) => (
                     <ChoiceCard
@@ -791,11 +1325,17 @@ function Onboarding({
               </label>
 
               <button className="primary-button large" type="submit">
-                Start in Paris <MapPin aria-hidden="true" />
+                {level === "new"
+                  ? "Start with Paris basics"
+                  : level === "some"
+                    ? "Start after the basics"
+                    : "Start with a recall check"}{" "}
+                <MapPin aria-hidden="true" />
               </button>
               <button className="text-button" type="button" onClick={() => setStep(0)}>
                 Back
               </button>
+              <OnboardingInformationLinks />
             </form>
           )}
         </div>
@@ -803,7 +1343,7 @@ function Onboarding({
         <div className="onboarding-art" aria-hidden="true">
           <div className="sun-disc" />
           <div className="postcard postcard-back">
-            <span>18 régions</span>
+            <span>{curriculumSummary.contextCount} régions</span>
             <strong>France</strong>
           </div>
           <div className="postcard postcard-front">
@@ -821,6 +1361,20 @@ function Onboarding({
         </div>
       </section>
     </main>
+  );
+}
+
+function OnboardingInformationLinks() {
+  return (
+    <nav className="onboarding-legal-links" aria-label="Product information">
+      <Link href="/sign-in">Sign in</Link>
+      <Link href="/privacy">Privacy</Link>
+      <Link href="/terms">Terms</Link>
+      <Link href="/cookies">Cookies &amp; storage</Link>
+      <Link href="/accessibility">Accessibility</Link>
+      <Link href="/attributions">Attributions</Link>
+      <Link href="/support">Support</Link>
+    </nav>
   );
 }
 
@@ -864,8 +1418,10 @@ function TodayScreen({
   state,
   words,
   currentRegion,
+  publishedLessons,
   reviewsDue,
   status,
+  offlineCacheStatus,
   onStart,
   onReview,
   onJourney,
@@ -874,8 +1430,10 @@ function TodayScreen({
   state: LearningState;
   words: readonly Word[];
   currentRegion: Region;
+  publishedLessons: readonly PublishedLesson[];
   reviewsDue: number;
   status: SyncStatus;
+  offlineCacheStatus: OfflineCacheStatus;
   onStart: () => void;
   onReview: () => void;
   onJourney: () => void;
@@ -888,7 +1446,13 @@ function TodayScreen({
     currentRegion.id,
     words,
   );
-  const nextLesson = CURRICULUM_PLAN[currentRegion.id as RegionId][nextLessonNumber - 1];
+  const nextLesson = curriculumLessonPlan(
+    currentRegion.id,
+    nextLessonNumber,
+    words,
+    publishedLessons,
+  );
+  const lessonCount = new Set(regionWords.map((word) => word.lesson)).size;
   const remainingInNextLesson = regionWords.filter(
     (word) => word.lesson === nextLessonNumber && !state.wordProgress[word.id],
   ).length;
@@ -896,7 +1460,8 @@ function TodayScreen({
     .filter((session) => localDateKey(new Date(session.completedAt)) === localDateKey())
     .reduce((total, session) => total + session.words, 0);
   const goalProgress = Math.min(100, Math.round((todayWords / state.dailyGoal) * 100));
-  const learned = learnedCount(state);
+  const activeWordIds = words.map((word) => word.id);
+  const learned = learnedCount(state, activeWordIds);
   const recentWord = words.find((word) => state.wordProgress[word.id]);
 
   return (
@@ -917,8 +1482,22 @@ function TodayScreen({
         <div className="inline-alert" role="alert">
           <WifiOff size={18} aria-hidden="true" />
           <div>
-            <strong>Your lesson is saved on this device.</strong>
-            <span>It will sync safely when your connection is ready.</span>
+            <strong>
+              {offlineCacheStatus === "available"
+                ? "Your lesson is saved on this device."
+                : offlineCacheStatus === "unavailable"
+                  ? "This browser blocked offline storage."
+                  : "Checking this device’s offline storage…"}
+            </strong>
+            <span>
+              {offlineCacheStatus === "available"
+                ? status === "offline"
+                  ? "It is queued in this browser and will sync when you reconnect."
+                  : "It is queued in this browser, but cloud sync failed. Use Retry sync before closing Paretto."
+                : offlineCacheStatus === "unavailable"
+                  ? "Keep this page open and reconnect before continuing so progress can reach the server."
+                  : "Reconnect before closing the page while this check completes."}
+            </span>
           </div>
         </div>
       )}
@@ -934,7 +1513,7 @@ function TodayScreen({
               <p>{currentRegion.theme}</p>
               <div className="lesson-kicker">
                 <span>{nextLesson.cefr}</span>
-                Lesson {nextLesson.lesson} of 3 · {nextLesson.title}
+                Lesson {nextLesson.lesson} of {lessonCount} · {nextLesson.title}
               </div>
               <div className="hero-progress-label">
                 <span>{learnedHere} of {regionWords.length} words collected</span>
@@ -947,7 +1526,7 @@ function TodayScreen({
                   ? learnedHere === regionWords.length
                     ? "Practice this completed chapter"
                     : `Continue lesson ${nextLesson.lesson} · ${formatCount(remainingInNextLesson, "card")} left`
-                  : `Start lesson 1 · ${nextLesson.title}`}
+                  : `Start lesson ${nextLesson.lesson} · ${nextLesson.title}`}
                 <ChevronRight size={18} aria-hidden="true" />
               </button>
             </div>
@@ -1034,7 +1613,7 @@ function TodayScreen({
 
           <section className="mini-stats-card">
             <MiniStat icon={Library} value={learned} label={`${wordLabel(learned)} seen`} />
-            <MiniStat icon={Star} value={masteredCount(state)} label="mastered" />
+            <MiniStat icon={Star} value={masteredCount(state, activeWordIds)} label="mastered" />
             <MiniStat icon={Trophy} value={state.longestStreak} label="best streak" />
           </section>
 
@@ -1102,19 +1681,43 @@ function MiniStat({ icon: Icon, value, label }: { icon: LucideIcon; value: numbe
   );
 }
 
+export function curriculumStatusLabel(
+  source: "cms" | "compiled" | "compiled-fallback",
+  publishedRecordCount: number,
+): string {
+  if (source === "cms") {
+    return `Built-in curriculum + ${formatCount(
+      publishedRecordCount,
+      "published CMS update",
+    )}`;
+  }
+  return source === "compiled-fallback"
+    ? "Built-in curriculum · CMS temporarily unavailable"
+    : "Built-in curriculum · no published CMS updates";
+}
+
 function JourneyScreen({
   state,
   words,
   curriculumRevision,
+  curriculumSource,
+  publishedRecordCount,
   onOpenRegion,
   onSelectRegion,
 }: {
   state: LearningState;
   words: readonly Word[];
   curriculumRevision: string;
+  curriculumSource: "cms" | "compiled" | "compiled-fallback";
+  publishedRecordCount: number;
   onOpenRegion: (region: Region) => void;
   onSelectRegion: (region: Region) => void;
 }) {
+  const curriculumStatus = curriculumStatusLabel(
+    curriculumSource,
+    publishedRecordCount,
+  );
+
   return (
     <div className="screen-page page-enter">
       <header className="page-heading split-heading">
@@ -1136,7 +1739,7 @@ function JourneyScreen({
         <span><i className="legend-dot completed" /> Completed</span>
         <span><i className="legend-dot current" /> Current</span>
         <span><i className="legend-dot locked" /> Locked</span>
-        <p><Info size={15} aria-hidden="true" /> Complete the first five-card lesson to open the next stop; each region has three lessons. <span className="curriculum-revision" title={`Published revision ${curriculumRevision}`}>Live curriculum synced</span></p>
+        <p><Info size={15} aria-hidden="true" /> Complete the first five-card lesson to open the next stop. <span className="curriculum-revision" title={`Curriculum revision ${curriculumRevision}`}>{curriculumStatus}</span></p>
       </div>
 
       <ol className="region-route" aria-label="French regional learning journey">
@@ -1151,6 +1754,9 @@ function JourneyScreen({
             region.id,
             words,
           );
+          const regionLessonCount = new Set(
+            regionWords.map((word) => word.lesson),
+          ).size;
           return (
             <li key={region.id} className={index % 2 ? "route-right" : "route-left"}>
               <span className="route-number" aria-hidden="true">{String(region.number).padStart(2, "0")}</span>
@@ -1168,7 +1774,7 @@ function JourneyScreen({
                 <span className="region-card-color" style={{ background: region.accentColor }} />
                 <span className="region-card-emoji" aria-hidden="true">{unlocked ? region.emoji : <LockKeyhole />}</span>
                 <span className="region-card-copy">
-                  <small>{completed ? "Chapter complete" : unlocked ? `Lesson ${activeLesson} of 3` : "Keep traveling"}</small>
+                  <small>{completed ? "Chapter complete" : unlocked ? `Lesson ${activeLesson} of ${regionLessonCount}` : "Keep traveling"}</small>
                   <strong>{region.name}</strong>
                   <span>{region.theme}</span>
                 </span>
@@ -1193,7 +1799,9 @@ function JourneyScreen({
 
 function ReviewScreen({
   state,
+  words,
   reviewsDue,
+  learned,
   onReview,
   onStart,
   onChallenge,
@@ -1201,16 +1809,21 @@ function ReviewScreen({
   onProfile,
 }: {
   state: LearningState;
+  words: readonly Word[];
   reviewsDue: number;
+  learned: number;
   onReview: () => void;
   onStart: () => void;
   onChallenge: () => void;
   onDice: () => void;
   onProfile: () => void;
 }) {
-  const learned = learnedCount(state);
-  const totalCorrect = Object.values(state.wordProgress).reduce((sum, word) => sum + word.correct, 0);
-  const totalSeen = Object.values(state.wordProgress).reduce((sum, word) => sum + word.correct + word.incorrect, 0);
+  const activeWordIds = words.map((word) => word.id);
+  const progressValues = Object.values(
+    activeWordProgress(state, activeWordIds),
+  );
+  const totalCorrect = progressValues.reduce((sum, word) => sum + word.correct, 0);
+  const totalSeen = progressValues.reduce((sum, word) => sum + word.correct + word.incorrect, 0);
   const accuracy = totalSeen ? Math.round((totalCorrect / totalSeen) * 100) : 0;
   const challengeDone = state.challenge.lastPlayedDate === localDateKey();
   const diceDone = state.dice.lastPlayedDate === localDateKey();
@@ -1256,7 +1869,7 @@ function ReviewScreen({
           tone="gold"
           eyebrow="Travel dice"
           title="Roll for a route boost"
-          copy="Use earned travel coins for a transparent one-in-six XP boost. No purchases, no hidden odds."
+          copy="Use included starter coins or coins earned in lessons for a transparent one-in-six XP boost. No purchases, no hidden odds."
           meta={diceDone ? "Today’s reward collected" : `${formatCount(state.coins, "coin")} available`}
           action={diceDone ? "See today’s result" : "Open the dice"}
           disabled={!learned}
@@ -1267,11 +1880,11 @@ function ReviewScreen({
       <section className="mastery-section" aria-labelledby="mastery-title">
         <div className="section-heading-row">
           <div><p className="eyebrow">Seven-stage memory</p><h2 id="mastery-title">A schedule you can understand</h2></div>
-          <span>{formatCount(masteredCount(state), "word")} solid</span>
+          <span>{formatCount(masteredCount(state, activeWordIds), "word")} solid</span>
         </div>
         <div className="mastery-ladder">
           {MASTERY_STAGE_LABELS.map((label, index) => {
-            const count = Object.values(state.wordProgress).filter((word) => word.stage === index).length;
+            const count = progressValues.filter((word) => word.stage === index).length;
             return <div key={label}><span>{index + 1}</span><strong>{label}</strong><small>{formatCount(count, "word")}</small></div>;
           })}
         </div>
@@ -1354,7 +1967,7 @@ function WordbookScreen({
     <div className="screen-page page-enter">
       <header className="page-heading split-heading">
         <div><p className="eyebrow">Personal wordbook</p><h1>Every word has a story.</h1><p>Search French or English, accents optional. Every learned card keeps its gender, sound, example and next review.</p></div>
-        <div className="wordbook-count"><Library aria-hidden="true" /><strong>{learnedCount(state)}</strong><span>collected</span></div>
+        <div className="wordbook-count"><Library aria-hidden="true" /><strong>{learnedCount(state, words.map((word) => word.id))}</strong><span>collected</span></div>
       </header>
 
       <div className="wordbook-toolbar">
@@ -1394,7 +2007,37 @@ function WordbookScreen({
           })}
         </div>
       ) : (
-        <EmptyState icon={BookOpen} title={query ? "No matching words" : "Your wordbook is ready"} copy={query ? "Try a shorter French or English search." : "Complete a lesson and your first five cards will live here."} action={!query ? "Start a lesson" : undefined} onAction={!query ? onStart : undefined} />
+        <EmptyState
+          icon={BookOpen}
+          title={
+            query
+              ? "No matching words"
+              : filter !== "all"
+                ? `No ${titleCase(filter)} cards in this view`
+                : "Your wordbook is ready"
+          }
+          copy={
+            query
+              ? "Try a shorter French or English search."
+              : filter !== "all"
+                ? "Choose all word types to return to your collected cards."
+                : "Complete a lesson and your first five cards will live here."
+          }
+          action={
+            query
+              ? undefined
+              : filter !== "all"
+                ? "Show all word types"
+                : "Start a lesson"
+          }
+          onAction={
+            query
+              ? undefined
+              : filter !== "all"
+                ? () => setFilter("all")
+                : onStart
+          }
+        />
       )}
     </div>
   );
@@ -1410,25 +2053,53 @@ function MasteryDots({ stage, learned }: { stage: number; learned: boolean }) {
 
 function ProfileScreen({
   state,
+  words,
   setState,
   status,
+  offlineCacheStatus,
   savedAt,
   onRetry,
   onDelete,
+  accountSession,
+  accountPending,
+  onAccountPrivacyTransition,
+  onAccountTransitionChange,
 }: {
   state: LearningState;
+  words: readonly Word[];
   setState: React.Dispatch<React.SetStateAction<LearningState>>;
   status: SyncStatus;
+  offlineCacheStatus: OfflineCacheStatus;
   savedAt: string | null;
   onRetry: () => void;
   onDelete: () => Promise<boolean>;
+  accountSession: LearnerAccountSession | null;
+  accountPending: boolean;
+  onAccountPrivacyTransition: (
+    kind: AccountPrivacyTransition["kind"],
+  ) => void;
+  onAccountTransitionChange: (transitioning: boolean) => void;
 }) {
   const [confirmReset, setConfirmReset] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState("");
+  const [accountDeleting, setAccountDeleting] = useState(false);
+  const [confirmAccountDelete, setConfirmAccountDelete] = useState(false);
+  const [accountPassword, setAccountPassword] = useState("");
+  const [accountError, setAccountError] = useState("");
+  const [importMessage, setImportMessage] = useState("");
   const deleteTriggerRef = useRef<HTMLButtonElement>(null);
   const deleteCancelRef = useRef<HTMLButtonElement>(null);
+  const accountDeleteTriggerRef = useRef<HTMLButtonElement>(null);
+  const accountDeleteCancelRef = useRef<HTMLButtonElement>(null);
+  const importInputRef = useRef<HTMLInputElement>(null);
   const restoreDeleteFocusRef = useRef(false);
+  const restoreAccountDeleteFocusRef = useRef(false);
   const level = levelFromXp(state.xp);
+  const activeWordIds = words.map((word) => word.id);
+  const learned = learnedCount(state, activeWordIds);
+  const mastered = masteredCount(state, activeWordIds);
+  const curriculumSummary = curriculumContentSummary(words);
 
   useEffect(() => {
     if (confirmReset) {
@@ -1440,6 +2111,17 @@ function ProfileScreen({
       deleteTriggerRef.current?.focus({ preventScroll: true });
     }
   }, [confirmReset]);
+
+  useEffect(() => {
+    if (confirmAccountDelete) {
+      accountDeleteCancelRef.current?.focus({ preventScroll: true });
+      return;
+    }
+    if (restoreAccountDeleteFocusRef.current) {
+      restoreAccountDeleteFocusRef.current = false;
+      accountDeleteTriggerRef.current?.focus({ preventScroll: true });
+    }
+  }, [confirmAccountDelete]);
 
   function openDeleteConfirmation() {
     restoreDeleteFocusRef.current = true;
@@ -1464,11 +2146,120 @@ function ProfileScreen({
     URL.revokeObjectURL(url);
   }
 
+  async function importProgress(file: File | undefined) {
+    if (!file) return;
+    setImportMessage("");
+    try {
+      if (file.size > 300_000) {
+        throw new Error("That progress file is too large.");
+      }
+      const parsed: unknown = JSON.parse(await file.text());
+      if (
+        !parsed ||
+        typeof parsed !== "object" ||
+        Array.isArray(parsed) ||
+        ((parsed as { version?: unknown }).version !== 1 &&
+          (parsed as { version?: unknown }).version !== STATE_VERSION)
+      ) {
+        throw new Error("Choose a compatible Paretto progress export.");
+      }
+      const imported = stateFromUnknown(parsed);
+      setState(imported);
+      setImportMessage(
+        offlineCacheStatus === "available"
+          ? "Progress imported and saved on this device. Keep Paretto open until cloud sync is confirmed."
+          : offlineCacheStatus === "unavailable"
+            ? "Progress imported into this open session. This browser blocked the offline copy, so keep Paretto open until cloud sync is confirmed."
+            : "Progress imported. Keep Paretto open while device storage and cloud sync are checked.",
+      );
+    } catch (reason) {
+      setImportMessage(
+        reason instanceof Error
+          ? reason.message
+          : "Progress could not be imported.",
+      );
+    } finally {
+      if (importInputRef.current) importInputRef.current.value = "";
+    }
+  }
+
+  async function signOut() {
+    setAccountError("");
+    onAccountTransitionChange(true);
+    let result: Awaited<ReturnType<typeof authClient.signOut>>;
+    try {
+      result = await authClient.signOut();
+    } catch {
+      onAccountTransitionChange(false);
+      setAccountError("Sign-out could not be completed.");
+      return;
+    }
+    if (result.error) {
+      onAccountTransitionChange(false);
+      setAccountError(result.error.message ?? "Sign-out could not be completed.");
+      return;
+    }
+    onAccountPrivacyTransition("sign-out");
+  }
+
+  async function reconnectAccountProgress() {
+    setAccountError("");
+    try {
+      const response = await fetch("/api/account/claim", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        credentials: "same-origin",
+      });
+      if (!response.ok) {
+        setAccountError("Progress could not be connected. Please retry.");
+        return;
+      }
+      const cacheTransitioned = await transitionClaimedProgressCache(
+        await response.json(),
+      );
+      if (cacheTransitioned) {
+        window.location.reload();
+        return;
+      }
+      setAccountError(
+        "Cloud progress connected, but this browser could not safely hand off its pending local copy. Allow site storage changes, then retry.",
+      );
+    } catch {
+      setAccountError(
+        "Progress could not be connected. Check your connection and retry.",
+      );
+    }
+  }
+
+  async function deleteAccount() {
+    setAccountDeleting(true);
+    setAccountError("");
+    onAccountTransitionChange(true);
+    let result: Awaited<ReturnType<typeof authClient.deleteUser>>;
+    try {
+      result = await authClient.deleteUser({
+        ...(accountPassword ? { password: accountPassword } : {}),
+      });
+    } catch {
+      onAccountTransitionChange(false);
+      setAccountError("The account could not be deleted.");
+      setAccountDeleting(false);
+      return;
+    }
+    if (result.error) {
+      onAccountTransitionChange(false);
+      setAccountError(accountDeletionError(result.error));
+      setAccountDeleting(false);
+      return;
+    }
+    onAccountPrivacyTransition("account-deletion");
+  }
+
   return (
     <div className="screen-page page-enter">
       <header className="profile-hero">
         <div className="avatar avatar-large">{initials(state.displayName)}</div>
-        <div><p className="eyebrow">Travel profile</p><h1>{state.displayName}</h1><p>Level {level} · {formatCount(learnedCount(state), "word")} · {formatCount(state.unlockedRegionIds.length, "region")}</p></div>
+        <div><p className="eyebrow">Travel profile</p><h1>{state.displayName}</h1><p>Level {level} · {formatCount(learned, "word")} · {formatCount(state.unlockedRegionIds.length, "region")}</p></div>
         <SyncPill status={status} savedAt={savedAt} onRetry={onRetry} />
       </header>
 
@@ -1477,8 +2268,8 @@ function ProfileScreen({
           <section className="profile-stats" aria-label="Progress statistics">
             <ProfileStat icon={Zap} value={state.xp} label="Total XP" />
             <ProfileStat icon={Flame} value={state.streak} label={wordForCount(state.streak, "consecutive day")} />
-            <ProfileStat icon={Library} value={learnedCount(state)} label={wordForCount(learnedCount(state), "word")} />
-            <ProfileStat icon={Medal} value={masteredCount(state)} label={wordForCount(masteredCount(state), "word mastered", "words mastered")} />
+            <ProfileStat icon={Library} value={learned} label={wordForCount(learned, "word")} />
+            <ProfileStat icon={Medal} value={mastered} label={wordForCount(mastered, "word mastered", "words mastered")} />
           </section>
 
           <section className="collection-card" aria-labelledby="profile-collection-title">
@@ -1486,7 +2277,7 @@ function ProfileScreen({
             <div className="collection-grid">
               {SEED_COLLECTIBLES.map((item) => {
                 const collected = state.collectibles.includes(item.id);
-                return <article key={item.id} className={collected ? "is-collected" : ""}><span aria-hidden="true">{collected ? item.emoji : "?"}</span><div><small>{item.rarity}</small><strong>{item.name}</strong><p>{collected ? item.description : `Unlocks at ${item.unlockAtXp} XP`}</p></div></article>;
+                return <article key={item.id} className={collected ? "is-collected" : ""}><span aria-hidden="true">{collected ? item.emoji : "?"}</span><div><small>{item.rarity}</small><strong>{item.name}</strong><p>{collected ? collectibleDescription(item) : `Unlocks at ${item.unlockAtXp} XP`}</p></div></article>;
               })}
             </div>
           </section>
@@ -1495,6 +2286,26 @@ function ProfileScreen({
         <aside className="settings-card" aria-labelledby="settings-title">
           <div><p className="eyebrow">Preferences</p><h2 id="settings-title"><Settings size={20} aria-hidden="true" /> Your studio</h2></div>
           <label className="profile-name-field"><span>Display name</span><input value={state.displayName} maxLength={40} onChange={(event) => setState((current) => ({ ...current, displayName: event.target.value, updatedAt: new Date().toISOString() }))} onBlur={() => setState((current) => ({ ...current, displayName: current.displayName.trim() || "Traveler", updatedAt: new Date().toISOString() }))} /></label>
+          <fieldset>
+            <legend>Daily word goal</legend>
+            <div className="choice-grid three compact-choices">
+              {([5, 10, 15] as const).map((value) => (
+                <ChoiceCard
+                  key={value}
+                  active={state.dailyGoal === value}
+                  title={`${value} words`}
+                  copy="Daily target"
+                  onClick={() =>
+                    setState((current) => ({
+                      ...current,
+                      dailyGoal: value,
+                      updatedAt: new Date().toISOString(),
+                    }))
+                  }
+                />
+              ))}
+            </div>
+          </fieldset>
           <SettingToggle label="French audio" copy="Enable pronunciation buttons" checked={state.settings.sound} onChange={(value) => updateSetting("sound", value)} />
           <SettingToggle label="Show IPA" copy="Keep pronunciation guides visible" checked={state.settings.phonetics} onChange={(value) => updateSetting("phonetics", value)} />
           <SettingToggle label="Reduced motion" copy="Remove movement and celebration effects" checked={state.settings.reducedMotion} onChange={(value) => updateSetting("reducedMotion", value)} />
@@ -1507,13 +2318,122 @@ function ProfileScreen({
               trackProductEvent(value, "analytics_consent_updated", { enabled: value });
             }}
           />
-          <div className="beta-pass"><Sparkles aria-hidden="true" /><div><strong>Complete curriculum included</strong><span>All 54 lessons and practice modes are included. Each new region opens after you complete the previous region’s first lesson.</span></div></div>
-          <div className="privacy-summary"><ShieldCheck size={18} aria-hidden="true" /><div><strong>Your learning data stays private</strong><span>Progress uses a random browser session, keeps an offline queue on this device, and is never used for ads. It does not yet follow you to another browser or device.</span><a href="/privacy">Privacy</a><a href="/terms">Terms</a><a href="/accessibility">Accessibility</a><a href="/attributions">Attributions</a><a href="/support">Support</a></div></div>
+          <section className="account-summary" aria-labelledby="account-summary-title">
+            <ShieldCheck aria-hidden="true" />
+            <div>
+              <strong id="account-summary-title">
+                {accountPending
+                  ? "Checking your account…"
+                  : accountSession
+                    ? "Progress follows you"
+                    : "Use Paretto on another device"}
+              </strong>
+              <span>
+                {accountPending
+                  ? "Confirming this browser’s secure session."
+                  : accountSession
+                    ? `Signed in as ${accountSession.user.email}.`
+                    : "Sign in—or create an account when registration is available—and this browser’s progress will connect automatically."}
+              </span>
+              {accountError && (
+                <span className="account-error" role="alert">
+                  {accountError}
+                </span>
+              )}
+              {!accountPending && !accountSession && (
+                <Link href="/sign-in">Account sign in</Link>
+              )}
+              {accountSession && !confirmAccountDelete && (
+                <div className="account-actions">
+                  <button
+                    type="button"
+                    onClick={() => void reconnectAccountProgress()}
+                  >
+                    Reconnect progress
+                  </button>
+                  <button type="button" onClick={() => void signOut()}>
+                    Sign out
+                  </button>
+                  <button
+                    ref={accountDeleteTriggerRef}
+                    className="danger"
+                    type="button"
+                    onClick={() => {
+                      setAccountError("");
+                      restoreAccountDeleteFocusRef.current = true;
+                      setConfirmAccountDelete(true);
+                    }}
+                  >
+                    Delete account
+                  </button>
+                </div>
+              )}
+              {accountSession && confirmAccountDelete && (
+                <div className="account-delete-confirm" role="alert">
+                  <strong>Delete your account and synced learning data?</strong>
+                  <p>This cannot be undone. Social-only accounts can leave the password field blank. If your social sign-in is older, sign out and sign in again first.</p>
+                  <label>
+                    <span>Current password, if your account uses one</span>
+                    <input
+                      type="password"
+                      value={accountPassword}
+                      onChange={(event) => setAccountPassword(event.target.value)}
+                      autoComplete="current-password"
+                      maxLength={128}
+                    />
+                  </label>
+                  <div>
+                    <button
+                      ref={accountDeleteCancelRef}
+                      type="button"
+                      disabled={accountDeleting}
+                      onClick={() => {
+                        setConfirmAccountDelete(false);
+                        setAccountPassword("");
+                      }}
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      className="danger"
+                      type="button"
+                      disabled={accountDeleting}
+                      onClick={() => void deleteAccount()}
+                    >
+                      {accountDeleting ? "Deleting…" : "Delete account permanently"}
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+          </section>
+          <div className="beta-pass"><Sparkles aria-hidden="true" /><div><strong>Current French curriculum included</strong><span>All {formatCount(curriculumSummary.lessonCount, "current lesson")} and current practice modes are included. Each new region opens after you complete the previous region’s first lesson.</span></div></div>
+          <div className="privacy-summary"><ShieldCheck size={18} aria-hidden="true" /><div><strong>Your learning data stays private</strong><span>{accountSession ? "Your signed-in account synchronizes progress across supported browsers and devices." : "Without an account, progress is tied to this browser profile."} {offlineCacheStatus === "available" ? "This browser profile also has a working offline progress queue." : offlineCacheStatus === "unavailable" ? "This browser is currently blocking the offline progress queue." : "Offline storage availability is still being checked."} Paretto never uses learning data for ads.</span><a href="/privacy">Privacy</a><a href="/terms">Terms</a><a href="/accessibility">Accessibility</a><a href="/attributions">Attributions</a><a href="/support">Support</a></div></div>
           <button className="secondary-button full" type="button" onClick={exportProgress}><Download size={17} aria-hidden="true" /> Export my progress</button>
+          <input
+            ref={importInputRef}
+            className="sr-only"
+            type="file"
+            accept="application/json,.json"
+            aria-label="Choose a Paretto progress export"
+            onChange={(event) => void importProgress(event.target.files?.[0])}
+          />
+          <button
+            className="secondary-button full"
+            type="button"
+            onClick={() => importInputRef.current?.click()}
+          >
+            <Upload size={17} aria-hidden="true" /> Import a progress export
+          </button>
+          {importMessage && (
+            <p className="profile-action-message" role="status">
+              {importMessage}
+            </p>
+          )}
           {!confirmReset ? (
-            <button ref={deleteTriggerRef} className="danger-text-button" type="button" onClick={openDeleteConfirmation}>Delete my learning data</button>
+            <button ref={deleteTriggerRef} className="danger-text-button" type="button" onClick={() => { setDeleteError(""); openDeleteConfirmation(); }}>Delete my learning data</button>
           ) : (
-            <div className="reset-confirm" role="alert"><strong>Delete all learning data?</strong><p>This permanently removes the server record and this device’s offline copy.</p><div><button ref={deleteCancelRef} type="button" onClick={cancelDeleteConfirmation} disabled={deleting}>Cancel</button><button type="button" disabled={deleting} onClick={async () => { setDeleting(true); const deleted = await onDelete(); if (!deleted) setDeleting(false); }}>{deleting ? "Deleting…" : "Delete permanently"}</button></div></div>
+            <div className="reset-confirm" role="alert"><strong>Delete all learning data?</strong><p>This permanently removes the server record and this device’s offline copy.</p>{deleteError && <p className="profile-action-error">{deleteError}</p>}<div><button ref={deleteCancelRef} type="button" onClick={cancelDeleteConfirmation} disabled={deleting}>Cancel</button><button type="button" disabled={deleting} onClick={async () => { setDeleting(true); const deleted = await onDelete(); if (!deleted) { setDeleteError("Deletion could not be fully confirmed. Keep this page open and retry."); setDeleting(false); } }}>{deleting ? "Deleting…" : "Delete permanently"}</button></div></div>
           )}
         </aside>
       </div>
@@ -1675,6 +2595,9 @@ function useDialogLifecycle(onClose: () => void) {
 function LessonOverlay({
   lesson,
   state,
+  syncStatus,
+  offlineCacheStatus,
+  returnLabel,
   onClose,
   onRate,
   onMarkKnown,
@@ -1682,6 +2605,9 @@ function LessonOverlay({
 }: {
   lesson: LessonState;
   state: LearningState;
+  syncStatus: SyncStatus;
+  offlineCacheStatus: OfflineCacheStatus;
+  returnLabel: string;
   onClose: () => void;
   onRate: (wordId: string, rating: Rating) => void;
   onMarkKnown: (wordId: string) => void;
@@ -1704,13 +2630,19 @@ function LessonOverlay({
     [index, lesson.words],
   );
   const dialogRef = useDialogLifecycle(onClose);
+  const cardHeadingRef = useRef<HTMLHeadingElement>(null);
+  const answerFocusRef = useRef<HTMLElement>(null);
   const completionHeadingRef = useRef<HTMLHeadingElement>(null);
 
   useEffect(() => {
     if (complete) {
       completionHeadingRef.current?.focus({ preventScroll: true });
+    } else if (revealed) {
+      answerFocusRef.current?.focus({ preventScroll: true });
+    } else {
+      cardHeadingRef.current?.focus({ preventScroll: true });
     }
-  }, [complete]);
+  }, [complete, index, revealed]);
 
   function advance(rating: Rating) {
     onRate(word.id, rating);
@@ -1749,14 +2681,15 @@ function LessonOverlay({
               <span className="lesson-xp"><Zap size={15} aria-hidden="true" /> +{sessionXp}</span>
             </header>
             <section className="lesson-content" aria-labelledby="lesson-title">
-              <div className="lesson-meta"><span>{lesson.mode === "learn" ? `Lesson ${word.lesson} · ${word.cefr}` : "Mixed recall"}</span><span>{lesson.mode === "learn" ? lesson.editorialTitle ?? CURRICULUM_PLAN[word.regionId as RegionId][word.lesson - 1].title : region.shortLabel}</span></div>
+              <div className="lesson-meta"><span>{lesson.mode === "learn" ? `Lesson ${word.lesson} · ${word.cefr}` : "Mixed recall"}</span><span>{lesson.mode === "learn" ? lesson.editorialTitle ?? curriculumLessonPlan(word.regionId, word.lesson, lesson.words).title : region.shortLabel}</span></div>
               {index === 0 && lesson.editorialIntro && <p className="lesson-editorial-intro">{lesson.editorialIntro}</p>}
               <article className={`flash-card ${revealed ? "is-revealed" : ""}`}>
                 <span className="flash-emoji" aria-hidden="true">{word.emoji}</span>
                 <span className="pos-chip">{word.partOfSpeech}</span>
-                <h1 id="lesson-title" lang="fr">{word.french}</h1>
+                <h1 ref={cardHeadingRef} id="lesson-title" lang="fr" tabIndex={-1}>{word.french}</h1>
                 {state.settings.phonetics && <p className="ipa">{word.ipa}</p>}
                 <FrenchAudioButton
+                  courseId={state.activeCourseId}
                   wordId={word.id}
                   text={word.french}
                   enabled={state.settings.sound}
@@ -1764,12 +2697,25 @@ function LessonOverlay({
                   preloadWords={preloadWords}
                   className="audio-button"
                 >
-                  {({ isPlaying }) => <><Volume2 size={19} aria-hidden="true" /> {isPlaying ? "Pause French audio" : "Hear it in French"}</>}
+                  {({ isPlaying, status: audioStatus }) => (
+                    <>
+                      {audioStatus === "error" ? (
+                        <X size={19} aria-hidden="true" />
+                      ) : (
+                        <Volume2 size={19} aria-hidden="true" />
+                      )}{" "}
+                      {audioStatus === "error"
+                        ? "Audio unavailable — try again"
+                        : isPlaying
+                          ? "Pause French audio"
+                          : "Hear it in French"}
+                    </>
+                  )}
                 </FrenchAudioButton>
                 {!revealed ? (
                   <div className="recall-prompt"><p>{lesson.mode === "review" ? "Say the meaning—and the article for nouns—before revealing it." : "Notice the sound and article. What do you think it means?"}</p><button className="primary-button large" type="button" onClick={() => setRevealed(true)}>Reveal the card</button>{lesson.mode === "learn" && !state.wordProgress[word.id] && <button className="text-button" type="button" onClick={markKnownAndAdvance}><Check size={16} aria-hidden="true" /> I already know this</button>}</div>
                 ) : (
-                  <div className="answer-panel" aria-live="polite"><strong>{word.english}</strong>{word.gender && <span className="gender-chip">{word.gender}</span>}<blockquote><p lang="fr">{word.exampleFr}</p><footer>{word.exampleEn}</footer></blockquote><p className="rating-prompt">How did that feel?</p><div className="rating-grid"><button className="rate-again" type="button" onClick={() => advance("again")}><strong>Again</strong><small>10 min</small></button><button className="rate-hard" type="button" onClick={() => advance("hard")}><strong>Almost</strong><small>Later today</small></button><button className="rate-good" type="button" onClick={() => advance("good")}><strong>Got it</strong><small>Build the interval</small></button></div></div>
+                  <div className="answer-panel" aria-live="polite"><strong ref={answerFocusRef} tabIndex={-1}>{word.english}</strong>{word.gender && <span className="gender-chip">{word.gender}</span>}<blockquote><p lang="fr">{word.exampleFr}</p><footer>{word.exampleEn}</footer></blockquote><p className="rating-prompt">How did that feel?</p><div className="rating-grid"><button className="rate-again" type="button" onClick={() => advance("again")}><strong>Again</strong><small>10 min</small></button><button className="rate-hard" type="button" onClick={() => advance("hard")}><strong>Almost</strong><small>{hardRatingTiming(state.wordProgress[word.id])}</small></button><button className="rate-good" type="button" onClick={() => advance("good")}><strong>Got it</strong><small>Build the interval</small></button></div></div>
                 )}
               </article>
             </section>
@@ -1779,15 +2725,39 @@ function LessonOverlay({
             <div className="completion-seal"><Check aria-hidden="true" /></div>
             <p className="eyebrow">Session complete</p>
             <h1 ref={completionHeadingRef} id="lesson-title" tabIndex={-1}>Très bien, {state.displayName}.</h1>
-            <p>You showed up, recalled {correct} of {lesson.words.length}, and moved your regional route forward.</p>
+            <p>{lesson.mode === "learn" ? `You showed up, recalled ${correct} of ${lesson.words.length}, and moved your regional route forward.` : `You recalled ${correct} of ${lesson.words.length} and strengthened your memory schedule.`}</p>
             <div className="completion-stats"><div><Zap aria-hidden="true" /><strong>+{sessionXp + 18}</strong><span>XP</span></div><div><Coins aria-hidden="true" /><strong>+{completionCoins}</strong><span>{wordForCount(completionCoins, "coin")}</span></div><div><Flame aria-hidden="true" /><strong>{Math.max(1, state.streak)}</strong><span>{wordForCount(Math.max(1, state.streak), "consecutive day")}</span></div></div>
-            <div className="completion-note"><Sparkles aria-hidden="true" /><span>Your progress is safe on this device and queued for cloud sync.</span></div>
-            <button className="primary-button large" type="button" onClick={onClose}>Back to today <ChevronRight aria-hidden="true" /></button>
+            <div className="completion-note"><Sparkles aria-hidden="true" /><span>{completionPersistenceMessage(syncStatus, offlineCacheStatus)}</span></div>
+            <button className="primary-button large" type="button" onClick={onClose}>{returnLabel} <ChevronRight aria-hidden="true" /></button>
           </div>
         )}
       </div>
     </div>
   );
+}
+
+export function completionPersistenceMessage(
+  syncStatus: SyncStatus,
+  offlineCacheStatus: OfflineCacheStatus,
+): string {
+  if (syncStatus === "saved") {
+    return offlineCacheStatus === "available"
+      ? "Saved on this device and in the cloud."
+      : "Cloud sync is confirmed. This browser is not keeping an offline copy.";
+  }
+  if (offlineCacheStatus === "available") {
+    if (syncStatus === "offline") {
+      return "Queued in this browser. Cloud sync will retry when you reconnect.";
+    }
+    if (syncStatus === "error") {
+      return "Queued in this browser, but cloud sync failed. Keep Paretto open and use Retry sync.";
+    }
+    return "Queued in this browser. Keep Paretto open while cloud sync finishes.";
+  }
+  if (offlineCacheStatus === "unavailable") {
+    return "Saving is not confirmed and this browser blocked the offline copy. Keep Paretto open, reconnect if needed, and use Retry sync.";
+  }
+  return "Keep Paretto open while device storage and cloud sync are checked.";
 }
 
 function WordModal({ word, state, onClose }: { word: Word; state: LearningState; onClose: () => void }) {
@@ -1797,7 +2767,7 @@ function WordModal({ word, state, onClose }: { word: Word; state: LearningState;
     <ModalFrame labelId="word-modal-title" onClose={onClose} className="word-modal">
       <div className="word-modal-top" style={{ background: region?.accentColor }}><span aria-hidden="true">{word.emoji}</span><small>{region?.name}</small></div>
       <div className="word-modal-body">
-        <div className="modal-title-row"><div><span className="pos-chip">{word.partOfSpeech}</span><span className="cefr-chip">{word.cefr} · Lesson {word.lesson}</span><h2 id="word-modal-title" lang="fr">{word.french}</h2>{state.settings.phonetics && <p>{word.ipa}</p>}</div><FrenchAudioButton wordId={word.id} text={word.french} enabled={state.settings.sound} onPlay={() => trackProductEvent(state.settings.analytics, "audio_played", { wordId: word.id })} className="audio-circle"><Volume2 aria-hidden="true" /></FrenchAudioButton></div>
+        <div className="modal-title-row"><div><span className="pos-chip">{word.partOfSpeech}</span><span className="cefr-chip">{word.cefr} · Lesson {word.lesson}</span><h2 id="word-modal-title" lang="fr">{word.french}</h2>{state.settings.phonetics && <p>{word.ipa}</p>}</div><FrenchAudioButton courseId={state.activeCourseId} wordId={word.id} text={word.french} enabled={state.settings.sound} onPlay={() => trackProductEvent(state.settings.analytics, "audio_played", { wordId: word.id })} className="audio-circle">{({ status: audioStatus }) => audioStatus === "error" ? <span style={{ fontSize: 9, lineHeight: 1.05 }}>Audio<br />unavailable</span> : <Volume2 aria-hidden="true" />}</FrenchAudioButton></div>
         <div className="meaning-row"><strong>{word.english}</strong>{word.gender && <span>{word.gender}</span>}</div>
         <blockquote className="example-card"><MessageCircle size={18} aria-hidden="true" /><p lang="fr">{word.exampleFr}</p><footer>{word.exampleEn}</footer></blockquote>
         <div className="mastery-detail"><div><span>Memory stage</span><strong>{progress ? MASTERY_STAGE_LABELS[progress.stage] : "Not learned yet"}</strong></div><MasteryDots stage={progress?.stage ?? 0} learned={Boolean(progress)} /></div>
@@ -1810,41 +2780,77 @@ function WordModal({ word, state, onClose }: { word: Word; state: LearningState;
 function RegionModal({ region, state, words, publishedLessons, onClose, onStart, onOpenWord }: { region: Region; state: LearningState; words: readonly Word[]; publishedLessons: readonly PublishedLesson[]; onClose: () => void; onStart: () => void; onOpenWord: (word: Word) => void }) {
   const regionWords = words.filter((word) => word.regionId === region.id);
   const count = regionWords.filter((word) => state.wordProgress[word.id]).length;
-  const plans = CURRICULUM_PLAN[region.id as RegionId];
+  const lessonNumbers = [
+    ...new Set(regionWords.map((word) => word.lesson)),
+  ].sort((first, second) => first - second);
+  const plans = lessonNumbers.map((lessonNumber) =>
+    curriculumLessonPlan(region.id, lessonNumber, words, publishedLessons),
+  );
   return (
     <ModalFrame labelId="region-modal-title" onClose={onClose} className="region-modal">
       <div className="region-modal-hero" style={{ background: region.accentColor }}><span className="region-number">Stop {String(region.number).padStart(2, "0")}</span><span className="region-big-emoji" aria-hidden="true">{region.emoji}</span><h2 id="region-modal-title">{region.name}</h2><p>{region.theme}</p></div>
-      <div className="region-modal-body"><p className="culture-note">{region.cultureNote}</p>{publishedLessons.map((lesson) => <article className="published-lesson-note" key={lesson.id}><div><span>Published field lesson · {lesson.estimatedMinutes} min</span><h3>{lesson.title}</h3></div><p>{lesson.summary}</p><details><summary>Read the lesson introduction</summary><p>{lesson.introduction}</p>{lesson.blocks.map((block, index) => <div className={`published-block published-block-${block.type}`} key={`${lesson.id}-${index}`}><strong>{block.type === "tip" ? "Language tip" : block.type === "exercise" ? "Try it" : "Field note"}</strong><p>{block.content}</p></div>)}</details></article>)}<div className="hero-progress-label"><span>{count} of {regionWords.length} words collected</span><strong>{Math.round((count / regionWords.length) * 100)}%</strong></div><ProgressBar value={(count / regionWords.length) * 100} label={`${region.name} vocabulary progress`} /><div className="region-lessons">{plans.map((plan) => { const lessonWords = regionWords.filter((word) => word.lesson === plan.lesson); const learned = lessonWords.filter((word) => state.wordProgress[word.id]).length; return <section key={plan.lesson} aria-labelledby={`region-lesson-${region.id}-${plan.lesson}`}><header><div><span>{plan.cefr}</span><h3 id={`region-lesson-${region.id}-${plan.lesson}`}>Lesson {plan.lesson}: {plan.title}</h3><p>{titleCase(plan.topic)}</p></div><strong>{learned}/{lessonWords.length}</strong></header><div className="region-word-preview">{lessonWords.map((word) => <button type="button" key={word.id} onClick={() => onOpenWord(word)}><span>{word.emoji}</span><span><strong lang="fr">{word.french}</strong><small>{state.wordProgress[word.id] ? word.english : "Ready to discover"}</small></span><ChevronRight size={17} /></button>)}</div></section>; })}</div><button className="primary-button large full" type="button" onClick={onStart}><BookOpen size={18} /> {count === regionWords.length ? "Practice this chapter" : count ? "Continue this chapter" : "Start lesson 1"}</button></div>
+      <div className="region-modal-body"><p className="culture-note">{region.cultureNote}</p>{publishedLessons.map((lesson) => <article className="published-lesson-note" key={lesson.id}><div><span>Published field lesson · {lesson.estimatedMinutes} min</span><h3>{lesson.title}</h3></div><p>{lesson.summary}</p><details><summary>Read the lesson introduction</summary><p>{lesson.introduction}</p>{lesson.blocks.map((block, index) => <div className={`published-block published-block-${block.type}`} key={`${lesson.id}-${index}`}><strong>{block.type === "tip" ? "Language tip" : block.type === "exercise" ? "Try it" : "Field note"}</strong><p>{block.content}</p></div>)}</details></article>)}<div className="hero-progress-label"><span>{count} of {regionWords.length} words collected</span><strong>{Math.round((count / regionWords.length) * 100)}%</strong></div><ProgressBar value={(count / regionWords.length) * 100} label={`${region.name} vocabulary progress`} /><div className="region-lessons">{plans.map((plan) => { const lessonWords = regionWords.filter((word) => word.lesson === plan.lesson); const learned = lessonWords.filter((word) => state.wordProgress[word.id]).length; return <section key={plan.lesson} aria-labelledby={`region-lesson-${region.id}-${plan.lesson}`}><header><div><span>{plan.cefr}</span><h3 id={`region-lesson-${region.id}-${plan.lesson}`}>Lesson {plan.lesson}: {plan.title}</h3><p>{titleCase(plan.topic)}</p></div><strong>{learned}/{lessonWords.length}</strong></header><div className="region-word-preview">{lessonWords.map((word) => <button type="button" key={word.id} onClick={() => onOpenWord(word)}><span>{word.emoji}</span><span><strong lang="fr">{word.french}</strong><small>{state.wordProgress[word.id] ? word.english : "Ready to discover"}</small></span><ChevronRight size={17} /></button>)}</div></section>; })}</div><button className="primary-button large full" type="button" onClick={onStart}><BookOpen size={18} /> {count === regionWords.length ? "Practice this chapter" : count ? "Continue this chapter" : `Start lesson ${plans[0]?.lesson ?? 1}`}</button></div>
     </ModalFrame>
   );
 }
 
-function DiceModal({ state, setState, onClose }: { state: LearningState; setState: React.Dispatch<React.SetStateAction<LearningState>>; onClose: () => void }) {
-  const [stake, setStake] = useState<1 | 3 | 5>(1);
-  const [result, setResult] = useState<{ multiplier: number; xp: number } | null>(null);
-  const doneToday = state.dice.lastPlayedDate === localDateKey();
+function DiceModal({ state, setState, rewardReplicaId, onClose }: { state: LearningState; setState: React.Dispatch<React.SetStateAction<LearningState>>; rewardReplicaId: string; onClose: () => void }) {
+  const [todayKey] = useState(() => localDateKey());
+  const savedResult =
+    state.dice.lastPlayedResult?.date === todayKey
+      ? state.dice.lastPlayedResult
+      : null;
+  const [stake, setStake] = useState<1 | 3 | 5>(
+    savedResult?.stake ?? 1,
+  );
+  const [result, setResult] = useState<{
+    stake: 1 | 3 | 5;
+    multiplier: 0.5 | 1 | 1.25 | 1.5 | 2 | 3;
+    xp: number;
+  } | null>(savedResult);
+  const doneToday = state.dice.lastPlayedDate === todayKey;
   const multipliers = [0.5, 1, 1.25, 1.5, 2, 3];
 
   function roll() {
     if (doneToday || state.coins < stake) return;
-    const multiplier = multipliers[Math.floor(Math.random() * multipliers.length)];
+    const multiplier = multipliers[
+      Math.floor(Math.random() * multipliers.length)
+    ] as 0.5 | 1 | 1.25 | 1.5 | 2 | 3;
     const xp = Math.round(12 * stake * multiplier);
-    setResult({ multiplier, xp });
-    setState((current) => applyCollectibles({ ...current, coins: current.coins - stake, xp: current.xp + xp, dice: { lastPlayedDate: localDateKey() }, updatedAt: new Date().toISOString() }));
+    const receipt = { stake, multiplier, xp };
+    setResult(receipt);
+    setState((current) => {
+      const now = new Date();
+      const rewarded = applyRewardClaim(
+        current,
+        `daily:dice:${todayKey}`,
+        { xpEarned: xp, coinsSpent: stake },
+        rewardReplicaId,
+        now,
+      );
+      return applyCollectibles({
+        ...rewarded,
+        dice: {
+          lastPlayedDate: todayKey,
+          lastPlayedResult: { date: todayKey, ...receipt },
+        },
+        updatedAt: now.toISOString(),
+      });
+    });
   }
 
   return (
     <ModalFrame labelId="dice-title" onClose={onClose} className="dice-modal">
-      <div className="dice-heading"><span><Dices aria-hidden="true" /></span><div><p className="eyebrow">Travel dice</p><h2 id="dice-title">A little route boost</h2><p>Six equal outcomes: ×0.5, ×1, ×1.25, ×1.5, ×2 or ×3 XP. Only earned coins are used.</p></div></div>
-      {doneToday && !result ? <div className="done-panel"><Check aria-hidden="true" /><strong>Today’s roll is complete</strong><p>Come back tomorrow after another small French step.</p></div> : result ? <div className="dice-result" role="status"><div className="rolling-die">{result.multiplier}×</div><p className="eyebrow">Route boost</p><h3>+{result.xp} XP</h3><p>Your {formatCount(stake, "travel coin")} turned into a memory boost.</p><button className="primary-button full" type="button" onClick={onClose}>Collect reward</button></div> : <><div className="coin-balance"><Coins aria-hidden="true" /><span>Available</span><strong>{formatCount(state.coins, "coin")}</strong></div><div className="stake-grid">{([1, 3, 5] as const).map((value) => <button type="button" key={value} className={stake === value ? "is-active" : ""} onClick={() => setStake(value)} disabled={state.coins < value}><Coins size={18} aria-hidden="true" /><strong>{value}</strong><span>{wordForCount(value, "coin")}</span></button>)}</div><p className="odds-note"><Info size={15} aria-hidden="true" /> Every face is equally likely. Base learning XP is never at risk.</p><button className="primary-button large full" type="button" onClick={roll} disabled={state.coins < stake}><Dices size={19} aria-hidden="true" /> Roll the dice</button></>}
+      <div className="dice-heading"><span><Dices aria-hidden="true" /></span><div><p className="eyebrow">Travel dice</p><h2 id="dice-title">A little route boost</h2><p>Six equal outcomes: ×0.5, ×1, ×1.25, ×1.5, ×2 or ×3 XP. Use the included starter balance or coins earned in lessons.</p></div></div>
+      {doneToday && !result ? <div className="done-panel"><Check aria-hidden="true" /><strong>Today’s roll is complete</strong><p>The reward was saved by an earlier Paretto version. A new detailed receipt will appear after tomorrow’s roll.</p></div> : result ? <div className="dice-result" role="status"><div className="rolling-die">{result.multiplier}×</div><p className="eyebrow">Route boost</p><h3>+{result.xp} XP</h3><p>Your {formatCount(result.stake, "travel coin")} turned into a memory boost.</p><button className="primary-button full" type="button" onClick={onClose}>Collect reward</button></div> : <><div className="coin-balance"><Coins aria-hidden="true" /><span>Available</span><strong>{formatCount(state.coins, "coin")}</strong></div><div className="stake-grid">{([1, 3, 5] as const).map((value) => <button type="button" key={value} className={stake === value ? "is-active" : ""} onClick={() => setStake(value)} disabled={state.coins < value}><Coins size={18} aria-hidden="true" /><strong>{value}</strong><span>{wordForCount(value, "coin")}</span></button>)}</div><p className="odds-note"><Info size={15} aria-hidden="true" /> Every face is equally likely. Base learning XP is never at risk.</p><button className="primary-button large full" type="button" onClick={roll} disabled={state.coins < stake}><Dices size={19} aria-hidden="true" /> Roll the dice</button></>}
     </ModalFrame>
   );
 }
 
-function ChallengeModal({ state, words, setState, onClose }: { state: LearningState; words: readonly Word[]; setState: React.Dispatch<React.SetStateAction<LearningState>>; onClose: () => void }) {
+function ChallengeModal({ state, words, setState, rewardReplicaId, onClose }: { state: LearningState; words: readonly Word[]; setState: React.Dispatch<React.SetStateAction<LearningState>>; rewardReplicaId: string; onClose: () => void }) {
   const [todayKey] = useState(() => localDateKey());
   const [questions] = useState(() =>
-    words.filter((word) => state.wordProgress[word.id]).slice(0, 5),
+    selectChallengeWords(state, words, todayKey),
   );
   const [rewardEligible] = useState(
     () => state.challenge.lastPlayedDate !== todayKey,
@@ -1855,7 +2861,10 @@ function ChallengeModal({ state, words, setState, onClose }: { state: LearningSt
   const [answerXp, setAnswerXp] = useState(0);
   const [complete, setComplete] = useState(false);
   const answerLocked = useRef(false);
+  const answerResults = useRef<Array<{ wordId: string; rating: Rating }>>([]);
   const current = questions[index];
+  const questionCount = questions.length;
+  const progressDenominator = Math.max(1, questionCount);
   const preloadWords = useMemo(
     () =>
       questions
@@ -1864,56 +2873,107 @@ function ChallengeModal({ state, words, setState, onClose }: { state: LearningSt
     [index, questions],
   );
   const options = useMemo(
-    () => buildOptions(current, questions),
+    () => current ? buildOptions(current, questions) : [],
     [current, questions],
   );
-  const isCorrect = selected === current.id;
+  const isCorrect = Boolean(current) && selected === current.id;
   const dialogRef = useDialogLifecycle(onClose);
+  const questionHeadingRef = useRef<HTMLHeadingElement>(null);
   const completionHeadingRef = useRef<HTMLHeadingElement>(null);
   const challengeCoins = score + Math.max(1, Math.floor(score / 2));
 
   useEffect(() => {
     if (complete) {
       completionHeadingRef.current?.focus({ preventScroll: true });
+    } else {
+      questionHeadingRef.current?.focus({ preventScroll: true });
     }
-  }, [complete]);
+  }, [complete, index]);
 
   function choose(id: string) {
-    if (selected || answerLocked.current) return;
+    if (!current || selected || answerLocked.current) return;
     answerLocked.current = true;
     setSelected(id);
     const correct = id === current.id;
     if (correct) setScore((value) => value + 1);
+    answerResults.current.push({
+      wordId: current.id,
+      rating: correct ? "good" : "again",
+    });
     if (rewardEligible) {
       setAnswerXp((value) => value + (correct ? 10 : 2));
-      setState((progress) => {
-        const rated = rateWord(progress, current.id, correct ? "good" : "again");
-        return applyCollectibles({
-          ...rated,
-          challenge: {
-            ...rated.challenge,
-            lastPlayedDate: todayKey,
-          },
-          updatedAt: new Date().toISOString(),
-        });
-      });
     }
   }
 
   function next() {
-    if (index === questions.length - 1) {
-      const finalScore = score;
+    if (!current) {
+      onClose();
+      return;
+    }
+    if (index === questionCount - 1) {
+      const finalScore = answerResults.current.filter(
+        (answer) => answer.rating === "good",
+      ).length;
+      const finalAnswerXp =
+        finalScore * 10 + (questionCount - finalScore) * 2;
       const bonusXp = finalScore >= 3 ? 35 : 12;
       trackProductEvent(state.settings.analytics, "challenge_completed", {
         correct: finalScore,
-        wordCount: questions.length,
+        wordCount: questionCount,
       });
       setState((progress) => {
         if (!rewardEligible) {
           return { ...progress, challenge: { ...progress.challenge, bestScore: Math.max(progress.challenge.bestScore, finalScore) }, updatedAt: new Date().toISOString() };
         }
-        return applyCollectibles(completeSession({ ...progress, challenge: { lastPlayedDate: todayKey, bestScore: Math.max(progress.challenge.bestScore, finalScore) } }, { id: createId("challenge"), mode: "challenge", words: questions.length, correct: finalScore, xpEarned: bonusXp }));
+        const ratedProgress = answerResults.current.reduce(
+          (nextProgress, answer) =>
+            rateWord(
+              nextProgress,
+              answer.wordId,
+              answer.rating,
+              new Date(),
+              rewardReplicaId,
+              false,
+            ),
+          progress,
+        );
+        const completed = completeSession(
+          {
+            ...ratedProgress,
+            challenge: {
+              lastPlayedDate: todayKey,
+              bestScore: Math.max(
+                ratedProgress.challenge.bestScore,
+                finalScore,
+              ),
+            },
+          },
+          {
+            id: createId("challenge"),
+            mode: "challenge",
+            words: questionCount,
+            correct: finalScore,
+            xpEarned: bonusXp,
+          },
+          new Date(),
+          localDateKey(),
+          rewardReplicaId,
+          false,
+        );
+        return applyCollectibles(
+          applyRewardClaim(
+            completed,
+            `daily:challenge:${todayKey}`,
+            {
+              xpEarned: finalAnswerXp + bonusXp,
+              coinsEarned:
+                finalScore + Math.max(1, Math.floor(finalScore / 2)),
+            },
+            rewardReplicaId,
+          ),
+        );
       });
+      setScore(finalScore);
       setComplete(true);
       return;
     }
@@ -1925,8 +2985,16 @@ function ChallengeModal({ state, words, setState, onClose }: { state: LearningSt
   return (
     <div ref={dialogRef} className="modal-backdrop challenge-backdrop" role="dialog" aria-modal="true" aria-labelledby="challenge-title" tabIndex={-1}>
       <div className="challenge-shell">
-        <header><button className="icon-button inverted" type="button" onClick={onClose} aria-label="Close challenge" data-dialog-initial-focus><X /></button><div><span>Château gate</span><div><i style={{ width: `${(score / questions.length) * 100}%` }} /></div></div><span>{score}/{questions.length}</span></header>
-        {!complete ? <section className="challenge-content" aria-labelledby="challenge-title"><div className="chateau-scene" aria-hidden="true"><div className="moon" /><div className="castle"><span /><span /><span /></div><div className="gate-progress" style={{ "--gate-open": `${Math.min(100, (score / questions.length) * 100)}%` } as CSSProperties} /></div><p className="eyebrow">Question {index + 1} of {questions.length}</p><h2 id="challenge-title">What does <span lang="fr">“{current.french}”</span> mean?</h2><FrenchAudioButton wordId={current.id} text={current.french} enabled={state.settings.sound} onPlay={() => trackProductEvent(state.settings.analytics, "audio_played", { wordId: current.id })} preloadWords={preloadWords} className="challenge-audio"><Volume2 size={18} aria-hidden="true" /> Hear the prompt</FrenchAudioButton><div className="answer-options">{options.map((option) => { const chosen = selected === option.id; const correctOption = selected && option.id === current.id; return <button type="button" key={option.id} onClick={() => choose(option.id)} className={correctOption ? "is-correct" : chosen ? "is-wrong" : ""} disabled={Boolean(selected)}><span>{option.english}</span>{correctOption && <Check aria-hidden="true" />}{chosen && !correctOption && <X aria-hidden="true" />}</button>; })}</div>{selected && <div className={`answer-feedback ${isCorrect ? "correct" : "wrong"}`} role="status"><strong>{isCorrect ? "Bien joué!" : `The answer is “${current.english}.”`}</strong><p>{rewardEligible ? (isCorrect ? "The gate opens a little farther." : "This card will return sooner so it can stick.") : "Practice mode leaves XP and review schedules unchanged."}</p><button className="primary-button" type="button" onClick={next}>{index === questions.length - 1 ? "See result" : "Next question"}<ChevronRight aria-hidden="true" /></button></div>}</section> : <div className="challenge-complete" role="status"><div className="completion-seal"><Trophy aria-hidden="true" /></div><p className="eyebrow">Gate opened</p><h2 ref={completionHeadingRef} id="challenge-title" tabIndex={-1}>{score >= 3 ? "Mission complete." : "A brave first attempt."}</h2><p>{rewardEligible ? `You recalled ${score} of ${questions.length} words. Their review schedules are updated.` : `You recalled ${score} of ${questions.length} words in reward-free practice.`}</p><div><Zap aria-hidden="true" /><strong>{rewardEligible ? `+${answerXp + (score >= 3 ? 35 : 12)} XP · +${formatCount(challengeCoins, "coin")}` : "+0 XP · practice only"}</strong></div><button className="primary-button large" type="button" onClick={onClose}>Return to practice</button></div>}
+        <header><button className="icon-button inverted" type="button" onClick={onClose} aria-label="Close challenge" data-dialog-initial-focus><X /></button><div><span>Château gate</span><div><i style={{ width: `${(score / progressDenominator) * 100}%` }} /></div></div><span>{score}/{questionCount}</span></header>
+        {!current ? (
+          <div className="challenge-complete" role="status">
+            <div className="completion-seal"><BookOpen aria-hidden="true" /></div>
+            <p className="eyebrow">Challenge unavailable</p>
+            <h2 id="challenge-title">No learned cards are ready.</h2>
+            <p>Return to a regional lesson to add current vocabulary before opening the château gate.</p>
+            <button className="primary-button large" type="button" onClick={onClose}>Return to practice</button>
+          </div>
+        ) : !complete ? <section className="challenge-content" aria-labelledby="challenge-title"><div className="chateau-scene" aria-hidden="true"><div className="moon" /><div className="castle"><span /><span /><span /></div><div className="gate-progress" style={{ "--gate-open": `${Math.min(100, (score / progressDenominator) * 100)}%` } as CSSProperties} /></div><p className="eyebrow">Question {index + 1} of {questionCount}</p><h2 ref={questionHeadingRef} id="challenge-title" tabIndex={-1}>What does <span lang="fr">“{current.french}”</span> mean?</h2><FrenchAudioButton courseId={state.activeCourseId} wordId={current.id} text={current.french} enabled={state.settings.sound} onPlay={() => trackProductEvent(state.settings.analytics, "audio_played", { wordId: current.id })} preloadWords={preloadWords} className="challenge-audio">{({ status: audioStatus }) => <>{audioStatus === "error" ? <X size={18} aria-hidden="true" /> : <Volume2 size={18} aria-hidden="true" />} {audioStatus === "error" ? "Audio unavailable — try again" : "Hear the prompt"}</>}</FrenchAudioButton><div className="answer-options">{options.map((option) => { const chosen = selected === option.id; const correctOption = selected && option.id === current.id; return <button type="button" key={option.id} onClick={() => choose(option.id)} className={correctOption ? "is-correct" : chosen ? "is-wrong" : ""} disabled={Boolean(selected)}><span>{option.english}</span>{correctOption && <Check aria-hidden="true" />}{chosen && !correctOption && <X aria-hidden="true" />}</button>; })}</div>{selected && <div className={`answer-feedback ${isCorrect ? "correct" : "wrong"}`} role="status"><strong>{isCorrect ? "Bien joué!" : `The answer is “${current.english}.”`}</strong><p>{rewardEligible ? (isCorrect ? "The gate opens a little farther." : "This card will return sooner so it can stick.") : "Practice mode leaves XP and review schedules unchanged."}</p><button className="primary-button" type="button" onClick={next}>{index === questionCount - 1 ? "See result" : "Next question"}<ChevronRight aria-hidden="true" /></button></div>}</section> : <div className="challenge-complete" role="status"><div className="completion-seal"><Trophy aria-hidden="true" /></div><p className="eyebrow">Gate opened</p><h2 ref={completionHeadingRef} id="challenge-title" tabIndex={-1}>{score >= 3 ? "Mission complete." : "A brave first attempt."}</h2><p>{rewardEligible ? `You recalled ${score} of ${questionCount} words. Their review schedules are updated.` : `You recalled ${score} of ${questionCount} words in reward-free practice.`}</p><div><Zap aria-hidden="true" /><strong>{rewardEligible ? `+${answerXp + (score >= 3 ? 35 : 12)} XP · +${formatCount(challengeCoins, "coin")}` : "+0 XP · practice only"}</strong></div><button className="primary-button large" type="button" onClick={onClose}>Return to practice</button></div>}
       </div>
     </div>
   );
@@ -1948,8 +3016,16 @@ function EmptyState({ icon: Icon, title, copy, action, onAction }: { icon: Lucid
 export function applyUnlocksAndCollectibles(state: LearningState, regionId: string, words: readonly Word[]): LearningState {
   let next = state;
   const regionIndex = REGIONS.findIndex((region) => region.id === regionId);
+  const firstLessonNumber = words
+    .filter((word) => word.regionId === regionId)
+    .reduce<number | null>(
+      (earliest, word) =>
+        earliest === null ? word.lesson : Math.min(earliest, word.lesson),
+      null,
+    );
   const firstLessonWords = words.filter(
-    (word) => word.regionId === regionId && word.lesson === 1,
+    (word) =>
+      word.regionId === regionId && word.lesson === firstLessonNumber,
   );
   const requiredWords = Math.min(REGION_UNLOCK_WORDS, firstLessonWords.length);
   const learnedInFirstLesson = firstLessonWords.filter(
@@ -1966,6 +3042,12 @@ function applyCollectibles(state: LearningState): LearningState {
   const earned = SEED_COLLECTIBLES.filter((item) => state.xp >= item.unlockAtXp).map((item) => item.id);
   if (!earned.some((id) => !state.collectibles.includes(id))) return state;
   return { ...state, collectibles: Array.from(new Set([...state.collectibles, ...earned])) };
+}
+
+function collectibleDescription(item: { id: string; description: string }): string {
+  return item.id === "alpine-badge"
+    ? "Unlocked by reaching 1,600 XP across your learning activities."
+    : item.description;
 }
 
 function buildOptions(word: Word, allWords: readonly Word[]): Word[] {

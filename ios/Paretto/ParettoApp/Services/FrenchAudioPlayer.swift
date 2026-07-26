@@ -2,6 +2,12 @@ import AVFoundation
 import Combine
 import ParettoCore
 
+struct BundledAudioResource: Equatable {
+    let name: String
+    let fileExtension: String
+    let subdirectory: String
+}
+
 @MainActor
 final class FrenchAudioPlayer: NSObject, ObservableObject, AVAudioPlayerDelegate, AVSpeechSynthesizerDelegate {
     @Published private(set) var playingWordID: String?
@@ -13,10 +19,10 @@ final class FrenchAudioPlayer: NSObject, ObservableObject, AVAudioPlayerDelegate
         synthesizer.delegate = self
     }
 
-    func play(_ word: FrenchWord, enabled: Bool) {
+    func play(_ word: FrenchWord, course: CourseMetadata, enabled: Bool) {
         guard enabled else { return }
         stop()
-        if let url = bundledURL(for: word),
+        if let url = bundledURL(for: word, course: course),
            let player = try? AVAudioPlayer(contentsOf: url) {
             self.player = player
             player.delegate = self
@@ -26,7 +32,7 @@ final class FrenchAudioPlayer: NSObject, ObservableObject, AVAudioPlayerDelegate
             self.player = nil
         }
         let utterance = AVSpeechUtterance(string: word.french)
-        utterance.voice = AVSpeechSynthesisVoice(language: "fr-FR")
+        utterance.voice = AVSpeechSynthesisVoice(language: course.audioLocale)
         utterance.rate = 0.42
         synthesizer.speak(utterance)
         playingWordID = word.id
@@ -60,25 +66,54 @@ final class FrenchAudioPlayer: NSObject, ObservableObject, AVAudioPlayerDelegate
         Task { @MainActor [weak self] in self?.playingWordID = nil }
     }
 
-    private func bundledURL(for word: FrenchWord) -> URL? {
-        if let path = word.audioPath {
-            let normalized = path
-                .replacingOccurrences(of: "/audio/fr/", with: "")
-                .replacingOccurrences(of: ".wav", with: "")
-            let components = normalized.split(separator: "/").map(String.init)
-            if let filename = components.last {
-                let subdirectory = components.dropLast().joined(separator: "/")
-                if let url = Bundle.main.url(
-                    forResource: filename,
-                    withExtension: "wav",
-                    subdirectory: "FrenchAudio/\(subdirectory)"
-                ) { return url }
-            }
+    private func bundledURL(for word: FrenchWord, course: CourseMetadata) -> URL? {
+        guard let resource = Self.bundledResource(for: word, course: course) else {
+            return nil
         }
         return Bundle.main.url(
-            forResource: word.id,
-            withExtension: "wav",
-            subdirectory: "FrenchAudio/v1"
+            forResource: resource.name,
+            withExtension: resource.fileExtension,
+            subdirectory: resource.subdirectory
+        )
+    }
+
+    nonisolated static func bundledResource(
+        for word: FrenchWord,
+        course: CourseMetadata
+    ) -> BundledAudioResource? {
+        let assetPrefix = course.audioAssetPrefix
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+            .trimmingCharacters(in: CharacterSet(charactersIn: "/"))
+        guard let bundleDirectory = assetPrefix.split(separator: "/").last else {
+            return nil
+        }
+
+        guard let path = word.audioPath else {
+            return BundledAudioResource(
+                name: word.id,
+                fileExtension: "wav",
+                subdirectory: "\(bundleDirectory)/v1"
+            )
+        }
+        let expectedPrefix = "/\(assetPrefix)/"
+        guard path.hasPrefix(expectedPrefix), path.hasSuffix(".wav") else {
+            return nil
+        }
+        let relativePath = path.dropFirst(expectedPrefix.count)
+        let components = relativePath.split(separator: "/")
+        guard
+            components.count >= 2,
+            components.allSatisfy({ $0 != "." && $0 != ".." }),
+            let file = components.last
+        else { return nil }
+
+        let filename = file.dropLast(".wav".count)
+        guard !filename.isEmpty else { return nil }
+        let nestedDirectory = components.dropLast().joined(separator: "/")
+        return BundledAudioResource(
+            name: String(filename),
+            fileExtension: "wav",
+            subdirectory: "\(bundleDirectory)/\(nestedDirectory)"
         )
     }
 }

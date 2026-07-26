@@ -2,6 +2,7 @@ import { apiError, isRecord, logApiError } from "@/app/api/_lib/api-utils";
 import {
   encryptAppleRefreshToken,
   exchangeAppleAuthorizationCode,
+  revokeAppleRefreshToken,
   type AppleOAuthConfiguration,
   validAppleOAuthConfiguration,
 } from "@/app/api/native/_lib/apple-oauth";
@@ -15,8 +16,11 @@ const APPLE_KEY_CACHE_MS = 60 * 60 * 1000;
 const APPLE_UNKNOWN_KEY_REFRESH_MS = 5 * 60 * 1000;
 
 export type NativeAccountDeletionConfiguration = AppleOAuthConfiguration & {
-  sessionSecret: string;
   tokenEncryptionSecret: string;
+};
+
+type NativeSignInConfiguration = NativeAccountDeletionConfiguration & {
+  sessionSecret: string;
 };
 
 type AppleClaims = {
@@ -26,9 +30,16 @@ type AppleClaims = {
 
 type NativeSessionRow = {
   account_id: string;
+  learner_user_id: string | null;
   email: string | null;
   display_name: string | null;
   expires_at: number;
+  created_at: number;
+};
+
+type NativeAccountScopeRow = {
+  learner_user_id: string | null;
+  created_at: number;
 };
 
 type AppleJwk = JsonWebKey & { kid: string; kty: "RSA" };
@@ -48,6 +59,8 @@ export async function exchangeAppleIdentity(
       accessToken: string;
       expiresAt: Date;
       displayName: string | null;
+      syncScope: "nativeOnly" | "unified";
+      accountScope: string;
     }
   | { ok: false; response: Response }
 > {
@@ -58,7 +71,7 @@ export async function exchangeAppleIdentity(
     };
   }
   try {
-    const configuration = await nativeAccountDeletionConfiguration();
+    const configuration = await nativeSignInConfiguration();
     if (!configuration) {
       return {
         ok: false,
@@ -123,6 +136,8 @@ export async function exchangeAppleIdentity(
     const identityTokenHash = await sha256Hex(identityToken);
     const exchangeId = crypto.randomUUID();
     const sessionId = crypto.randomUUID();
+    const learnerUserId = crypto.randomUUID();
+    const learnerProviderAccountId = crypto.randomUUID();
     const expiresAt = now + SESSION_LIFETIME_MS;
     const normalizedName = normalizeDisplayName(displayName);
     const encryptedRefreshToken = await encryptAppleRefreshToken(
@@ -150,6 +165,10 @@ export async function exchangeAppleIdentity(
              SELECT 1 FROM native_identity_token_uses
              WHERE token_hash = ? AND exchange_id = ?
            )
+             AND NOT EXISTS (
+               SELECT 1 FROM learner_deletion_jobs
+               WHERE native_account_id = ?
+             )
            ON CONFLICT(apple_subject_hash) DO UPDATE SET
              email = COALESCE(excluded.email, native_accounts.email),
              display_name = COALESCE(excluded.display_name, native_accounts.display_name),
@@ -164,6 +183,7 @@ export async function exchangeAppleIdentity(
           now,
           identityTokenHash,
           exchangeId,
+          accountId,
         ),
       database
         .prepare(
@@ -175,6 +195,10 @@ export async function exchangeAppleIdentity(
              SELECT 1 FROM native_identity_token_uses
              WHERE token_hash = ? AND exchange_id = ?
            )
+             AND NOT EXISTS (
+               SELECT 1 FROM learner_deletion_jobs
+               WHERE native_account_id = ?
+             )
            ON CONFLICT(account_id) DO UPDATE SET
              refresh_token_ciphertext = excluded.refresh_token_ciphertext,
              updated_at = excluded.updated_at`,
@@ -185,6 +209,7 @@ export async function exchangeAppleIdentity(
           now,
           identityTokenHash,
           exchangeId,
+          accountId,
         ),
       database
         .prepare(
@@ -195,7 +220,11 @@ export async function exchangeAppleIdentity(
            WHERE EXISTS (
              SELECT 1 FROM native_identity_token_uses
              WHERE token_hash = ? AND exchange_id = ?
-           )`,
+           )
+             AND NOT EXISTS (
+               SELECT 1 FROM learner_deletion_jobs
+               WHERE native_account_id = ?
+             )`,
         )
         .bind(
           sessionHash,
@@ -205,14 +234,155 @@ export async function exchangeAppleIdentity(
           now,
           identityTokenHash,
           exchangeId,
+          accountId,
+        ),
+      database
+        .prepare(
+          `INSERT OR IGNORE INTO learner_user (
+             id, name, email, email_verified, image, created_at, updated_at
+           )
+           SELECT ?, ?, ?, 1, NULL, ?, ?
+           WHERE ? IS NOT NULL
+             AND NOT EXISTS (
+               SELECT 1 FROM learner_account
+               WHERE provider_id = 'apple' AND account_id = ?
+             )
+             AND NOT EXISTS (
+               SELECT 1 FROM learner_user WHERE email = ?
+             )
+             AND EXISTS (
+               SELECT 1 FROM native_identity_token_uses
+               WHERE token_hash = ? AND exchange_id = ?
+             )
+             AND NOT EXISTS (
+               SELECT 1 FROM learner_deletion_jobs
+               WHERE native_account_id = ?
+             )`,
+        )
+        .bind(
+          learnerUserId,
+          normalizedName ?? "Traveler",
+          claims.email,
+          now,
+          now,
+          claims.email,
+          claims.subject,
+          claims.email,
+          identityTokenHash,
+          exchangeId,
+          accountId,
+        ),
+      database
+        .prepare(
+          `INSERT OR IGNORE INTO learner_account (
+             id, account_id, provider_id, user_id,
+             access_token, refresh_token, id_token,
+             access_token_expires_at, refresh_token_expires_at,
+             scope, password, created_at, updated_at
+           )
+           SELECT ?, ?, 'apple', learner_user.id,
+                  NULL, NULL, NULL, NULL, NULL, NULL, NULL, ?, ?
+           FROM learner_user
+           WHERE learner_user.id = ?
+             AND NOT EXISTS (
+               SELECT 1 FROM learner_account
+               WHERE provider_id = 'apple' AND account_id = ?
+             )
+             AND EXISTS (
+               SELECT 1 FROM native_identity_token_uses
+               WHERE token_hash = ? AND exchange_id = ?
+             )
+             AND NOT EXISTS (
+               SELECT 1 FROM learner_deletion_jobs
+               WHERE native_account_id = ?
+             )`,
+        )
+        .bind(
+          learnerProviderAccountId,
+          claims.subject,
+          now,
+          now,
+          learnerUserId,
+          claims.subject,
+          identityTokenHash,
+          exchangeId,
+          accountId,
+        ),
+      database
+        .prepare(
+          `INSERT OR IGNORE INTO native_learner_links (
+             native_account_id, learner_user_id, linked_at
+           )
+           SELECT ?, learner_account.user_id, ?
+           FROM learner_account
+           WHERE learner_account.provider_id = 'apple'
+             AND learner_account.account_id = ?
+             AND EXISTS (
+               SELECT 1 FROM native_identity_token_uses
+               WHERE token_hash = ? AND exchange_id = ?
+             )
+             AND NOT EXISTS (
+               SELECT 1 FROM learner_deletion_jobs
+               WHERE native_account_id = ?
+             )`,
+        )
+        .bind(
+          accountId,
+          now,
+          claims.subject,
+          identityTokenHash,
+          exchangeId,
+          accountId,
         ),
     ]);
 
     if (Number(results[3]?.meta.changes ?? 0) !== 1) {
+      const deletion = await database
+        .prepare(
+          `SELECT user_id FROM learner_deletion_jobs
+           WHERE native_account_id = ?`,
+        )
+        .bind(accountId)
+        .first<{ user_id: string }>();
+      if (deletion) {
+        const revocation = await revokeAppleRefreshToken(
+          appleExchange.value.refreshToken,
+          configuration,
+        );
+        if (!revocation.ok) {
+          logApiError(
+            "native_sign_in_during_deletion_revocation_failed",
+            new Error(
+              `Apple returned ${revocation.reason} while account deletion was active`,
+            ),
+          );
+        }
+        return {
+          ok: false,
+          response: apiError(
+            409,
+            "Account deletion is already in progress.",
+            "ACCOUNT_DELETION_IN_PROGRESS",
+          ),
+        };
+      }
       return {
         ok: false,
         response: apiError(401, "This Apple sign-in response was already used."),
       };
+    }
+    const accountScopeRow = await database
+      .prepare(
+        `SELECT accounts.created_at, links.learner_user_id
+         FROM native_accounts AS accounts
+         LEFT JOIN native_learner_links AS links
+           ON links.native_account_id = accounts.id
+         WHERE accounts.id = ?`,
+      )
+      .bind(accountId)
+      .first<NativeAccountScopeRow>();
+    if (!accountScopeRow) {
+      throw new Error("Native account scope could not be established.");
     }
 
     return {
@@ -220,6 +390,12 @@ export async function exchangeAppleIdentity(
       accessToken,
       expiresAt: new Date(expiresAt),
       displayName: normalizedName,
+      syncScope: accountScopeRow.learner_user_id ? "unified" : "nativeOnly",
+      accountScope: await nativeProgressAccountScope(
+        configuration.sessionSecret,
+        accountId,
+        accountScopeRow.created_at,
+      ),
     };
   } catch (error) {
     logApiError("native_apple_exchange_failed", error);
@@ -232,17 +408,23 @@ export async function exchangeAppleIdentity(
 
 export async function requireNativeSession(
   request: Request,
+  options: { allowDisabledForDeletion?: boolean } = {},
 ): Promise<
   | {
       ok: true;
       accountId: string;
       email: string | null;
       displayName: string | null;
+      learnerUserId: string | null;
       sessionTokenHash: string;
+      accountScope: string;
     }
   | { ok: false; response: Response }
 > {
-  if (!(await nativeApiEnabled())) {
+  if (
+    !options.allowDisabledForDeletion &&
+    !(await nativeApiEnabled())
+  ) {
     return {
       ok: false,
       response: apiError(503, "Native API access is not enabled."),
@@ -254,7 +436,9 @@ export async function requireNativeSession(
     return { ok: false, response: apiError(401, "A native session is required.") };
   }
   try {
-    const configuration = await nativeSessionConfiguration();
+    const configuration = await nativeSessionConfiguration(
+      options.allowDisabledForDeletion,
+    );
     if (!configuration) {
       return {
         ok: false,
@@ -268,12 +452,22 @@ export async function requireNativeSession(
     const row = await (await getDatabase())
       .prepare(
         `SELECT sessions.account_id, sessions.expires_at,
-                accounts.email, accounts.display_name
+                accounts.email, accounts.display_name,
+                accounts.created_at, links.learner_user_id
          FROM native_sessions AS sessions
          INNER JOIN native_accounts AS accounts ON accounts.id = sessions.account_id
+         LEFT JOIN native_learner_links AS links
+           ON links.native_account_id = sessions.account_id
          WHERE sessions.token_hash = ?
            AND sessions.revoked_at IS NULL
-           AND sessions.expires_at > ?`,
+           AND sessions.expires_at > ?
+           AND NOT EXISTS (
+             SELECT 1 FROM learner_deletion_jobs AS deletion
+             WHERE (
+                 deletion.native_account_id = sessions.account_id OR
+                 deletion.user_id = links.learner_user_id
+               )
+           )`,
       )
       .bind(tokenHash, Date.now())
       .first<NativeSessionRow>();
@@ -285,7 +479,13 @@ export async function requireNativeSession(
       accountId: row.account_id,
       email: row.email,
       displayName: row.display_name,
+      learnerUserId: row.learner_user_id ?? null,
       sessionTokenHash: tokenHash,
+      accountScope: await nativeProgressAccountScope(
+        configuration.sessionSecret,
+        row.account_id,
+        row.created_at,
+      ),
     };
   } catch (error) {
     logApiError("native_session_lookup_failed", error);
@@ -443,15 +643,12 @@ export async function nativeAccountDeletionConfiguration(): Promise<
 > {
   const { env } = await import("cloudflare:workers");
   const bindings = env as unknown as {
-    NATIVE_API_ENABLED?: unknown;
     APPLE_CLIENT_ID?: unknown;
     APPLE_TEAM_ID?: unknown;
     APPLE_KEY_ID?: unknown;
     APPLE_PRIVATE_KEY?: unknown;
     APPLE_TOKEN_ENCRYPTION_SECRET?: unknown;
-    NATIVE_SESSION_SECRET?: unknown;
   };
-  if (bindings.NATIVE_API_ENABLED !== "true") return null;
   const apple = {
     clientId: bindings.APPLE_CLIENT_ID,
     teamId: bindings.APPLE_TEAM_ID,
@@ -459,19 +656,30 @@ export async function nativeAccountDeletionConfiguration(): Promise<
     privateKey: bindings.APPLE_PRIVATE_KEY,
   };
   return validAppleOAuthConfiguration(apple) &&
-    typeof bindings.NATIVE_SESSION_SECRET === "string" &&
-    bindings.NATIVE_SESSION_SECRET.length >= 32 &&
     typeof bindings.APPLE_TOKEN_ENCRYPTION_SECRET === "string" &&
     bindings.APPLE_TOKEN_ENCRYPTION_SECRET.length >= 32
     ? {
         ...apple,
-        sessionSecret: bindings.NATIVE_SESSION_SECRET,
         tokenEncryptionSecret: bindings.APPLE_TOKEN_ENCRYPTION_SECRET,
       }
     : null;
 }
 
-async function nativeSessionConfiguration(): Promise<{
+async function nativeSignInConfiguration(): Promise<NativeSignInConfiguration | null> {
+  const deletion = await nativeAccountDeletionConfiguration();
+  if (!deletion) return null;
+  const { env } = await import("cloudflare:workers");
+  const sessionSecret = (
+    env as unknown as { NATIVE_SESSION_SECRET?: unknown }
+  ).NATIVE_SESSION_SECRET;
+  return typeof sessionSecret === "string" && sessionSecret.length >= 32
+    ? { ...deletion, sessionSecret }
+    : null;
+}
+
+async function nativeSessionConfiguration(
+  allowDisabled = false,
+): Promise<{
   sessionSecret: string;
 } | null> {
   const { env } = await import("cloudflare:workers");
@@ -479,7 +687,7 @@ async function nativeSessionConfiguration(): Promise<{
     NATIVE_API_ENABLED?: unknown;
     NATIVE_SESSION_SECRET?: unknown;
   };
-  return bindings.NATIVE_API_ENABLED === "true" &&
+  return (allowDisabled || bindings.NATIVE_API_ENABLED === "true") &&
     typeof bindings.NATIVE_SESSION_SECRET === "string" &&
     bindings.NATIVE_SESSION_SECRET.length >= 32
     ? { sessionSecret: bindings.NATIVE_SESSION_SECRET }
@@ -522,6 +730,28 @@ function arrayBufferCopy(bytes: Uint8Array): ArrayBuffer {
 function randomToken(): string {
   const bytes = crypto.getRandomValues(new Uint8Array(32));
   return base64Url(bytes);
+}
+
+async function nativeProgressAccountScope(
+  sessionSecret: string,
+  accountId: string,
+  createdAt: number,
+): Promise<string> {
+  if (
+    accountId.length < 1 ||
+    accountId.length > 255 ||
+    !Number.isSafeInteger(createdAt) ||
+    createdAt < 0
+  ) {
+    throw new Error("Native account scope source is invalid.");
+  }
+  // `accountId` identifies the Apple subject while `createdAt` identifies this
+  // particular account incarnation. Deleting and recreating the same Apple
+  // account therefore produces a different opaque local-storage scope.
+  return hmacHex(
+    sessionSecret,
+    `native-progress-scope:v1:${accountId}:${createdAt}`,
+  );
 }
 
 async function hmacHex(secret: string, value: string): Promise<string> {

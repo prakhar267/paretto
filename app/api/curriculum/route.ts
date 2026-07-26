@@ -1,12 +1,35 @@
 import { getPublishedCurriculum } from "@/app/published-curriculum.server";
+import { DEFAULT_COURSE_ID } from "@/app/course-catalog";
+import { parsePublishedCourseId } from "@/app/api/_lib/content-validation";
 
 export const dynamic = "force-dynamic";
 
 export async function GET(request: Request) {
-  const curriculum = await getPublishedCurriculum();
+  const url = new URL(request.url);
+  const rawCourseId = url.searchParams.get("courseId");
+  const courseId =
+    rawCourseId === null
+      ? DEFAULT_COURSE_ID
+      : parsePublishedCourseId(rawCourseId);
+  if (!courseId) {
+    return Response.json(
+      { error: "Invalid or unpublished course." },
+      {
+        status: 400,
+        headers: {
+          "cache-control": "public, max-age=300",
+          "x-content-type-options": "nosniff",
+        },
+      },
+    );
+  }
+  const curriculum = await getPublishedCurriculum(courseId);
   const payload = JSON.stringify({ schemaVersion: 1, ...curriculum });
   const etag = `"${await sha256(payload)}"`;
-  const headers = responseHeaders(etag, curriculum.source === "cms");
+  const headers = responseHeaders(
+    etag,
+    curriculum.source !== "compiled-fallback",
+  );
 
   if (request.headers.get("if-none-match") === etag) {
     return new Response(null, { status: 304, headers });
