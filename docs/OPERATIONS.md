@@ -71,7 +71,12 @@ authentication launch.
    in Chromium, Firefox, and WebKit against the built Worker, migrated local D1,
    and local HTTPS; and the native Swift package and unsigned iOS Simulator jobs
    must pass on macOS as well. Attach the CI run to the release evidence; do not
-   substitute a result from an uncommitted working tree.
+   substitute a result from an uncommitted working tree. The hosted Linux
+   browser gate may repeat the complete isolated Playwright invocation once only
+   when its output contains the exact unexpected-Wrangler-exit marker. It must
+   not retry an assertion or product failure, and a second failure remains
+   blocking. Retain the sanitized per-browser Wrangler diagnostics with the
+   Playwright evidence so a runtime retry is visible and reviewable.
 3. Inspect the generated SQL migration. Apply it to a staging database before
    production whenever the hosting surface supports staging.
    A new environment requires every entry in `drizzle/meta/_journal.json`, in
