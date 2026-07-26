@@ -28,6 +28,7 @@ describe("release engineering contracts", () => {
       ]);
 
     expect(packageSource).toContain('"test:e2e"');
+    expect(packageSource).toContain('"test:e2e:gate"');
     expect(packageSource).not.toMatch(/"test":\s*"[^"]*test:e2e/);
     expect(packageSource).toContain('"build": "vinext build"');
     expect(packageSource).not.toMatch(
@@ -126,6 +127,17 @@ describe("release engineering contracts", () => {
     expect(browserJob).not.toContain(
       "PLAYWRIGHT_SKIP_SEEDED_ACCOUNT_JOURNEY",
     );
+    expect(browserJob).toContain(
+      'npm run test:e2e:gate -- --project="${{ matrix.browser }}"',
+    );
+    expect(browserJob).toContain("WRANGLER_LOG: debug");
+    expect(browserJob).toContain(
+      "WRANGLER_LOG_PATH: ${{ runner.temp }}/wrangler-logs/${{ matrix.browser }}",
+    );
+    expect(browserJob).toContain('WRANGLER_LOG_SANITIZE: "true"');
+    expect(browserJob).toContain(
+      "${{ runner.temp }}/wrangler-logs/${{ matrix.browser }}/",
+    );
     expect(windowsJob).toContain(
       'PLAYWRIGHT_SKIP_SEEDED_ACCOUNT_JOURNEY: "true"',
     );
@@ -141,6 +153,7 @@ describe("release engineering contracts", () => {
     expect(workflow).toContain(
       "npm run test:e2e -- --project=chromium",
     );
+    expect(windowsJob).not.toContain("test:e2e:gate");
     expect(workflow).toContain(
       "It is not evidence for Windows 11, Microsoft Edge, high",
     );
@@ -189,7 +202,7 @@ describe("release engineering contracts", () => {
       /needs:\s*\n\s+- release-policy\s*\n\s+- browser-gate/,
     );
     expect(deploymentWorkflow).toContain(
-      'npm run test:e2e -- --project="${{ matrix.browser }}"',
+      'npm run test:e2e:gate -- --project="${{ matrix.browser }}"',
     );
     expect(deploymentWorkflow).toContain("Run mandatory read-only smoke tests");
     expect(deploymentWorkflow).toContain("npm run smoke:deployment");
@@ -232,6 +245,14 @@ describe("release engineering contracts", () => {
     expect(deployJobStart).toBeGreaterThan(browserJobStart);
     expect(browserJob).not.toContain("${{ secrets.");
     expect(browserJob).not.toContain("\n    environment:");
+    expect(browserJob).toContain("WRANGLER_LOG: debug");
+    expect(browserJob).toContain(
+      "WRANGLER_LOG_PATH: ${{ runner.temp }}/wrangler-logs/${{ matrix.browser }}",
+    );
+    expect(browserJob).toContain('WRANGLER_LOG_SANITIZE: "true"');
+    expect(browserJob).toContain(
+      "${{ runner.temp }}/wrangler-logs/${{ matrix.browser }}/",
+    );
     const jobEnvironmentStart = deploymentWorkflow.indexOf(
       "\n    env:",
       deployJobStart,

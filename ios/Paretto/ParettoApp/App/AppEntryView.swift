@@ -68,6 +68,8 @@ struct SignInView: View {
                             .font(.title3)
                             .foregroundStyle(.secondary)
                             .multilineTextAlignment(.center)
+                            .fixedSize(horizontal: false, vertical: true)
+                            .accessibilityIdentifier("sign-in-tagline")
                     }
 
                     SecureAppleSignInButton()

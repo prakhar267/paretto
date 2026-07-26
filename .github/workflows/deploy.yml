@@ -109,7 +109,11 @@ jobs:
         run: npx playwright install --with-deps "${{ matrix.browser }}"
 
       - name: Run critical browser journeys against the isolated Worker
-        run: npm run test:e2e -- --project="${{ matrix.browser }}"
+        env:
+          WRANGLER_LOG: debug
+          WRANGLER_LOG_PATH: ${{ runner.temp }}/wrangler-logs/${{ matrix.browser }}
+          WRANGLER_LOG_SANITIZE: "true"
+        run: npm run test:e2e:gate -- --project="${{ matrix.browser }}"
 
       - name: Preserve pre-deploy browser evidence and failure traces
         if: ${{ !cancelled() }}
@@ -119,6 +123,7 @@ jobs:
           path: |
             playwright-report/
             test-results/playwright/
+            ${{ runner.temp }}/wrangler-logs/${{ matrix.browser }}/
           if-no-files-found: warn
           retention-days: 14
 

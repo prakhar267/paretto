@@ -37,7 +37,10 @@ export function prepareWebRequest(
     }
   }
 
-  if (!LEARNER_SESSION_PATHS.has(url.pathname)) {
+  if (
+    !LEARNER_SESSION_PATHS.has(url.pathname) &&
+    !isDocumentNavigation(request)
+  ) {
     return {
       request: new Request(request, { headers }),
       setCookie: null,
@@ -97,6 +100,14 @@ export function appendSetCookie(response: Response, cookie: string | null): Resp
   if (!cookie) return response;
   const headers = new Headers(response.headers);
   headers.append("set-cookie", cookie);
+  // A response that establishes a learner identity must never be stored by a
+  // browser or shared cache, even when the underlying route was otherwise
+  // cacheable (for example, an unknown document response).
+  headers.set("cache-control", "private, no-store, max-age=0");
+  headers.delete("cdn-cache-control");
+  headers.delete("cloudflare-cdn-cache-control");
+  headers.delete("surrogate-control");
+  headers.delete("expires");
   return new Response(response.body, {
     status: response.status,
     statusText: response.statusText,
@@ -146,6 +157,32 @@ function isProductionCookieContext(url: URL): boolean {
     url.hostname !== "localhost" &&
     url.hostname !== "127.0.0.1"
   );
+}
+
+/**
+ * Establish the anonymous browser profile on every first-party document
+ * response, including a not-found page. Otherwise a first visit to an
+ * identity-free route can start multiple Vinext navigation requests before
+ * any session cookie exists; each request may mint a different profile and
+ * leave the rendered progress scope out of sync with the browser cookie.
+ */
+function isDocumentNavigation(request: Request): boolean {
+  const url = new URL(request.url);
+  if (
+    request.method.toUpperCase() !== "GET" ||
+    url.pathname.startsWith("/api/")
+  ) {
+    return false;
+  }
+  const destination = request.headers.get("sec-fetch-dest");
+  if (destination && destination !== "document") return false;
+
+  return (request.headers.get("accept") ?? "")
+    .split(",")
+    .some(
+      (value) =>
+        value.trim().split(";", 1)[0]?.toLowerCase() === "text/html",
+    );
 }
 
 function readUniqueCookie(

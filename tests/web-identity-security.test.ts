@@ -13,6 +13,7 @@ import {
   verifySupportTurnstile,
 } from "../app/turnstile";
 import {
+  appendSetCookie,
   prepareWebRequest,
   rejectUnsafeCrossOriginWebApiRequest,
   rotateLearnerSessionCookie,
@@ -99,6 +100,94 @@ describe("direct web identity security", () => {
       expect(unrelated.request.headers.get("cookie")).toBeNull();
       expect(unrelated.setCookie).toBeNull();
     }
+  });
+
+  it("establishes one profile on an unknown document before client navigation can prefetch", () => {
+    const document = prepareWebRequest(
+      new Request("https://learn.example/this-route-does-not-exist", {
+        headers: {
+          accept: "text/html,application/xhtml+xml",
+          "sec-fetch-dest": "document",
+        },
+      }),
+      () => Uint8Array.from({ length: 32 }, (_, index) => index + 1),
+    );
+    const browserCookie = document.setCookie?.split(";", 1)[0];
+
+    expect(browserCookie).toMatch(
+      /^__Host-learner-session=[A-Za-z0-9_-]{43}$/,
+    );
+    expect(document.request.headers.get("cookie")).toBe(browserCookie);
+
+    const navigation = prepareWebRequest(
+      new Request("https://learn.example/.rsc?_rsc=route-payload", {
+        headers: { cookie: browserCookie! },
+      }),
+      () => Uint8Array.from({ length: 32 }, () => 255),
+    );
+
+    expect(navigation.request.headers.get("cookie")).toBe(browserCookie);
+    expect(navigation.setCookie).toBeNull();
+
+    const nonDocumentFetch = prepareWebRequest(
+      new Request("https://learn.example/unrelated-resource", {
+        headers: {
+          accept: "text/html",
+          "sec-fetch-dest": "empty",
+        },
+      }),
+    );
+    expect(nonDocumentFetch.request.headers.get("cookie")).toBeNull();
+    expect(nonDocumentFetch.setCookie).toBeNull();
+
+    const apiDocument = prepareWebRequest(
+      new Request("https://learn.example/api/health", {
+        headers: {
+          accept: "text/html",
+          "sec-fetch-dest": "document",
+        },
+      }),
+    );
+    expect(apiDocument.request.headers.get("cookie")).toBeNull();
+    expect(apiDocument.setCookie).toBeNull();
+  });
+
+  it("makes every learner-cookie response explicitly private and non-cacheable", async () => {
+    const response = appendSetCookie(
+      new Response("Not found", {
+        status: 404,
+        headers: {
+          "cache-control": "public, max-age=600",
+          "cdn-cache-control": "public, s-maxage=600",
+          "cloudflare-cdn-cache-control": "public, s-maxage=600",
+          expires: "Sun, 26 Jul 2026 17:00:00 GMT",
+          "surrogate-control": "max-age=600",
+        },
+      }),
+      "__Host-learner-session=session-token; Path=/; HttpOnly; Secure",
+    );
+
+    expect(response.status).toBe(404);
+    await expect(response.text()).resolves.toBe("Not found");
+    expect(response.headers.get("set-cookie")).toContain(
+      "__Host-learner-session=session-token",
+    );
+    expect(response.headers.get("cache-control")).toBe(
+      "private, no-store, max-age=0",
+    );
+    expect(response.headers.get("cdn-cache-control")).toBeNull();
+    expect(response.headers.get("cloudflare-cdn-cache-control")).toBeNull();
+    expect(response.headers.get("surrogate-control")).toBeNull();
+    expect(response.headers.get("expires")).toBeNull();
+
+    const publicResponse = new Response("Public", {
+      headers: { "cache-control": "public, max-age=300" },
+    });
+    const unchanged = appendSetCookie(publicResponse, null);
+    expect(unchanged).toBe(publicResponse);
+    expect(unchanged.headers.get("cache-control")).toBe(
+      "public, max-age=300",
+    );
   });
 
   it("rejects unsafe cross-origin web mutations but leaves native bearer APIs alone", () => {
