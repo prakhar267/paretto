@@ -1,22 +1,36 @@
 #!/usr/bin/env node
 
-import { spawn, spawnSync } from "node:child_process";
-import { mkdir, readFile, rm } from "node:fs/promises";
+import { spawnSync } from "node:child_process";
+import {
+  appendFileSync,
+  rmSync,
+} from "node:fs";
+import {
+  appendFile,
+  mkdir,
+  readFile,
+  readdir,
+  rm,
+} from "node:fs/promises";
 import {
   Agent as HttpAgent,
   request as requestHttp,
 } from "node:http";
 import { createServer as createHttpsServer } from "node:https";
-import { resolve } from "node:path";
+import {
+  dirname,
+  relative,
+  resolve,
+  sep,
+} from "node:path";
+import {
+  Log,
+  LogLevel,
+  Miniflare,
+} from "miniflare";
+import { unstable_getMiniflareWorkerOptions } from "wrangler";
 
 const root = resolve(import.meta.dirname, "..");
-const wrangler = resolve(
-  root,
-  "node_modules",
-  "wrangler",
-  "bin",
-  "wrangler.js",
-);
 const wranglerArguments = process.argv.slice(2);
 const externalPort = requiredNumberArgument(wranglerArguments, "--port");
 const protocol = requiredStringArgument(
@@ -26,53 +40,15 @@ const protocol = requiredStringArgument(
 
 if (protocol !== "https") {
   throw new Error(
-    "The browser acceptance runtime must keep an HTTPS external origin.",
+    "The browser acceptance runtime must keep an HTTPS origin.",
   );
 }
 
-// Wrangler's local TLS listener can terminate when a hosted browser follows an
-// incorrectly forwarded HTTP asset URL back to the secure port. On Unix CI
-// runners, terminate disposable browser TLS in Node and keep Wrangler on an
-// internal HTTP port. The explicit upstream and forwarding headers preserve
-// the canonical HTTPS Worker URL, secure cookies, and same-origin checks.
-if (process.platform === "win32") {
-  runDirectly(wranglerArguments);
-} else {
-  await runBehindTlsBoundary(wranglerArguments, externalPort);
-}
+await runAcceptanceRuntime(wranglerArguments, externalPort);
 
-function runDirectly(arguments_) {
-  const child = spawn(process.execPath, [wrangler, "dev", ...arguments_], {
-    cwd: root,
-    env: process.env,
-    stdio: "inherit",
-  });
-  forwardTermination(child);
-}
-
-async function runBehindTlsBoundary(arguments_, publicPort) {
+async function runAcceptanceRuntime(arguments_, publicPort) {
+  const runtimeEvidence = await createRuntimeEvidenceLogger();
   const backendPort = publicPort + 1;
-  const backendArguments = upsertArgument(
-    upsertArgument(
-      upsertArgument(
-        replaceArgument(
-          replaceArgument(
-            arguments_,
-            "--port",
-            String(backendPort),
-          ),
-          "--local-protocol",
-          "http",
-        ),
-        "--local-upstream",
-        `localhost:${publicPort}`,
-      ),
-      "--upstream-protocol",
-      "https",
-    ),
-    "--ip",
-    "localhost",
-  );
   const certificateDirectory = resolve(
     root,
     "test-results",
@@ -84,29 +60,21 @@ async function runBehindTlsBoundary(arguments_, publicPort) {
     "localhost-cert.pem",
   );
 
-  await rm(certificateDirectory, { recursive: true, force: true });
-  await mkdir(certificateDirectory, { recursive: true });
-  generateCertificate(keyPath, certificatePath);
-
-  const child = spawn(
-    process.execPath,
-    [wrangler, "dev", ...backendArguments],
-    {
-      cwd: root,
-      env: process.env,
-      stdio: "inherit",
-    },
-  );
+  let worker;
+  let server;
+  let shuttingDown = false;
   const upstreamAgent = new HttpAgent({
     keepAlive: true,
     maxSockets: 16,
   });
-  let server;
-  let shuttingDown = false;
 
-  const shutdown = async (signal, exitCode = 0) => {
+  const shutdown = async (reason, exitCode = 0) => {
     if (shuttingDown) return;
     shuttingDown = true;
+    runtimeEvidence.writeSync("shutdown-started", {
+      exitCode,
+      reason,
+    });
     upstreamAgent.destroy();
     if (server) {
       await new Promise((resolveClose) => {
@@ -114,43 +82,74 @@ async function runBehindTlsBoundary(arguments_, publicPort) {
         server.closeAllConnections();
       });
     }
-    if (child.exitCode === null && child.signalCode === null) {
-      child.kill(signal);
-      if (!(await waitForChildExit(child, 2_000))) {
-        child.kill("SIGKILL");
-        await waitForChildExit(child, 1_000);
-      }
+    if (worker) {
+      await worker.dispose();
     }
     await rm(certificateDirectory, { recursive: true, force: true });
+    runtimeEvidence.writeSync("shutdown-complete", {
+      exitCode,
+      reason,
+    });
     process.exit(exitCode);
   };
 
-  process.once("SIGINT", () => void shutdown("SIGINT"));
-  process.once("SIGTERM", () => void shutdown("SIGTERM"));
-  child.once("exit", (code, signal) => {
+  const shutdownFromProcessGroupSignal = (reason) => {
     if (shuttingDown) return;
-    console.error(
-      `The local Wrangler backend exited unexpectedly (${signal ?? code ?? "unknown"}).`,
-    );
-    void shutdown("SIGTERM", code && code > 0 ? code : 1);
-  });
+    shuttingDown = true;
+    runtimeEvidence.writeSync("shutdown-started", {
+      exitCode: 0,
+      reason,
+    });
+    upstreamAgent.destroy();
+    server?.closeAllConnections();
+    // Playwright delivers the signal to the entire disposable process group,
+    // including workerd. Perform owned-file cleanup synchronously before Node
+    // exits; process termination then closes the remaining sockets and handles.
+    rmSync(certificateDirectory, { recursive: true, force: true });
+    runtimeEvidence.writeSync("shutdown-complete", {
+      exitCode: 0,
+      reason,
+    });
+    process.exit(0);
+  };
+
+  process.once("SIGINT", () =>
+    shutdownFromProcessGroupSignal("SIGINT"),
+  );
+  process.once("SIGTERM", () =>
+    shutdownFromProcessGroupSignal("SIGTERM"),
+  );
 
   try {
-    await waitForBackend(backendPort, publicPort, child);
+    await rm(certificateDirectory, { recursive: true, force: true });
+    await mkdir(certificateDirectory, { recursive: true });
+    generateCertificate(keyPath, certificatePath);
+    const runtime = await createDirectWorkerRuntime(
+      arguments_,
+      publicPort,
+      backendPort,
+      async () => {
+        if (shuttingDown) return;
+        console.error(
+          "The local Worker backend exited unexpectedly (runtime restart).",
+        );
+        await shutdown("runtime-restart", 1);
+      },
+    );
+    worker = runtime.worker;
     const [key, cert] = await Promise.all([
       readFile(keyPath),
       readFile(certificatePath),
     ]);
     server = createHttpsServer({ key, cert }, (incoming, outgoing) => {
-      const headers = forwardedHeaders(incoming.headers, publicPort);
       const upstream = requestHttp(
         {
-          hostname: "localhost",
-          port: backendPort,
+          agent: upstreamAgent,
+          headers: forwardedHeaders(incoming.headers, publicPort),
+          hostname: runtime.url.hostname,
           method: incoming.method,
           path: incoming.url,
-          headers,
-          agent: upstreamAgent,
+          port: runtime.url.port,
         },
         (response) => {
           outgoing.writeHead(
@@ -162,6 +161,15 @@ async function runBehindTlsBoundary(arguments_, publicPort) {
         },
       );
       upstream.on("error", (error) => {
+        if (!shuttingDown && isBackendTransportFailure(error)) {
+          console.error(
+            `The acceptance proxy lost its Worker backend connection (${error.code}).`,
+          );
+          void shutdown(
+            `backend-transport-failure:${error.code}`,
+            1,
+          );
+        }
         if (outgoing.headersSent) {
           outgoing.destroy(error);
           return;
@@ -174,8 +182,8 @@ async function runBehindTlsBoundary(arguments_, publicPort) {
       });
       incoming.pipe(upstream);
     });
-    // A plaintext or malformed client TLS probe must fail that connection, not
-    // the acceptance runtime. Valid browser requests remain available.
+    // Plaintext and malformed TLS probes fail their own connection without
+    // terminating the acceptance runtime.
     server.on("tlsClientError", () => {});
     server.on("clientError", (_error, socket) => socket.destroy());
     await new Promise((resolveListen, rejectListen) => {
@@ -185,13 +193,254 @@ async function runBehindTlsBoundary(arguments_, publicPort) {
         resolveListen();
       });
     });
+    await runtimeEvidence.write("runtime-ready", {
+      backendPort,
+      engine: "miniflare-direct",
+      moduleCount: runtime.moduleCount,
+      port: publicPort,
+      protocol: "https",
+    });
     console.log(
-      `Local HTTPS acceptance boundary ready on https://localhost:${publicPort}; Wrangler is isolated on HTTP port ${backendPort}.`,
+      `Built Worker ready behind the HTTPS acceptance boundary on ${canonicalOrigin(publicPort)}.`,
     );
   } catch (error) {
-    await shutdown("SIGTERM", 1);
+    await runtimeEvidence.write("startup-failed", {
+      code: errorCode(error),
+      name: error instanceof Error ? error.name : "UnknownError",
+    });
+    upstreamAgent.destroy();
+    server?.closeAllConnections();
+    await Promise.allSettled([
+      worker?.dispose(),
+      rm(certificateDirectory, { recursive: true, force: true }),
+    ]);
     throw error;
   }
+}
+
+async function createDirectWorkerRuntime(
+  arguments_,
+  publicPort,
+  backendPort,
+  onUnexpectedRestart,
+) {
+  const workerDirectory = resolve(
+    root,
+    requiredStringArgument(arguments_, "--cwd"),
+  );
+  const configPath = resolveInside(
+    workerDirectory,
+    requiredStringArgument(arguments_, "--config"),
+    "Worker configuration",
+  );
+  const persistDirectory = resolve(
+    workerDirectory,
+    requiredStringArgument(arguments_, "--persist-to"),
+  );
+  const expectedPersistence = resolve(
+    root,
+    "test-results",
+    "playwright-runtime",
+  );
+  if (persistDirectory !== expectedPersistence) {
+    throw new Error(
+      "The browser acceptance runtime must use its disposable persistence directory.",
+    );
+  }
+
+  const config = JSON.parse(await readFile(configPath, "utf8"));
+  if (typeof config.name !== "string" || !config.name.trim()) {
+    throw new Error("The built Worker configuration must include a name.");
+  }
+  const generated = unstable_getMiniflareWorkerOptions(configPath);
+  if (!generated.main) {
+    throw new Error("Wrangler did not resolve the built Worker entrypoint.");
+  }
+  const modulesRoot = dirname(generated.main);
+  const workerModules = await explicitWorkerModules(
+    modulesRoot,
+    generated.main,
+  );
+  const workerOptions = { ...generated.workerOptions };
+  // An explicit module inventory is required for Vinext's literal dynamic
+  // imports. Keeping Wrangler's discovery rules as well would make Miniflare
+  // try to rediscover those imports and reject the built artifact.
+  delete workerOptions.modulesRules;
+
+  const publicOrigin = canonicalOrigin(publicPort);
+  const worker = new Miniflare({
+    defaultPersistRoot: resolve(persistDirectory, "v3"),
+    host: "127.0.0.1",
+    log: new Log(LogLevel.ERROR),
+    port: backendPort,
+    publicUrl: publicOrigin,
+    upstream: publicOrigin,
+    unsafeHandleRuntimeRestart: onUnexpectedRestart,
+    workers: [
+      {
+        ...workerOptions,
+        bindings: {
+          ...(workerOptions.bindings ?? {}),
+          ...variableArguments(arguments_),
+        },
+        modules: workerModules,
+        modulesRoot,
+        name: config.name,
+      },
+      ...generated.externalWorkers,
+    ],
+  });
+
+  try {
+    const url = await worker.ready;
+    if (
+      url.protocol !== "http:" ||
+      url.hostname !== "127.0.0.1" ||
+      url.port !== String(backendPort)
+    ) {
+      throw new Error(
+        `The direct Worker bound unexpected origin ${url.origin}.`,
+      );
+    }
+    return {
+      moduleCount: workerModules.length,
+      url,
+      worker,
+    };
+  } catch (error) {
+    await worker.dispose();
+    throw error;
+  }
+}
+
+async function explicitWorkerModules(modulesRoot, main) {
+  const discovered = await discoverJavaScriptModules(modulesRoot);
+  const entrypoint = resolve(main);
+  if (!discovered.includes(entrypoint)) {
+    throw new Error("The built Worker entrypoint was not found.");
+  }
+  const ordered = [
+    entrypoint,
+    ...discovered.filter((path) => path !== entrypoint),
+  ];
+  return ordered.map((path) => ({
+    path,
+    type: "ESModule",
+  }));
+}
+
+async function discoverJavaScriptModules(directory) {
+  const discovered = [];
+  const entries = await readdir(directory, { withFileTypes: true });
+  for (const entry of entries.sort((left, right) =>
+    left.name.localeCompare(right.name),
+  )) {
+    const path = resolve(directory, entry.name);
+    if (entry.isDirectory()) {
+      discovered.push(...(await discoverJavaScriptModules(path)));
+    } else if (
+      entry.isFile() &&
+      (entry.name.endsWith(".js") || entry.name.endsWith(".mjs"))
+    ) {
+      discovered.push(path);
+    }
+  }
+  return discovered;
+}
+
+function variableArguments(arguments_) {
+  const variables = {};
+  for (let index = 0; index < arguments_.length; index += 1) {
+    if (arguments_[index] !== "--var") continue;
+    const value = arguments_[index + 1] ?? "";
+    const separator = value.indexOf(":");
+    const name = separator < 0 ? "" : value.slice(0, separator);
+    if (!/^[A-Z][A-Z0-9_]*$/.test(name)) {
+      throw new Error("Every --var argument must use NAME:value syntax.");
+    }
+    if (Object.hasOwn(variables, name)) {
+      throw new Error(`Duplicate --var argument for ${name}.`);
+    }
+    variables[name] = value.slice(separator + 1);
+    index += 1;
+  }
+  return variables;
+}
+
+function resolveInside(base, value, label) {
+  const candidate = resolve(base, value);
+  const relation = relative(base, candidate);
+  if (
+    relation === ".." ||
+    relation.startsWith(`..${sep}`) ||
+    candidate === resolve(base)
+  ) {
+    throw new Error(
+      `${label} must resolve to a file or directory below its root.`,
+    );
+  }
+  return candidate;
+}
+
+async function createRuntimeEvidenceLogger() {
+  const directory = process.env.PARETTO_E2E_RUNTIME_LOG_PATH?.trim();
+  if (!directory) {
+    return {
+      write: async () => {},
+      writeSync: () => {},
+    };
+  }
+  const resolvedDirectory = resolve(directory);
+  await mkdir(resolvedDirectory, { recursive: true, mode: 0o700 });
+  const path = resolve(
+    resolvedDirectory,
+    `worker-runtime-${Date.now()}-${process.pid}.jsonl`,
+  );
+  return {
+    async write(event, details = {}) {
+      await appendFile(
+        path,
+        `${JSON.stringify({
+          event,
+          timestamp: new Date().toISOString(),
+          ...details,
+        })}\n`,
+        { encoding: "utf8", mode: 0o600 },
+      );
+    },
+    writeSync(event, details = {}) {
+      appendFileSync(
+        path,
+        `${JSON.stringify({
+          event,
+          timestamp: new Date().toISOString(),
+          ...details,
+        })}\n`,
+        { encoding: "utf8", mode: 0o600 },
+      );
+    },
+  };
+}
+
+function requiredStringArgument(arguments_, name) {
+  const index = arguments_.indexOf(name);
+  const value = index >= 0 ? arguments_[index + 1] : "";
+  if (!value || value.startsWith("--")) {
+    throw new Error(`Missing required ${name} argument.`);
+  }
+  return value;
+}
+
+function requiredNumberArgument(arguments_, name) {
+  const value = Number(requiredStringArgument(arguments_, name));
+  if (!Number.isSafeInteger(value) || value < 1 || value > 65_534) {
+    throw new Error(`${name} must be a valid TCP port.`);
+  }
+  return value;
+}
+
+function canonicalOrigin(port) {
+  return `https://localhost:${port}`;
 }
 
 function generateCertificate(keyPath, certificatePath) {
@@ -224,86 +473,10 @@ function generateCertificate(keyPath, certificatePath) {
   if (result.status !== 0) {
     throw new Error(
       `Could not generate the disposable localhost TLS certificate: ${
-        result.stderr?.trim() || "OpenSSL failed"
+        result.stderr?.trim() || result.error?.message || "OpenSSL failed"
       }`,
     );
   }
-}
-
-async function waitForBackend(backendPort, publicPort, child) {
-  const deadline = Date.now() + 90_000;
-  while (Date.now() < deadline) {
-    if (child.exitCode !== null || child.signalCode !== null) {
-      throw new Error("The local Wrangler backend exited before it was ready.");
-    }
-    try {
-      await probeBackend(backendPort, publicPort);
-      return;
-    } catch {
-      await new Promise((resolveWait) => setTimeout(resolveWait, 250));
-    }
-  }
-  throw new Error("Timed out waiting for the local HTTPS Wrangler backend.");
-}
-
-function probeBackend(backendPort, publicPort) {
-  return new Promise((resolveProbe, rejectProbe) => {
-    const probe = requestHttp(
-      {
-        hostname: "localhost",
-        port: backendPort,
-        method: "GET",
-        // Avoid warming the application health-response cache before the
-        // browser owns its first request context.
-        path: "/favicon.svg",
-        headers: forwardedHeaders({}, publicPort),
-      },
-      (response) => {
-        response.resume();
-        response.once("end", resolveProbe);
-      },
-    );
-    probe.setTimeout(1_000, () => {
-      probe.destroy(new Error("Local Worker readiness probe timed out."));
-    });
-    probe.once("error", rejectProbe);
-    probe.end();
-  });
-}
-
-function requiredStringArgument(arguments_, name) {
-  const index = arguments_.indexOf(name);
-  const value = index >= 0 ? arguments_[index + 1] : "";
-  if (!value || value.startsWith("--")) {
-    throw new Error(`Missing required ${name} argument.`);
-  }
-  return value;
-}
-
-function requiredNumberArgument(arguments_, name) {
-  const value = Number(requiredStringArgument(arguments_, name));
-  if (!Number.isSafeInteger(value) || value < 1 || value > 65_534) {
-    throw new Error(`${name} must be a valid TCP port.`);
-  }
-  return value;
-}
-
-function replaceArgument(arguments_, name, value) {
-  const replaced = [...arguments_];
-  const index = replaced.indexOf(name);
-  if (index < 0 || !replaced[index + 1]) {
-    throw new Error(`Missing required ${name} argument.`);
-  }
-  replaced[index + 1] = value;
-  return replaced;
-}
-
-function upsertArgument(arguments_, name, value) {
-  const index = arguments_.indexOf(name);
-  if (index >= 0) {
-    return replaceArgument(arguments_, name, value);
-  }
-  return [...arguments_, name, value];
 }
 
 const HOP_BY_HOP_HEADERS = new Set([
@@ -347,41 +520,21 @@ function forwardedHeaders(headers, publicPort) {
   };
 }
 
-function waitForChildExit(child, timeoutMs) {
-  if (child.exitCode !== null || child.signalCode !== null) {
-    return Promise.resolve(true);
-  }
-  return new Promise((resolveExit) => {
-    let settled = false;
-    const finish = (exited) => {
-      if (settled) return;
-      settled = true;
-      clearTimeout(timeout);
-      child.off("exit", onExit);
-      resolveExit(exited);
-    };
-    const onExit = () => finish(true);
-    const timeout = setTimeout(() => finish(false), timeoutMs);
-    child.once("exit", onExit);
-  });
+function isBackendTransportFailure(error) {
+  return (
+    error &&
+    typeof error === "object" &&
+    ["ECONNREFUSED", "ECONNRESET", "EPIPE"].includes(error.code)
+  );
 }
 
-function forwardTermination(child) {
-  let terminating = false;
-  const terminate = (signal) => {
-    if (terminating) return;
-    terminating = true;
-    if (child.exitCode === null && child.signalCode === null) {
-      child.kill(signal);
-    }
-  };
-  process.once("SIGINT", () => terminate("SIGINT"));
-  process.once("SIGTERM", () => terminate("SIGTERM"));
-  child.once("exit", (code, signal) => {
-    if (signal) {
-      process.kill(process.pid, signal);
-      return;
-    }
-    process.exit(code ?? 1);
-  });
+function errorCode(error) {
+  if (
+    error &&
+    typeof error === "object" &&
+    typeof error.code === "string"
+  ) {
+    return error.code;
+  }
+  return "UNKNOWN";
 }

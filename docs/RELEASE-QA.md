@@ -16,21 +16,22 @@ Do not mark an unexecuted manual check as passed.
   accessibility violations. The browser gate builds the release artifact,
   applies every migration to an isolated local D1 store, and serves the built
   Worker over local HTTPS rather than relying on development HMR.
-  Unix browser runners terminate browser TLS at a disposable Node boundary and
-  forward to an isolated HTTP Wrangler port with a pinned HTTPS upstream URL
-  and forwarded origin headers. This avoids a Wrangler local-TLS crash while
-  the browser and Worker still observe the same secure URL, cookie, and CSRF
-  contract. The gate rejects HTTP metadata, validates secure auth cookies, and
-  proves the HTTPS runtime survives a deliberate plaintext probe.
-- Thirteen Worker-backed Chromium journeys run on a Windows Server 2022 hosted
-  runner to catch Windows path, command-shell, process-lifecycle, and Chromium
-  compatibility regressions. The seeded account sign-in/claim/deletion journey
-  remains mandatory in Linux Chromium, Firefox, and WebKit but is explicitly
-  skipped on hosted Windows because Wrangler 4.114.0's local HTTPS runtime exits
-  during its first sign-in there. The Windows job retains HTTPS and uploads the
-  Wrangler diagnostic log. This is automation infrastructure evidence only; it
-  does not certify Windows account behavior, Windows 11, Microsoft Edge, high
-  contrast, Narrator, or a physical Windows device.
+  On every local platform, browser TLS terminates at a disposable Node boundary
+  that forwards to a direct Miniflare HTTP backend with a pinned HTTPS public
+  URL and origin headers. The browser and Worker therefore observe the same
+  secure URL, cookie, and CSRF contract without Wrangler's development proxy.
+  The gate rejects HTTP metadata, validates secure auth cookies, proves the
+  HTTPS runtime survives a deliberate plaintext probe, and retains per-run
+  Miniflare lifecycle evidence.
+- All current Worker-backed Chromium journeys run on a Windows Server 2022
+  hosted runner, including secure-origin and seeded account
+  sign-in/claim/deletion coverage. This catches Windows path, command-shell,
+  process-lifecycle, and Chromium compatibility regressions. The Windows job
+  retains HTTPS and uploads its Miniflare lifecycle evidence. Playwright
+  force-terminates the disposable Windows process tree, so a successful Windows
+  log may end at `runtime-ready` rather than the POSIX shutdown events. This is
+  automation infrastructure evidence only; it does not certify Windows 11,
+  Microsoft Edge, high contrast, Narrator, or a physical Windows device.
 - A disposable local-D1 account journey uses Better Auth's production password
   hash and a preverified test-only identity to test anonymous progress claim,
   sign-out, a second isolated browser-context sign-in and sync, and permanent
