@@ -44,14 +44,9 @@ describe("portable D1 export restore verification", () => {
 
   it("emits pure JSON through the silent npm invocation used by deployment", async () => {
     const exportPath = await writeExport(false);
-    const npmCli = process.env.npm_execpath;
-    expect(npmCli).toBeTruthy();
-    if (!npmCli) throw new Error("npm_execpath is unavailable.");
-
     const result = spawnSync(
-      process.execPath,
+      process.platform === "win32" ? "npm.cmd" : "npm",
       [
-        npmCli,
         "run",
         "--silent",
         "d1:export:verify",
