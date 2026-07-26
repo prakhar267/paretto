@@ -1218,10 +1218,9 @@ function Onboarding({
                 <br /> one region at a time.
               </h1>
               <p className="onboarding-lede">
-                Build a {formatCount(curriculumSummary.wordCount, "word")} French
-                foundation, hear French pronunciation, and fill a travel journal
-                across {formatCount(curriculumSummary.contextCount, "region")} of
-                France.
+                Build a {curriculumSummary.wordCount}-word French foundation,
+                hear French pronunciation, and fill a travel journal across{" "}
+                {formatCount(curriculumSummary.contextCount, "region")} of France.
               </p>
               <div className="onboarding-points">
                 <OnboardingPoint icon={Headphones} text="French audio on every card" />

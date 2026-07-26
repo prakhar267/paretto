@@ -210,6 +210,9 @@ describe("Paretto learner journey", () => {
         name: /learn french, one region at a time/i,
       }),
     ).toBeInTheDocument();
+    expect(
+      screen.getByText(/Build a 270-word French foundation/),
+    ).toBeInTheDocument();
     const productInformation = screen.getByRole("navigation", {
       name: "Product information",
     });

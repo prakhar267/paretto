@@ -304,6 +304,12 @@ describe("release engineering contracts", () => {
     expect(deploymentWorkflow).toContain("-aes-256-cbc");
     expect(deploymentWorkflow).toContain("-pbkdf2");
     expect(deploymentWorkflow).toContain(
+      'npm run --silent d1:export:verify -- "$roundtrip_export" > "$restore_report"',
+    );
+    expect(deploymentWorkflow).not.toContain(
+      'npm run d1:export:verify -- "$roundtrip_export" > "$restore_report"',
+    );
+    expect(deploymentWorkflow).toContain(
       "Retain production D1 recovery evidence before migration",
     );
     expect(deploymentWorkflow).toContain("retention-days: 7");

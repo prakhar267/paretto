@@ -439,7 +439,7 @@ jobs:
             -in "$encrypted_export" \
             -out "$roundtrip_export"
           cmp -s "$plaintext_export" "$roundtrip_export"
-          npm run d1:export:verify -- "$roundtrip_export" > "$restore_report"
+          npm run --silent d1:export:verify -- "$roundtrip_export" > "$restore_report"
 
           plaintext_sha256="$(sha256sum "$plaintext_export" | cut -d ' ' -f 1)"
           encrypted_sha256="$(sha256sum "$encrypted_export" | cut -d ' ' -f 1)"
