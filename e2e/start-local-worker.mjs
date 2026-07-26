@@ -64,7 +64,10 @@ async function runAcceptanceRuntime(arguments_, publicPort) {
   let server;
   let shuttingDown = false;
   const upstreamAgent = new HttpAgent({
-    keepAlive: true,
+    // A disposable acceptance proxy does not need socket reuse. Avoiding an
+    // idle pool also prevents a normal stale keep-alive reset from being
+    // mistaken for loss of the Worker listener.
+    keepAlive: false,
     maxSockets: 16,
   });
 
@@ -142,6 +145,7 @@ async function runAcceptanceRuntime(arguments_, publicPort) {
       readFile(certificatePath),
     ]);
     server = createHttpsServer({ key, cert }, (incoming, outgoing) => {
+      let downstreamAborted = false;
       const upstream = requestHttp(
         {
           agent: upstreamAgent,
@@ -152,6 +156,9 @@ async function runAcceptanceRuntime(arguments_, publicPort) {
           port: runtime.url.port,
         },
         (response) => {
+          response.once("error", (error) => {
+            if (!outgoing.destroyed) outgoing.destroy(error);
+          });
           outgoing.writeHead(
             response.statusCode ?? 502,
             response.statusMessage,
@@ -161,7 +168,8 @@ async function runAcceptanceRuntime(arguments_, publicPort) {
         },
       );
       upstream.on("error", (error) => {
-        if (!shuttingDown && isBackendTransportFailure(error)) {
+        if (downstreamAborted || shuttingDown) return;
+        if (isBackendUnavailable(error)) {
           console.error(
             `The acceptance proxy lost its Worker backend connection (${error.code}).`,
           );
@@ -169,7 +177,12 @@ async function runAcceptanceRuntime(arguments_, publicPort) {
             `backend-transport-failure:${error.code}`,
             1,
           );
+        } else {
+          runtimeEvidence.writeSync("proxy-request-error", {
+            code: errorCode(error),
+          });
         }
+        if (outgoing.destroyed) return;
         if (outgoing.headersSent) {
           outgoing.destroy(error);
           return;
@@ -180,6 +193,13 @@ async function runAcceptanceRuntime(arguments_, publicPort) {
         });
         outgoing.end("The local Worker backend is unavailable.");
       });
+      const abortUpstream = () => {
+        if (outgoing.writableEnded) return;
+        downstreamAborted = true;
+        upstream.destroy();
+      };
+      incoming.once("aborted", abortUpstream);
+      outgoing.once("close", abortUpstream);
       incoming.pipe(upstream);
     });
     // Plaintext and malformed TLS probes fail their own connection without
@@ -520,11 +540,11 @@ function forwardedHeaders(headers, publicPort) {
   };
 }
 
-function isBackendTransportFailure(error) {
+function isBackendUnavailable(error) {
   return (
     error &&
     typeof error === "object" &&
-    ["ECONNREFUSED", "ECONNRESET", "EPIPE"].includes(error.code)
+    error.code === "ECONNREFUSED"
   );
 }
 

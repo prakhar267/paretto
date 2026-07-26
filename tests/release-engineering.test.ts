@@ -115,6 +115,23 @@ describe("release engineering contracts", () => {
     expect(localWorker).toContain(
       "The acceptance proxy lost its Worker backend connection",
     );
+    expect(localWorker).toContain("keepAlive: false");
+    expect(localWorker).toContain(
+      "downstreamAborted || shuttingDown",
+    );
+    expect(localWorker).toContain(
+      'incoming.once("aborted", abortUpstream)',
+    );
+    expect(localWorker).toContain(
+      'outgoing.once("close", abortUpstream)',
+    );
+    expect(localWorker).toContain(
+      'error.code === "ECONNREFUSED"',
+    );
+    expect(localWorker).not.toMatch(
+      /\["ECONNREFUSED",\s*"ECONNRESET"/,
+    );
+    expect(localWorker).toContain('"proxy-request-error"');
     expect(localWorker).toContain('"shutdown-started"');
     expect(localWorker).toContain('"shutdown-complete"');
     expect(localWorker).not.toContain('[wrangler, "dev"');

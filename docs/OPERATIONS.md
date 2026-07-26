@@ -75,9 +75,10 @@ authentication launch.
    browser gate may repeat the complete isolated Playwright invocation once only
    when its output contains the exact unexpected-Worker-exit marker emitted
    only by the direct Miniflare runtime's restart callback. Playwright's own
-   retry count is zero, proxy transport failures use a different non-retry
-   message, and neither an assertion nor a product failure may be retried. A
-   second invocation failure remains blocking. Retain the per-browser runtime
+   retry count is zero, request-scoped proxy transport errors never emit that
+   marker, and confirmed listener unavailability uses a different non-retry
+   message. Neither an assertion nor a product failure may be retried. A second
+   invocation failure remains blocking. Retain the per-browser runtime
    lifecycle diagnostics with the Playwright evidence so a runtime retry is
    visible and reviewable. The browser gate runs the built Worker through a
    deliberate Node TLS boundary backed directly by Miniflare; do not
