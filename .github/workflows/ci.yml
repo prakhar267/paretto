@@ -162,41 +162,70 @@ jobs:
           swift --version
           xcodebuild -version
 
+      - name: Prepare native XCTest evidence directory
+        run: mkdir -p "$RUNNER_TEMP/paretto-native-results"
+
       - name: Test the shared learning core
-        run: swift test --package-path ios/ParettoCore
+        shell: bash
+        run: |
+          set -euo pipefail
+          swift test --package-path ios/ParettoCore 2>&1 |
+            tee "$RUNNER_TEMP/paretto-native-results/paretto-core.log"
 
       - name: Compile and test the native application package
-        run: swift test --package-path ios/Paretto
+        shell: bash
+        run: |
+          set -euo pipefail
+          swift test --package-path ios/Paretto 2>&1 |
+            tee "$RUNNER_TEMP/paretto-native-results/paretto-package.log"
 
       - name: Compile and test the Staging configuration
-        run: >-
-          xcodebuild
-          -project ios/Paretto/Paretto.xcodeproj
-          -scheme Paretto-Staging
-          -configuration Staging
-          -destination 'platform=iOS Simulator,name=iPhone 16 Pro,OS=latest'
-          -only-testing:ParettoTests
-          -only-testing:ParettoUITests/ParettoUITests/testSignedOutTaglineDoesNotTruncateAtSupportedDynamicTypeSizes
-          CODE_SIGNING_ALLOWED=NO
-          test
+        shell: bash
+        run: |
+          set -euo pipefail
+          xcodebuild \
+            -project ios/Paretto/Paretto.xcodeproj \
+            -scheme Paretto-Staging \
+            -configuration Staging \
+            -destination 'platform=iOS Simulator,name=iPhone 16 Pro,OS=latest' \
+            -only-testing:ParettoTests \
+            -only-testing:ParettoUITests/ParettoUITests/testSignedOutTaglineDoesNotTruncateAtSupportedDynamicTypeSizes \
+            -resultBundlePath "$RUNNER_TEMP/paretto-native-results/staging.xcresult" \
+            CODE_SIGNING_ALLOWED=NO \
+            test 2>&1 | tee "$RUNNER_TEMP/paretto-native-results/staging.log"
 
       - name: Test on an iOS Simulator without signing
-        run: >-
-          xcodebuild
-          -project ios/Paretto/Paretto.xcodeproj
-          -scheme Paretto
-          -destination 'platform=iOS Simulator,name=iPhone 16 Pro,OS=latest'
-          CODE_SIGNING_ALLOWED=NO
-          test
+        shell: bash
+        run: |
+          set -euo pipefail
+          xcodebuild \
+            -project ios/Paretto/Paretto.xcodeproj \
+            -scheme Paretto \
+            -destination 'platform=iOS Simulator,name=iPhone 16 Pro,OS=latest' \
+            -resultBundlePath "$RUNNER_TEMP/paretto-native-results/iphone.xcresult" \
+            CODE_SIGNING_ALLOWED=NO \
+            test 2>&1 | tee "$RUNNER_TEMP/paretto-native-results/iphone.log"
 
       - name: Test the adaptive iPad layout without signing
-        run: >-
-          xcodebuild
-          -project ios/Paretto/Paretto.xcodeproj
-          -scheme Paretto
-          -destination 'platform=iOS Simulator,name=iPad Pro 13-inch (M4),OS=latest'
-          CODE_SIGNING_ALLOWED=NO
-          test
+        shell: bash
+        run: |
+          set -euo pipefail
+          xcodebuild \
+            -project ios/Paretto/Paretto.xcodeproj \
+            -scheme Paretto \
+            -destination 'platform=iOS Simulator,name=iPad Pro 13-inch (M4),OS=latest' \
+            -resultBundlePath "$RUNNER_TEMP/paretto-native-results/ipad.xcresult" \
+            CODE_SIGNING_ALLOWED=NO \
+            test 2>&1 | tee "$RUNNER_TEMP/paretto-native-results/ipad.log"
+
+      - name: Preserve native XCTest evidence
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: native-xcode-results-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/paretto-native-results/
+          if-no-files-found: warn
+          retention-days: 14
 
       - name: Compile and inspect the Release configuration
         shell: bash

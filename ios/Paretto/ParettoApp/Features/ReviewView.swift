@@ -58,6 +58,7 @@ struct ReviewView: View {
                         copy: "Answer up to five prompts from words you have learned. There is no timer, and every prompt can be heard aloud.",
                         detail: challengeDetail,
                         action: challengeDoneToday ? "Play for practice" : "Begin challenge",
+                        actionIdentifier: "review-begin-challenge",
                         disabled: learned < 3,
                         tone: .parettoNavy,
                         actionTint: .parettoNavy
@@ -73,6 +74,7 @@ struct ReviewView: View {
                             ? "Today’s reward collected"
                             : "\(model.state.coins) \(model.state.coins == 1 ? "coin" : "coins") available",
                         action: diceDoneToday ? "View status" : "Open the dice",
+                        actionIdentifier: "review-open-dice",
                         disabled: learned == 0,
                         tone: .parettoGold,
                         actionTint: .parettoNavy
@@ -120,6 +122,7 @@ struct ReviewView: View {
             }
             .padding(20)
         }
+        .accessibilityIdentifier("review-scroll")
         .navigationTitle("Review")
         .parettoFullScreenCover(isPresented: $challengePresented) {
             ChallengeView(
@@ -167,6 +170,7 @@ private struct PracticeModeCard: View {
     let copy: String
     let detail: String
     let action: String
+    let actionIdentifier: String
     let disabled: Bool
     let tone: Color
     let actionTint: Color
@@ -187,6 +191,7 @@ private struct PracticeModeCard: View {
                 Text(detail).font(.caption.bold())
                 Spacer(minLength: 4)
                 Button(action, action: perform)
+                    .accessibilityIdentifier(actionIdentifier)
                     .buttonStyle(.borderedProminent)
                     .tint(actionTint)
             }
