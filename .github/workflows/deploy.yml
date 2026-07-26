@@ -110,9 +110,7 @@ jobs:
 
       - name: Run critical browser journeys against the isolated Worker
         env:
-          WRANGLER_LOG: debug
-          WRANGLER_LOG_PATH: ${{ runner.temp }}/wrangler-logs/${{ matrix.browser }}
-          WRANGLER_LOG_SANITIZE: "true"
+          PARETTO_E2E_RUNTIME_LOG_PATH: ${{ runner.temp }}/worker-runtime-logs/${{ matrix.browser }}
         run: npm run test:e2e:gate -- --project="${{ matrix.browser }}"
 
       - name: Preserve pre-deploy browser evidence and failure traces
@@ -123,7 +121,7 @@ jobs:
           path: |
             playwright-report/
             test-results/playwright/
-            ${{ runner.temp }}/wrangler-logs/${{ matrix.browser }}/
+            ${{ runner.temp }}/worker-runtime-logs/${{ matrix.browser }}/
           if-no-files-found: warn
           retention-days: 14
 

@@ -178,9 +178,8 @@ test("the local TLS boundary preserves a secure origin and survives a plaintext 
   page,
 }) => {
   test.skip(
-    Boolean(process.env.PLAYWRIGHT_BASE_URL) ||
-      process.platform === "win32",
-    "This regression targets the Unix-only disposable local TLS boundary.",
+    Boolean(process.env.PLAYWRIGHT_BASE_URL),
+    "This regression targets the disposable local TLS runtime.",
   );
   const requestedURLs: string[] = [];
   page.on("request", (request) => requestedURLs.push(request.url()));
@@ -454,10 +453,6 @@ test("a seeded verified email account claims anonymous progress across browsers 
   browser,
   page,
 }, testInfo) => {
-  test.skip(
-    process.env.PLAYWRIGHT_SKIP_SEEDED_ACCOUNT_JOURNEY === "true",
-    "Wrangler's hosted-Windows local HTTPS runtime exits during this seeded account fixture; the mandatory Linux browser matrix covers it.",
-  );
   const account = localAuthAccount(testInfo);
   const displayName = `${account.name} Progress`;
   await beginAsNewLearner(page, displayName);

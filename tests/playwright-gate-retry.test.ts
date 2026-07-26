@@ -4,27 +4,27 @@ import { describe, expect, it, vi } from "vitest";
 import {
   runPlaywrightGate,
   runPlaywrightInvocation,
-  WRANGLER_EXIT_MARKER,
+  RUNTIME_RESTART_MARKER,
 } from "../scripts/run-playwright-gate.mjs";
 
 type InvocationResult = {
   code: number | null;
   signal: NodeJS.Signals | null;
-  wranglerExitedUnexpectedly: boolean;
+  runtimeRestartedUnexpectedly: boolean;
 };
 
 describe("bounded Playwright gate retry", () => {
-  it("retries the complete invocation once after the exact Wrangler exit evidence", async () => {
+  it("retries the complete invocation once after exact Worker exit evidence", async () => {
     const arguments_ = ["--project=chromium"];
     const first: InvocationResult = {
       code: 1,
       signal: null,
-      wranglerExitedUnexpectedly: true,
+      runtimeRestartedUnexpectedly: true,
     };
     const second: InvocationResult = {
       code: 0,
       signal: null,
-      wranglerExitedUnexpectedly: false,
+      runtimeRestartedUnexpectedly: false,
     };
     const invoke = vi
       .fn<(arguments_: string[]) => Promise<InvocationResult>>()
@@ -47,11 +47,11 @@ describe("bounded Playwright gate retry", () => {
     );
   });
 
-  it("does not retry assertion or product failures without Wrangler exit evidence", async () => {
+  it("does not retry assertion or product failures without Worker exit evidence", async () => {
     const failure: InvocationResult = {
       code: 23,
       signal: null,
-      wranglerExitedUnexpectedly: false,
+      runtimeRestartedUnexpectedly: false,
     };
     const invoke = vi.fn().mockResolvedValue(failure);
     const retryOutput = recordingOutput();
@@ -70,7 +70,7 @@ describe("bounded Playwright gate retry", () => {
     const success: InvocationResult = {
       code: 0,
       signal: null,
-      wranglerExitedUnexpectedly: true,
+      runtimeRestartedUnexpectedly: true,
     };
     const invoke = vi.fn().mockResolvedValue(success);
 
@@ -84,12 +84,12 @@ describe("bounded Playwright gate retry", () => {
     const first: InvocationResult = {
       code: 1,
       signal: null,
-      wranglerExitedUnexpectedly: true,
+      runtimeRestartedUnexpectedly: true,
     };
     const second: InvocationResult = {
       code: 37,
       signal: null,
-      wranglerExitedUnexpectedly: true,
+      runtimeRestartedUnexpectedly: true,
     };
     const invoke = vi
       .fn()
@@ -118,7 +118,7 @@ describe("bounded Playwright gate retry", () => {
       child.stderr = new PassThrough();
       queueMicrotask(() => {
         child.stdout.write("browser stdout\n");
-        child.stderr.write("The local Wrangler backend ");
+        child.stderr.write("The local Worker backend ");
         child.stderr.write("exited unexpectedly (1).\n");
         child.stdout.end();
         child.stderr.end();
@@ -143,10 +143,12 @@ describe("bounded Playwright gate retry", () => {
     expect(result).toEqual({
       code: 19,
       signal: null,
-      wranglerExitedUnexpectedly: true,
+      runtimeRestartedUnexpectedly: true,
     });
     expect(stdout.text()).toBe("browser stdout\n");
-    expect(stderr.text()).toBe(`${WRANGLER_EXIT_MARKER} (1).\n`);
+    expect(stderr.text()).toBe(
+      `${RUNTIME_RESTART_MARKER} (1).\n`,
+    );
     expect(spawnProcess).toHaveBeenCalledWith(
       process.execPath,
       [

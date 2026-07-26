@@ -7,11 +7,11 @@ const playwrightCli = createRequire(import.meta.url).resolve(
   "@playwright/test/cli",
 );
 
-export const WRANGLER_EXIT_MARKER =
-  "The local Wrangler backend exited unexpectedly";
+export const RUNTIME_RESTART_MARKER =
+  "The local Worker backend exited unexpectedly";
 
 const RETRY_NOTICE =
-  "\n[playwright-gate] The disposable Wrangler backend exited unexpectedly. " +
+  "\n[playwright-gate] The disposable Worker runtime exited unexpectedly. " +
   "Retrying the complete Playwright invocation once with a clean runtime.\n";
 
 export async function runPlaywrightGate({
@@ -20,7 +20,7 @@ export async function runPlaywrightGate({
   retryOutput = process.stderr,
 } = {}) {
   const first = await invoke(arguments_);
-  if (succeeded(first) || !first.wranglerExitedUnexpectedly) {
+  if (succeeded(first) || !first.runtimeRestartedUnexpectedly) {
     return first;
   }
 
@@ -68,14 +68,14 @@ export function runPlaywrightInvocation(
       resolveInvocation({
         code,
         signal,
-        wranglerExitedUnexpectedly:
+        runtimeRestartedUnexpectedly:
           stdoutScanner.found || stderrScanner.found,
       });
     });
   });
 }
 
-export function createMarkerScanner(marker = WRANGLER_EXIT_MARKER) {
+export function createMarkerScanner(marker = RUNTIME_RESTART_MARKER) {
   const markerBytes = Buffer.from(marker);
   let tail = Buffer.alloc(0);
   let found = false;

@@ -73,6 +73,7 @@
     "eslint": "9.39.4",
     "eslint-config-next": "16.2.6",
     "jsdom": "^27.0.1",
+    "miniflare": "4.20260722.0",
     "react-server-dom-webpack": "19.2.8",
     "tailwindcss": "4.2.1",
     "typescript": "5.9.3",
