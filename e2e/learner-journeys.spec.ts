@@ -799,7 +799,15 @@ test("not-found recovery returns the learner home", async ({ page }) => {
   await expect(
     page.getByRole("heading", { name: "This stop isn’t on the route." }),
   ).toBeVisible();
-  await page.getByRole("link", { name: "Return to Paretto" }).click();
+  const [homeDocument] = await Promise.all([
+    page.waitForResponse(
+      (response) =>
+        response.request().resourceType() === "document" &&
+        new URL(response.url()).pathname === "/",
+    ),
+    page.getByRole("link", { name: "Return to Paretto" }).click(),
+  ]);
+  expect(homeDocument.status()).toBe(200);
   await expect(
     page.getByRole("heading", { name: /Learn French,\s*one region at a time/i }),
   ).toBeVisible();

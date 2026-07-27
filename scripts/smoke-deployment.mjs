@@ -2,6 +2,7 @@
 
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
+import { setTimeout as delay } from "node:timers/promises";
 
 const rawOrigin = process.argv[2];
 if (!rawOrigin) {
@@ -39,10 +40,40 @@ const packageMetadata = JSON.parse(
   await readFile(new URL("../package.json", import.meta.url), "utf8"),
 );
 const expectedVersion = packageMetadata.version;
-const timeoutMs = Number.parseInt(process.env.SMOKE_TIMEOUT_MS ?? "15000", 10);
-assert.ok(
-  Number.isSafeInteger(timeoutMs) && timeoutMs >= 1_000 && timeoutMs <= 60_000,
-  "SMOKE_TIMEOUT_MS must be an integer from 1000 through 60000.",
+const releaseVersionPattern =
+  /^(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)$/;
+function readBoundedInteger(name, fallback, minimum, maximum) {
+  const rawValue = process.env[name] ?? fallback;
+  assert.match(
+    rawValue,
+    /^\d+$/,
+    `${name} must be an integer from ${minimum} through ${maximum}.`,
+  );
+  const value = Number(rawValue);
+  assert.ok(
+    Number.isSafeInteger(value) && value >= minimum && value <= maximum,
+    `${name} must be an integer from ${minimum} through ${maximum}.`,
+  );
+  return value;
+}
+
+const timeoutMs = readBoundedInteger(
+  "SMOKE_TIMEOUT_MS",
+  "15000",
+  1_000,
+  60_000,
+);
+const versionAttempts = readBoundedInteger(
+  "SMOKE_VERSION_ATTEMPTS",
+  "13",
+  2,
+  60,
+);
+const versionIntervalMs = readBoundedInteger(
+  "SMOKE_VERSION_INTERVAL_MS",
+  "5000",
+  100,
+  30_000,
 );
 
 async function request(path, acceptedStatuses = [200]) {
@@ -70,89 +101,172 @@ async function request(path, acceptedStatuses = [200]) {
   return response;
 }
 
-const healthResponse = await request("/api/health");
-assert.match(healthResponse.headers.get("cache-control") ?? "", /no-store/i);
-const health = await healthResponse.json();
-assert.equal(health.status, "ok");
-assert.equal(health.service, "paretto-web");
-assert.equal(health.version, expectedVersion);
-assert.equal(health.launchMode, launchMode);
-assert.equal(health.webReady, true);
-assert.equal(health.database, "ready");
-assert.ok(health.checks && typeof health.checks === "object");
-for (const check of [
-  "database",
-  "schema",
-  "userKeySecret",
-  "supportRateLimitSecret",
-  "learnerAuthRateLimitSecret",
-  "learnerAuthentication",
-  "learnerAuthOrigin",
-  "adminAllowlist",
-  "adminAuthentication",
-  "turnstileSiteKey",
-  "turnstileSecret",
-]) {
-  assert.equal(health.checks[check], "ready", `${check} is not ready.`);
-}
-if (launchMode === "public") {
-  assert.equal(health.productionReady, true);
-  assert.equal(health.checks.learnerEmailAccountCreation, "ready");
-  assert.equal(health.checks.learnerEmailVerification, "ready");
-  assert.equal(health.checks.learnerPasswordReset, "ready");
-  assert.equal(health.checks.supportNotifications, "ready");
-} else {
-  assert.equal(
-    health.productionReady,
-    false,
-    "Controlled beta must never claim broad production readiness.",
+let health;
+let readinessAttempts = 0;
+let consecutiveExpectedVersions = 0;
+for (let attempt = 1; attempt <= versionAttempts; attempt += 1) {
+  const candidateHealth = await readHealth();
+  readinessAttempts = attempt;
+  if (candidateHealth.version === expectedVersion) {
+    assertHealthReady(candidateHealth);
+    consecutiveExpectedVersions += 1;
+    if (consecutiveExpectedVersions === 2) {
+      health = candidateHealth;
+      break;
+    }
+    if (attempt === versionAttempts) {
+      assert.fail(
+        `Deployment version ${expectedVersion} was observed only once before the ${versionAttempts}-attempt convergence limit.`,
+      );
+    }
+    console.error(
+      `Deployment is serving ${expectedVersion}; waiting ${versionIntervalMs}ms ` +
+        `for a second consecutive confirmation (attempt ${attempt}/${versionAttempts}).`,
+    );
+    await delay(versionIntervalMs);
+    continue;
+  }
+  consecutiveExpectedVersions = 0;
+  if (attempt === versionAttempts) {
+    assert.equal(
+      candidateHealth.version,
+      expectedVersion,
+      `Deployment version did not converge after ${versionAttempts} attempts.`,
+    );
+  }
+  console.error(
+    `Deployment is still serving version ${String(candidateHealth.version)}; ` +
+      `waiting ${versionIntervalMs}ms for ${expectedVersion} (attempt ${attempt}/${versionAttempts}).`,
   );
-  assert.equal(health.checks.learnerEmailAccountCreation, "disabled");
-  assert.equal(health.checks.learnerEmailVerification, "not-configured");
-  assert.equal(health.checks.learnerPasswordReset, "not-configured");
-  assert.equal(health.checks.supportNotifications, "not-configured");
+  await delay(versionIntervalMs);
+}
+assert.ok(
+  health,
+  "Deployment health did not return two consecutive expected versions.",
+);
+
+async function readHealth() {
+  const healthResponse = await request("/api/health");
+  assert.match(healthResponse.headers.get("cache-control") ?? "", /no-store/i);
+  const candidateHealth = await healthResponse.json();
+  assert.equal(
+    typeof candidateHealth.version,
+    "string",
+    "Deployment health version must be a stable semantic-version string.",
+  );
+  assert.match(
+    candidateHealth.version,
+    releaseVersionPattern,
+    "Deployment health version must be a stable semantic-version string.",
+  );
+  return candidateHealth;
+}
+
+function assertHealthReady(candidateHealth) {
+  assert.equal(candidateHealth.status, "ok");
+  assert.equal(candidateHealth.service, "paretto-web");
+  assert.equal(candidateHealth.version, expectedVersion);
+  assert.equal(candidateHealth.launchMode, launchMode);
+  assert.equal(candidateHealth.webReady, true);
+  assert.equal(candidateHealth.database, "ready");
   assert.ok(
-    Array.isArray(health.warnings) &&
-      health.warnings.includes(
-        "Controlled beta mode is operational but is not approved for a broad public launch.",
-      ) &&
-      health.warnings.includes(
-        "Transactional email is not configured; email registration, verification, and password recovery remain unavailable.",
-      ) &&
-      health.warnings.includes(
-        "Operator support email delivery is not configured; tickets remain stored for authenticated administrator follow-up.",
-      ),
-    "Controlled-beta health must state every unavailable delivery capability.",
+    candidateHealth.checks && typeof candidateHealth.checks === "object",
   );
-}
-assert.ok(
-  ["ready", "pending", "running"].includes(health.checks.retentionSchedule),
-  "Scheduled retention is failed, missed, stalled, or unavailable.",
-);
-assert.ok(
-  ["ready", "optional-not-configured"].includes(
-    health.checks.learnerGoogleAuth,
-  ),
-  "Google account readiness has an unknown state.",
-);
-assert.ok(
-  ["ready", "optional-not-configured"].includes(
-    health.checks.learnerAppleAuth,
-  ),
-  "Apple account readiness has an unknown state.",
-);
-assert.equal(health.checks.nativeApi, "disabled");
-for (const check of [
-  "appleClientId",
-  "appleServerCredentials",
-  "appleTokenEncryptionSecret",
-  "nativeSessionSecret",
-]) {
-  assert.equal(
-    health.checks[check],
-    "native-disabled",
-    `${check} is not safely disabled.`,
+  for (const check of [
+    "database",
+    "schema",
+    "userKeySecret",
+    "supportRateLimitSecret",
+    "learnerAuthRateLimitSecret",
+    "learnerAuthentication",
+    "learnerAuthOrigin",
+    "adminAllowlist",
+    "adminAuthentication",
+    "turnstileSiteKey",
+    "turnstileSecret",
+  ]) {
+    assert.equal(
+      candidateHealth.checks[check],
+      "ready",
+      `${check} is not ready.`,
+    );
+  }
+  if (launchMode === "public") {
+    assert.equal(candidateHealth.productionReady, true);
+    assert.equal(
+      candidateHealth.checks.learnerEmailAccountCreation,
+      "ready",
+    );
+    assert.equal(candidateHealth.checks.learnerEmailVerification, "ready");
+    assert.equal(candidateHealth.checks.learnerPasswordReset, "ready");
+    assert.equal(candidateHealth.checks.supportNotifications, "ready");
+  } else {
+    assert.equal(
+      candidateHealth.productionReady,
+      false,
+      "Controlled beta must never claim broad production readiness.",
+    );
+    assert.equal(
+      candidateHealth.checks.learnerEmailAccountCreation,
+      "disabled",
+    );
+    assert.equal(
+      candidateHealth.checks.learnerEmailVerification,
+      "not-configured",
+    );
+    assert.equal(
+      candidateHealth.checks.learnerPasswordReset,
+      "not-configured",
+    );
+    assert.equal(
+      candidateHealth.checks.supportNotifications,
+      "not-configured",
+    );
+    assert.ok(
+      Array.isArray(candidateHealth.warnings) &&
+        candidateHealth.warnings.includes(
+          "Controlled beta mode is operational but is not approved for a broad public launch.",
+        ) &&
+        candidateHealth.warnings.includes(
+          "Transactional email is not configured; email registration, verification, and password recovery remain unavailable.",
+        ) &&
+        candidateHealth.warnings.includes(
+          "Operator support email delivery is not configured; tickets remain stored for authenticated administrator follow-up.",
+        ),
+      "Controlled-beta health must state every unavailable delivery capability.",
+    );
+  }
+  assert.ok(
+    ["ready", "pending", "running"].includes(
+      candidateHealth.checks.retentionSchedule,
+    ),
+    "Scheduled retention is failed, missed, stalled, or unavailable.",
   );
+  assert.ok(
+    ["ready", "optional-not-configured"].includes(
+      candidateHealth.checks.learnerGoogleAuth,
+    ),
+    "Google account readiness has an unknown state.",
+  );
+  assert.ok(
+    ["ready", "optional-not-configured"].includes(
+      candidateHealth.checks.learnerAppleAuth,
+    ),
+    "Apple account readiness has an unknown state.",
+  );
+  assert.equal(candidateHealth.checks.nativeApi, "disabled");
+  for (const check of [
+    "appleClientId",
+    "appleServerCredentials",
+    "appleTokenEncryptionSecret",
+    "nativeSessionSecret",
+  ]) {
+    assert.equal(
+      candidateHealth.checks[check],
+      "native-disabled",
+      `${check} is not safely disabled.`,
+    );
+  }
 }
 
 const homeResponse = await request("/");
@@ -227,6 +341,9 @@ assert.match(
 );
 assert.ok((await audioResponse.arrayBuffer()).byteLength > 1_000);
 
+const finalHealth = await readHealth();
+assertHealthReady(finalHealth);
+
 console.log(
   JSON.stringify({
     origin,
@@ -238,5 +355,6 @@ console.log(
     staticAssets: 5,
     mode: "read-only",
     launchMode,
+    readinessAttempts,
   }),
 );
