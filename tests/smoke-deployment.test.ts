@@ -12,10 +12,11 @@ describe("read-only deployment smoke", () => {
   it("checks readiness, auth pages, legal routes, and static assets with GET only", async () => {
     const requests: Array<{ method: string; url: string }> = [];
     let redirectOffline = false;
+    let queuedHealthVersions: string[] = [];
     let health = {
       status: "ok",
       service: "paretto-web",
-      version: "1.3.3",
+      version: "1.3.4",
       schemaRevision: "0012",
       launchMode: "public",
       productionReady: true,
@@ -58,11 +59,20 @@ describe("read-only deployment smoke", () => {
 
       const path = request.url ?? "/";
       if (path === "/api/health") {
+        const queuedVersion = queuedHealthVersions.shift();
+        const responseHealth =
+          queuedVersion === undefined || queuedVersion === health.version
+            ? health
+            : {
+                status: "ok",
+                service: "paretto-web",
+                version: queuedVersion,
+              };
         response.writeHead(200, {
           "content-type": "application/json",
           "cache-control": "private, no-store",
         });
-        response.end(JSON.stringify(health));
+        response.end(JSON.stringify(responseHealth));
         return;
       }
       if (path === "/manifest.webmanifest") {
@@ -127,6 +137,11 @@ describe("read-only deployment smoke", () => {
       throw new Error("Test server did not expose a TCP port.");
     }
     const origin = `http://127.0.0.1:${address.port}`;
+    const smokeEnvironment = {
+      ...process.env,
+      ALLOW_HTTP_SMOKE: "1",
+      SMOKE_VERSION_INTERVAL_MS: "100",
+    };
 
     try {
       const result = await execFileAsync(
@@ -134,22 +149,198 @@ describe("read-only deployment smoke", () => {
         [resolve(ROOT, "scripts/smoke-deployment.mjs"), origin],
         {
           cwd: ROOT,
-          env: {
-            ...process.env,
-            ALLOW_HTTP_SMOKE: "1",
-          },
+          env: smokeEnvironment,
         },
       );
 
       expect(JSON.parse(result.stdout)).toMatchObject({
         origin,
-        version: "1.3.3",
+        version: "1.3.4",
         health: "ready",
         authPages: "ready",
         staticAssets: 5,
         mode: "read-only",
         launchMode: "public",
+        readinessAttempts: 2,
       });
+
+      queuedHealthVersions = [
+        "1.3.3",
+        "1.3.4",
+        "1.3.3",
+        "1.3.4",
+      ];
+      const convergenceStart = requests.length;
+      const converged = await execFileAsync(
+        process.execPath,
+        [resolve(ROOT, "scripts/smoke-deployment.mjs"), origin],
+        {
+          cwd: ROOT,
+          env: {
+            ...smokeEnvironment,
+            SMOKE_VERSION_ATTEMPTS: "5",
+          },
+        },
+      );
+      expect(JSON.parse(converged.stdout)).toMatchObject({
+        version: "1.3.4",
+        readinessAttempts: 5,
+      });
+      expect(
+        converged.stderr.match(/still serving version 1\.3\.3/g),
+      ).toHaveLength(2);
+      const convergenceRequests = requests.slice(convergenceStart);
+      expect(
+        convergenceRequests.filter(({ url }) => url === "/api/health"),
+      ).toHaveLength(6);
+      const convergenceNonHealth = convergenceRequests.filter(
+        ({ url }) => url !== "/api/health",
+      );
+      expect(convergenceNonHealth.map(({ url }) => url).sort()).toEqual(
+        [
+          "/",
+          "/accessibility",
+          "/attributions",
+          "/audio/fr/v1/idf-metro.wav",
+          "/cookies",
+          "/icon-192.png",
+          "/manifest.webmanifest",
+          "/offline.html",
+          "/privacy",
+          "/reset-password",
+          "/service-worker.js",
+          "/sign-in",
+          "/support",
+          "/terms",
+        ].sort(),
+      );
+      expect(new Set(convergenceNonHealth.map(({ method }) => method))).toEqual(
+        new Set(["GET"]),
+      );
+
+      queuedHealthVersions = ["1.3.3", "1.3.3"];
+      const exhaustionStart = requests.length;
+      await expect(
+        execFileAsync(
+          process.execPath,
+          [resolve(ROOT, "scripts/smoke-deployment.mjs"), origin],
+          {
+            cwd: ROOT,
+            env: {
+              ...smokeEnvironment,
+              SMOKE_VERSION_ATTEMPTS: "2",
+            },
+          },
+        ),
+      ).rejects.toMatchObject({
+        code: 1,
+        stderr: expect.stringContaining(
+          "Deployment version did not converge after 2 attempts.",
+        ),
+      });
+      expect(requests.slice(exhaustionStart)).toEqual([
+        { method: "GET", url: "/api/health" },
+        { method: "GET", url: "/api/health" },
+      ]);
+      queuedHealthVersions = [];
+
+      queuedHealthVersions = ["01.2.3"];
+      const malformedVersionStart = requests.length;
+      await expect(
+        execFileAsync(
+          process.execPath,
+          [resolve(ROOT, "scripts/smoke-deployment.mjs"), origin],
+          {
+            cwd: ROOT,
+            env: {
+              ...smokeEnvironment,
+              SMOKE_VERSION_ATTEMPTS: "3",
+            },
+          },
+        ),
+      ).rejects.toMatchObject({
+        code: 1,
+        stderr: expect.stringContaining(
+          "Deployment health version must be a stable semantic-version string.",
+        ),
+      });
+      expect(requests.slice(malformedVersionStart)).toEqual([
+        { method: "GET", url: "/api/health" },
+      ]);
+      queuedHealthVersions = [];
+
+      health = {
+        ...health,
+        service: "not-paretto",
+      };
+      const invariantStart = requests.length;
+      await expect(
+        execFileAsync(
+          process.execPath,
+          [resolve(ROOT, "scripts/smoke-deployment.mjs"), origin],
+          {
+            cwd: ROOT,
+            env: {
+              ...smokeEnvironment,
+              SMOKE_VERSION_ATTEMPTS: "3",
+            },
+          },
+        ),
+      ).rejects.toMatchObject({
+        code: 1,
+        stderr: expect.stringContaining(
+          "actual: 'not-paretto'",
+        ),
+      });
+      expect(requests.slice(invariantStart)).toEqual([
+        { method: "GET", url: "/api/health" },
+      ]);
+      health = {
+        ...health,
+        service: "paretto-web",
+      };
+
+      const invalidConfigurationStart = requests.length;
+      await expect(
+        execFileAsync(
+          process.execPath,
+          [resolve(ROOT, "scripts/smoke-deployment.mjs"), origin],
+          {
+            cwd: ROOT,
+            env: {
+              ...smokeEnvironment,
+              SMOKE_VERSION_ATTEMPTS: "3junk",
+            },
+          },
+        ),
+      ).rejects.toMatchObject({
+        code: 1,
+        stderr: expect.stringContaining(
+          "SMOKE_VERSION_ATTEMPTS must be an integer",
+        ),
+      });
+      expect(requests).toHaveLength(invalidConfigurationStart);
+
+      const insufficientAttemptsStart = requests.length;
+      await expect(
+        execFileAsync(
+          process.execPath,
+          [resolve(ROOT, "scripts/smoke-deployment.mjs"), origin],
+          {
+            cwd: ROOT,
+            env: {
+              ...smokeEnvironment,
+              SMOKE_VERSION_ATTEMPTS: "1",
+            },
+          },
+        ),
+      ).rejects.toMatchObject({
+        code: 1,
+        stderr: expect.stringContaining(
+          "SMOKE_VERSION_ATTEMPTS must be an integer from 2 through 60.",
+        ),
+      });
+      expect(requests).toHaveLength(insufficientAttemptsStart);
 
       health = {
         ...health,
@@ -178,10 +369,7 @@ describe("read-only deployment smoke", () => {
         ],
         {
           cwd: ROOT,
-          env: {
-            ...process.env,
-            ALLOW_HTTP_SMOKE: "1",
-          },
+          env: smokeEnvironment,
         },
       );
       expect(JSON.parse(controlled.stdout)).toMatchObject({
@@ -194,10 +382,7 @@ describe("read-only deployment smoke", () => {
           [resolve(ROOT, "scripts/smoke-deployment.mjs"), origin],
           {
             cwd: ROOT,
-            env: {
-              ...process.env,
-              ALLOW_HTTP_SMOKE: "1",
-            },
+            env: smokeEnvironment,
           },
         ),
       ).rejects.toMatchObject({ code: 1 });
@@ -213,10 +398,7 @@ describe("read-only deployment smoke", () => {
           ],
           {
             cwd: ROOT,
-            env: {
-              ...process.env,
-              ALLOW_HTTP_SMOKE: "1",
-            },
+            env: smokeEnvironment,
           },
         ),
       ).rejects.toMatchObject({
