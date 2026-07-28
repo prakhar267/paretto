@@ -55,6 +55,12 @@ describe("release engineering contracts", () => {
     expect(configuration).toContain("wrangler d1 migrations apply DB --local");
     expect(configuration).toContain("node e2e/start-local-worker.mjs");
     expect(configuration).toContain("--local-protocol https");
+    expect(configuration).toContain(
+      "PARETTO_E2E_PASSWORD_PEPPERS: localPasswordPepperKeyring",
+    );
+    expect(configuration).not.toMatch(
+      /--var [^\n"]*PARETTO_PASSWORD_PEPPERS/,
+    );
     expect(configuration).toContain("timeout: 120_000");
     expect(configuration).toContain("actionTimeout: 10_000");
     expect(configuration).toContain("navigationTimeout: 30_000");
@@ -99,6 +105,12 @@ describe("release engineering contracts", () => {
     expect(localWorker).toContain('protocol !== "https"');
     expect(localWorker).toContain("unstable_getMiniflareWorkerOptions");
     expect(localWorker).toContain("new Miniflare({");
+    expect(localWorker).toContain(
+      "process.env.PARETTO_E2E_PASSWORD_PEPPERS",
+    );
+    expect(localWorker).toContain(
+      "PARETTO_PASSWORD_PEPPERS:",
+    );
     expect(localWorker).toContain(
       "outboundService: createAcceptanceOutboundService()",
     );

@@ -3,13 +3,18 @@ import { defineConfig, devices } from "@playwright/test";
 const defaultBaseURL = "https://localhost:4173";
 const baseURL = process.env.PLAYWRIGHT_BASE_URL ?? defaultBaseURL;
 const startsLocalServer = !process.env.PLAYWRIGHT_BASE_URL;
+const localPasswordPepperKeyring = JSON.stringify({
+  current: "local-v1",
+  keys: {
+    "local-v1": "paretto-e2e-password-pepper-local-only-2026",
+  },
+});
 const localWorkerCommand =
   "node e2e/start-local-worker.mjs --cwd dist/server --config wrangler.json " +
   "--local-protocol https --ip localhost --port 4173 " +
   "--persist-to ../../test-results/playwright-runtime " +
   "--var BETTER_AUTH_URL:https://localhost:4173 " +
   "--var BETTER_AUTH_SECRET:paretto-e2e-auth-secret-local-only-2026 " +
-  "--var 'PARETTO_PASSWORD_PEPPERS:{\"current\":\"local-v1\",\"keys\":{\"local-v1\":\"paretto-e2e-password-pepper-local-only-2026\"}}' " +
   "--var BETTER_AUTH_RATE_LIMIT_SECRET:paretto-e2e-auth-rate-limit-local-only-2026 " +
   "--var USER_KEY_SECRET:paretto-e2e-user-key-local-only-2026 " +
   "--show-interactive-dev-session=false --log-level warn";
@@ -83,6 +88,10 @@ export default defineConfig({
           // Cloudflare's documented public always-pass test site key. The test
           // replaces the widget API before exercising deterministic failures.
           PARETTO_E2E_TURNSTILE_SITE_KEY: "1x00000000000000000000AA",
+          // Playwright passes webServer.env directly to the child process on
+          // every host OS. Keeping structured JSON out of the shell command
+          // prevents POSIX/cmd.exe quoting differences from changing it.
+          PARETTO_E2E_PASSWORD_PEPPERS: localPasswordPepperKeyring,
         },
       }
     : undefined,
