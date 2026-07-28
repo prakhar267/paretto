@@ -23,6 +23,7 @@ const localRuntimeVars = {
   BETTER_AUTH_RATE_LIMIT_SECRET:
     "local-only-paretto-better-auth-rate-limit-secret-never-deploy",
   LAUNCH_MODE: "controlled-beta",
+  WORKERS_PLAN: "free",
   NATIVE_API_ENABLED: "false",
   ...(e2eTurnstileSiteKey
     ? {

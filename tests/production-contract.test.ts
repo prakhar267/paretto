@@ -213,6 +213,7 @@ describe("mobile, PWA, security, and launch contracts", () => {
       expect(template).toContain('"main": "dist/server/index.js"');
       expect(template).toContain('"ADMIN_EMAILS": "__ADMIN_EMAILS__"');
       expect(template).toContain('"LAUNCH_MODE": "__LAUNCH_MODE__"');
+      expect(template).toContain('"WORKERS_PLAN": "__WORKERS_PLAN__"');
       expect(template).toContain('"NATIVE_API_ENABLED": "false"');
       expect(template).toContain(
         '"TURNSTILE_SITE_KEY": "__TURNSTILE_SITE_KEY__"',
@@ -269,8 +270,9 @@ describe("mobile, PWA, security, and launch contracts", () => {
     expect(secretVerifier).toContain(
       "verifyAdminPasswordVerifierMap",
     );
+    expect(secretVerifier).toContain("emailDeliveryConfigured");
     expect(secretVerifier).toContain(
-      'launchMode === "public" ? OPTIONAL_SECRETS : []',
+      'emailDeliveryConfigured ? ["RESEND_API_KEY"] : []',
     );
     expect(secretVerifier).toContain('"SUPPORT_RATE_LIMIT_SECRET"');
     expect(secretVerifier).toContain(
@@ -309,6 +311,12 @@ describe("mobile, PWA, security, and launch contracts", () => {
     );
     expect(deployWorkflow).toContain(
       "default: controlled-beta",
+    );
+    expect(deployWorkflow).toContain(
+      "SUPPORT_EMAIL_DELIVERY_ENABLED=false",
+    );
+    expect(deployWorkflow).toContain(
+      "SUPPORT_EMAIL_DELIVERY_ENABLED=true",
     );
     expect(deployWorkflow).toContain(
       'npm run smoke:deployment --',

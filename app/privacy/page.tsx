@@ -28,10 +28,14 @@ export default function PrivacyPage() {
         </p>
         <p>
           If you create a learner account, Paretto also stores your account
-          name, normalized email address, email-verification state, password
-          verifier or linked identity-provider account, and security-session
-          records. Plain-text passwords are never stored. Optional Google or
-          Apple sign-in is offered only when that provider is configured.
+          name, permanent normalized Paretto ID, password verifier, one-way
+          recovery-code hashes, recovery-code generation state, and
+          security-session records. A random non-routable internal address is
+          used only as an implementation identifier; it is not an email inbox
+          and is never presented as your contact address. Plain-text passwords
+          and recovery codes are never stored. Recovery codes are displayed
+          once when issued. Optional Google or Apple sign-in is offered only
+          when that provider is configured.
         </p>
         <p>
           The native app assigns a random per-installation and per-account
@@ -45,7 +49,9 @@ export default function PrivacyPage() {
           If you contact support, we store the category, subject, message,
           ticket status, an opaque account reference, and—only if you choose to
           provide it—a reply email address. Do not include passwords, payment
-          data, health information, or other sensitive data in a support message.
+          data, recovery codes, health information, or other sensitive data in
+          a support message. Support cannot retrieve a password or recovery
+          code.
         </p>
       </LegalSection>
 
@@ -61,24 +67,28 @@ export default function PrivacyPage() {
           HttpOnly session cookie for cross-browser synchronization.
         </p>
         <p>
-          Public email-and-password registration is available only when
-          transactional email is configured, and production accounts always
-          require email verification. A delivery outage does not make an
-          unverified account eligible to sign in. Verification and reset links
-          are short-lived. Existing verified learners can still sign in if
-          registration is temporarily disabled. Authentication requests use an
-          atomic quota keyed by a one-way hash of the connecting IP and
-          authentication route; its limiter records do not store the raw IP,
-          route, or submitted email. Account sessions expire, and deleting an
-          account removes its synchronized learning record, product events, and
-          associated support records in addition to the authentication record.
+          A Paretto ID does not require an email address. Account creation,
+          sign-in, account recovery, and recovery-code replacement each require
+          a Cloudflare Turnstile challenge and are protected by atomic quotas
+          keyed by one-way hashes of the connecting IP and normalized Paretto
+          ID. Limiter records do not store the raw IP, route, password, or
+          submitted recovery code. Each recovery code can be used once; a
+          successful recovery replaces the entire code set and revokes existing
+          sessions. You can replace all codes from Profile after confirming the
+          current password. Paretto cannot reveal lost codes, so losing both
+          the password and every unused code can make the account
+          unrecoverable. Account sessions expire, and deleting an account
+          removes its synchronized learning record, product events, recovery
+          records, and associated support records in addition to the
+          authentication record.
         </p>
         <p>
           A reply address explicitly entered into the support form is stored
           with that request so the team can respond. Cloudflare Turnstile also
           processes challenge, browser, network, and IP information to distinguish
           people from automated abuse. Paretto validates the challenge for
-          this site and form action; it does not store the challenge token.
+          this site and the exact account or support action; it does not store
+          the challenge token.
           Paretto also applies a separate hourly support quota using a keyed,
           one-way bucket derived only from Cloudflare&apos;s connecting-IP header.
           The support quota table does not store the raw IP address, reply
@@ -131,13 +141,13 @@ export default function PrivacyPage() {
       <LegalSection title="Service providers and international processing">
         <p>
           Cloudflare provides hosting, database, delivery, and abuse-prevention
-          services. When account or support email is enabled, Resend delivers
-          verification, recovery, receipt, and status messages. If you choose
-          Google or Apple sign-in, that provider processes the authorization
-          request under its own terms. These providers may process information
-          in countries other than the learner&apos;s own. Where applicable, the
-          operator relies on their contractual and security safeguards for
-          those transfers.
+          services. When support email is enabled, Resend delivers support
+          notifications and replies; Paretto ID recovery does not depend on
+          email delivery. If you choose Google or Apple sign-in, that provider
+          processes the authorization request under its own terms. These
+          providers may process information in countries other than the
+          learner&apos;s own. Where applicable, the operator relies on their
+          contractual and security safeguards for those transfers.
         </p>
       </LegalSection>
 
@@ -149,10 +159,11 @@ export default function PrivacyPage() {
           its pseudonymous server record and is not a deletion request.
           Hashed administrator sign-in attempt records become eligible for
           bounded deletion after 24 hours. Expired learner sessions and
-          verification tokens are deleted in bounded maintenance batches;
-          inactive one-way authentication rate-limit buckets become eligible
-          after 24 hours. Inactive one-way support quota buckets also become
-          eligible after 24 hours.
+          authentication records are deleted in bounded maintenance batches;
+          recovery-code hashes remain until they are replaced or the account
+          is deleted. Inactive one-way authentication rate-limit buckets become
+          eligible after 24 hours. Inactive one-way support quota buckets also
+          become eligible after 24 hours.
           Optional product events become eligible for automatic deletion 400
           days after receipt. Resolved or closed support requests and
           administrative audit records become eligible 730 days after their

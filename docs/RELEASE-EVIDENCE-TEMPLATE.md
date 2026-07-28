@@ -17,6 +17,7 @@ addresses in release evidence.
 - CI run URL:
 - Hosting version/deployment URL:
 - Launch mode (`controlled-beta` or `public`):
+- Declared Workers plan (`free` or `paid`) and provider evidence:
 - Native marketing/build version:
 - macOS and full Xcode version/build:
 - Signed staging archive or TestFlight URL:
@@ -86,19 +87,26 @@ addresses in release evidence.
       and limiter rows contained no raw IP, path, or email.
 - [ ] `BETTER_AUTH_SECRET` is independent and managed securely, and
       `BETTER_AUTH_URL` is the exact deployed HTTPS origin.
-- [ ] For `public`, `RESEND_API_KEY` and the verified `AUTH_EMAIL_FROM`
-      identity deliver verification and password-recovery messages. For
-      `controlled-beta`, both are deliberately absent and the limitation is
-      recorded in health and release notes.
-- [ ] For `public`, `SUPPORT_NOTIFICATION_EMAIL` reaches the named responder
-      without exposing the learner's support body in logs or release evidence.
-      For `controlled-beta`, operator email is absent and a named administrator
-      owns manual ticket-queue review.
+- [ ] Fresh Paretto ID creation, password sign-in, one-time recovery,
+      recovery-code rotation, session revocation, and cross-browser progress
+      synchronization passed without a learner email address.
+- [ ] `WORKERS_PLAN` matches the deployment-workflow choice and generated
+      Worker configuration. For `public`, separate Cloudflare account evidence
+      confirms Workers Paid; the self-declared runtime value is not accepted as
+      billing proof.
+- [ ] If support email is enabled, `RESEND_API_KEY`, `AUTH_EMAIL_FROM`, and
+      `SUPPORT_NOTIFICATION_EMAIL` form one verified delivery configuration.
+      If it is disabled, a named administrator owns manual queue review.
+- [ ] When optional support email is enabled in either launch mode,
+      `SUPPORT_NOTIFICATION_EMAIL` reaches the named responder without exposing
+      the learner's support body in logs or release evidence. When it is
+      disabled, both runtime values are exact empty strings, `RESEND_API_KEY` is
+      absent, and a named administrator owns manual ticket-queue review.
 - [ ] A staged provider failure left the support mutation successful, recorded
       a failed body-free outbox job, and the next bounded maintenance run
       delivered it exactly once through the provider idempotency key.
-- [ ] Anonymous and unverified reply addresses received no automatic support
-      receipt; an exact verified signed-in account address did receive one.
+- [ ] Support delivery did not disclose passwords, recovery codes, ticket
+      bodies in logs, or the internal non-routable account alias.
 - [ ] The Turnstile site key is restricted to the deployed hostname and the
       matching `TURNSTILE_SECRET` is present only in the hosted secret manager.
 - [ ] `ADMIN_EMAILS` contains the approved least-privilege allowlist. A
@@ -122,8 +130,8 @@ addresses in release evidence.
 - [ ] `/api/health` returns HTTP 200. For `public`, it reports
       `launchMode: "public"` and `productionReady: true`. For
       `controlled-beta`, it reports `launchMode: "controlled-beta"`,
-      `webReady: true`, `productionReady: false`, and explicit transactional
-      email/support-delivery warnings.
+      `webReady: true`, `productionReady: false`, and explicit launch-mode and
+      optional support-email-delivery warnings while Paretto ID remains usable.
 - [ ] Hosting strips retired client-supplied identity headers, and the selected
       anonymous-web or authenticated identity mechanism is verified.
 - Configuration decision maker:

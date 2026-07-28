@@ -1,5 +1,6 @@
 import { execFile } from "node:child_process";
 import { once } from "node:events";
+import { readFileSync } from "node:fs";
 import { createServer } from "node:http";
 import { resolve } from "node:path";
 import { promisify } from "node:util";
@@ -8,6 +9,10 @@ import { describe, expect, it } from "vitest";
 const execFileAsync = promisify(execFile);
 const ROOT = resolve(import.meta.dirname, "..");
 const SCRIPT = resolve(ROOT, "scripts/verify-github-ci-run.mjs");
+const RELEASE_VERSION = JSON.parse(
+  readFileSync(resolve(ROOT, "package.json"), "utf8"),
+).version as string;
+const RELEASE_TAG = `v${RELEASE_VERSION}`;
 const SHA = "0123456789abcdef0123456789abcdef01234567";
 const JOBS = [
   "Web release gate (Node 22.x)",
@@ -22,7 +27,7 @@ const JOBS = [
 async function withGitHubApi(
   jobs: string[],
   run: (apiOrigin: string, requests: string[]) => Promise<void>,
-  headBranch = "v1.3.0",
+  headBranch = RELEASE_TAG,
   comparisonStatus = "ahead",
 ) {
   const requests: string[] = [];
@@ -93,8 +98,8 @@ function verifierEnvironment(apiOrigin: string) {
     ALLOW_HTTP_GITHUB_API: "1",
     GITHUB_API_URL: apiOrigin,
     GITHUB_REPOSITORY: "prakhar267/paretto",
-    GITHUB_REF: "refs/tags/v1.3.0",
-    GITHUB_REF_NAME: "v1.3.0",
+    GITHUB_REF: `refs/tags/${RELEASE_TAG}`,
+    GITHUB_REF_NAME: RELEASE_TAG,
     GITHUB_SHA: SHA,
     GITHUB_TOKEN: "test-token",
   };
@@ -109,7 +114,7 @@ describe("exact-SHA GitHub CI production precondition", () => {
       });
       expect(JSON.parse(result.stdout)).toMatchObject({
         status: "verified",
-        releaseTag: "v1.3.0",
+        releaseTag: RELEASE_TAG,
         sourceSha: SHA,
         workflowRunId: 42,
         requiredJobs: 7,
@@ -157,22 +162,19 @@ describe("exact-SHA GitHub CI production precondition", () => {
         ).rejects.toMatchObject({ code: 1 });
         expect(requests).toHaveLength(1);
       },
-      "v1.3.0",
+      RELEASE_TAG,
       "diverged",
     );
   });
 
   it("rejects duplicate evidence for any required CI job", async () => {
-    await withGitHubApi(
-      [...JOBS, JOBS[0]],
-      async (apiOrigin) => {
-        await expect(
-          execFileAsync(process.execPath, [SCRIPT], {
-            cwd: ROOT,
-            env: verifierEnvironment(apiOrigin),
-          }),
-        ).rejects.toMatchObject({ code: 1 });
-      },
-    );
+    await withGitHubApi([...JOBS, JOBS[0]], async (apiOrigin) => {
+      await expect(
+        execFileAsync(process.execPath, [SCRIPT], {
+          cwd: ROOT,
+          env: verifierEnvironment(apiOrigin),
+        }),
+      ).rejects.toMatchObject({ code: 1 });
+    });
   });
 });

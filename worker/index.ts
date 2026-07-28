@@ -25,6 +25,7 @@ interface Env {
   TURNSTILE_SITE_KEY?: string;
   TURNSTILE_SECRET?: string;
   LAUNCH_MODE?: string;
+  WORKERS_PLAN?: string;
   NATIVE_API_ENABLED?: string;
   APPLE_CLIENT_ID?: string;
   APPLE_TEAM_ID?: string;

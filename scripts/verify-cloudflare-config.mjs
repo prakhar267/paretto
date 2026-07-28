@@ -19,6 +19,13 @@ const COMMON_REQUIRED_SECRETS = [
   "ADMIN_SESSION_SECRET",
   "TURNSTILE_SECRET",
 ];
+const TURNSTILE_TEST_SITE_KEYS = new Set([
+  "1x00000000000000000000AA",
+  "2x00000000000000000000AB",
+  "1x00000000000000000000BB",
+  "2x00000000000000000000BB",
+  "3x00000000000000000000FF",
+]);
 const WORKER_FIRST_ROUTES = [
   "/",
   "/accessibility",
@@ -53,10 +60,11 @@ if (options.templates === "true") {
         source.includes("__BETTER_AUTH_URL__") &&
         source.includes("__LAUNCH_MODE__") &&
         source.includes("__SUPPORT_NOTIFICATION_EMAIL__") &&
-        source.includes("__TURNSTILE_SITE_KEY__"),
+        source.includes("__TURNSTILE_SITE_KEY__") &&
+        source.includes("__WORKERS_PLAN__"),
       `${environment} template must keep every provisioning placeholder.`,
     );
-    const materialized = source
+    const baseMaterialized = source
       .replace(
         "__CLOUDFLARE_ACCOUNT_ID__",
         "1234567890abcdef1234567890abcdef",
@@ -79,27 +87,68 @@ if (options.templates === "true") {
         "ADMIN_PASSWORD_VERIFIER",
       )
       .replace(
-        "__AUTH_EMAIL_FROM__",
-        "Paretto <accounts@example.com>",
-      )
-      .replace(
         "__BETTER_AUTH_URL__",
         `https://paretto-${environment}.example.com`,
       )
       .replace("__LAUNCH_MODE__", "public")
-      .replace(
-        "__SUPPORT_NOTIFICATION_EMAIL__",
-        "support@example.com",
-      )
+      .replace("__WORKERS_PLAN__", "paid")
       .replace(
         "__TURNSTILE_SITE_KEY__",
-        "1x00000000000000000000AA",
+        "0x4AAAAAAATemplateShapeOnlyKey",
       );
-    validateConfiguration(
-      JSON.parse(materialized),
-      environment,
-      false,
-    );
+    for (const delivery of [
+      {
+        authEmailFrom: "",
+        supportNotificationEmail: "",
+      },
+      {
+        authEmailFrom: "Paretto <accounts@example.com>",
+        supportNotificationEmail: "support@example.com",
+      },
+    ]) {
+      const materialized = baseMaterialized
+        .replace("__AUTH_EMAIL_FROM__", delivery.authEmailFrom)
+        .replace(
+          "__SUPPORT_NOTIFICATION_EMAIL__",
+          delivery.supportNotificationEmail,
+        );
+      validateConfiguration(
+        JSON.parse(materialized),
+        environment,
+        false,
+      );
+    }
+    for (const delivery of [
+      {
+        authEmailFrom: "Paretto <accounts@example.com>",
+        supportNotificationEmail: "",
+      },
+      {
+        authEmailFrom: "",
+        supportNotificationEmail: "support@example.com",
+      },
+    ]) {
+      const materialized = baseMaterialized
+        .replace("__AUTH_EMAIL_FROM__", delivery.authEmailFrom)
+        .replace(
+          "__SUPPORT_NOTIFICATION_EMAIL__",
+          delivery.supportNotificationEmail,
+        );
+      let rejected = false;
+      try {
+        validateConfiguration(
+          JSON.parse(materialized),
+          environment,
+          false,
+        );
+      } catch {
+        rejected = true;
+      }
+      invariant(
+        rejected,
+        `${environment} template verification must reject partial optional email delivery.`,
+      );
+    }
   }
   console.log(
     "Cloudflare staging/production templates verified: direct Worker entry, " +
@@ -156,7 +205,8 @@ function validateConfiguration(configuration, environment, requireProvisioned) {
   );
   const adminEmails = parseAdminEmails(configuration.vars?.ADMIN_EMAILS);
   const launchMode = configuration.vars?.LAUNCH_MODE;
-  const publicDeliveryConfigured =
+  const workersPlan = configuration.vars?.WORKERS_PLAN;
+  const emailDeliveryConfigured =
     typeof configuration.vars?.AUTH_EMAIL_FROM === "string" &&
     /<[^<>\s@]+@[^<>\s@]+\.[^<>\s@]+>$/.test(
       configuration.vars.AUTH_EMAIL_FROM,
@@ -165,23 +215,26 @@ function validateConfiguration(configuration, environment, requireProvisioned) {
     /^[^\s,@]+@[^\s,@]+\.[^\s,@]+$/.test(
       configuration.vars.SUPPORT_NOTIFICATION_EMAIL,
     );
-  const controlledBetaDeliveryDisabled =
+  const emailDeliveryDisabled =
     configuration.vars?.AUTH_EMAIL_FROM === "" &&
     configuration.vars?.SUPPORT_NOTIFICATION_EMAIL === "";
   invariant(
     configuration.vars?.NATIVE_API_ENABLED === "false" &&
       adminEmails !== null &&
       (launchMode === "public" || launchMode === "controlled-beta") &&
-      (launchMode === "public"
-        ? publicDeliveryConfigured
-        : controlledBetaDeliveryDisabled) &&
+      (workersPlan === "free" || workersPlan === "paid") &&
+      (launchMode !== "public" || workersPlan === "paid") &&
+      (emailDeliveryConfigured || emailDeliveryDisabled) &&
       validHttpsOrigin(configuration.vars?.BETTER_AUTH_URL) &&
       typeof configuration.vars?.TURNSTILE_SITE_KEY === "string" &&
       configuration.vars.TURNSTILE_SITE_KEY.length >= 20 &&
       configuration.vars.TURNSTILE_SITE_KEY.length <= 256 &&
       !/\s/.test(configuration.vars.TURNSTILE_SITE_KEY) &&
-      Object.keys(configuration.vars).length === 7,
-    "The web launch must explicitly select controlled-beta or public mode, configure core learner/admin identity and Turnstile, disable the native API, and either omit delivery in controlled beta or fully configure its public sender and support mailbox.",
+      !TURNSTILE_TEST_SITE_KEYS.has(
+        configuration.vars.TURNSTILE_SITE_KEY,
+      ) &&
+      Object.keys(configuration.vars).length === 8,
+    "The web launch must explicitly select controlled-beta or public mode, configure core learner/admin identity and Turnstile, disable the native API, and either disable optional email delivery with two exact empty values or configure both its valid sender and support mailbox.",
   );
   const adminPasswordSecretName =
     adminEmails.length === 1

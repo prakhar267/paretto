@@ -92,6 +92,13 @@
       "when": 1784947051551,
       "tag": "0012_private_auth_reset_generation",
       "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "6",
+      "when": 1785268581278,
+      "tag": "0013_paretto_id_recovery",
+      "breakpoints": true
     }
   ]
 }

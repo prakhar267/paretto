@@ -96,7 +96,7 @@
 
 .tabs {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
   gap: 5px;
   margin-bottom: 22px;
   border-radius: 13px;
@@ -121,7 +121,7 @@
   color: #4f5b73;
 }
 
-.tabs button[aria-selected="true"] {
+.tabs button[aria-pressed="true"] {
   background: white;
   color: #17233b;
   box-shadow: 0 3px 12px rgb(23 35 59 / 8%);
@@ -162,6 +162,13 @@
   gap: 16px;
 }
 
+.formHeading {
+  margin: 0;
+  font-family: var(--font-fraunces), serif;
+  font-size: clamp(22px, 5vw, 28px);
+  line-height: 1.15;
+}
+
 .form label {
   display: grid;
   gap: 7px;
@@ -195,6 +202,15 @@
   color: #737e90;
   font-size: 10px;
   font-weight: 650;
+}
+
+.accountPromise {
+  margin: 0;
+  border-left: 3px solid #d8b95e;
+  color: #58657b;
+  padding-left: 12px;
+  font-size: 12px;
+  line-height: 1.55;
 }
 
 .submit {
@@ -231,4 +247,115 @@
 
 .links a {
   color: #425579;
+}
+
+.recoveryReceipt {
+  display: grid;
+  gap: 18px;
+}
+
+.recoveryReceipt h2 {
+  margin: 0;
+  font-family: var(--font-fraunces), serif;
+  font-size: clamp(28px, 6vw, 38px);
+  line-height: 1.05;
+}
+
+.recoveryReceipt > p {
+  margin: 0;
+  color: #58657b;
+  line-height: 1.6;
+}
+
+.receiptEyebrow {
+  color: #3156d9 !important;
+  font-size: 11px;
+  font-weight: 850;
+  letter-spacing: .14em;
+  text-transform: uppercase;
+}
+
+.recoveryCodes {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px 22px;
+  margin: 0;
+  border: 1px solid #d8dee8;
+  border-radius: 14px;
+  background: #f7f8fb;
+  padding: 16px 16px 16px 42px;
+}
+
+.recoveryCodes li {
+  min-width: 0;
+}
+
+.recoveryCodes code {
+  overflow-wrap: anywhere;
+  color: #17233b;
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: .025em;
+}
+
+.receiptActions {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.receiptActions button {
+  min-height: 44px;
+  border: 1px solid #c7ced9;
+  border-radius: 10px;
+  background: white;
+  color: #17233b;
+  font: inherit;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.receiptActions button:focus-visible,
+.savedCheck input:focus-visible {
+  outline: 3px solid #7e98ff;
+  outline-offset: 2px;
+}
+
+.receiptStatus {
+  color: #1f6843 !important;
+  font-size: 12px;
+  font-weight: 750;
+}
+
+.savedCheck {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  align-items: start;
+  gap: 10px;
+  color: #303e56;
+  font-size: 13px;
+  font-weight: 750;
+  line-height: 1.45;
+}
+
+.savedCheck input {
+  width: 20px;
+  height: 20px;
+  margin: 0;
+}
+
+@media (max-width: 390px) {
+  .page {
+    padding: 12px 8px;
+  }
+
+  .card {
+    border-radius: 20px;
+    padding: 22px 16px;
+  }
+
+  .recoveryCodes,
+  .receiptActions {
+    grid-template-columns: 1fr;
+  }
 }

@@ -30,6 +30,9 @@ export async function sendTransactionalEmail(
   if (!apiKey || !validSender(from)) {
     throw new Error("Transactional email is not configured.");
   }
+  if (!validEmail(message.to)) {
+    throw new Error("Transactional email recipient is invalid.");
+  }
 
   const response = await fetch("https://api.resend.com/emails", {
     method: "POST",
@@ -37,6 +40,7 @@ export async function sendTransactionalEmail(
     headers: {
       authorization: `Bearer ${apiKey}`,
       "content-type": "application/json",
+      "user-agent": "Paretto-Transactional-Email/1.0",
       ...(message.idempotencyKey
         ? { "idempotency-key": message.idempotencyKey }
         : {}),
@@ -89,7 +93,8 @@ function validEmail(value: unknown): value is string {
     typeof value === "string" &&
     value.length >= 3 &&
     value.length <= 254 &&
-    /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)
+    /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value) &&
+    !value.toLowerCase().endsWith(".invalid")
   );
 }
 

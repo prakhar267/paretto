@@ -89,6 +89,7 @@ import {
 import { authClient } from "./auth-client";
 import { trackProductEvent } from "./product-analytics";
 import { FrenchAudioButton } from "./audio/FrenchAudioButton";
+import TurnstileWidget from "./TurnstileWidget";
 import {
   buildRuntimeCurriculum,
   lessonVocabulary,
@@ -153,13 +154,16 @@ export function curriculumContentSummary(
 
 function accountDeletionError(error: AccountDeletionFailure): string {
   if (error.code === "SESSION_EXPIRED") {
-    return "For security, sign out and sign in again before deleting this social-only account.";
+    return "For security, sign out and sign in again before deleting this account.";
   }
   if (error.code === "INVALID_PASSWORD") {
     return "The current password is incorrect.";
   }
+  if (error.code === "PASSWORD_REQUIRED") {
+    return "Enter your current password before deleting this account.";
+  }
   if (error.code === "CREDENTIAL_ACCOUNT_NOT_FOUND") {
-    return "This account uses social sign-in. Leave the password blank; if needed, sign out and sign in again first.";
+    return "This linked-provider account must be signed in again before deletion.";
   }
   return "The account could not be deleted. Please retry.";
 }
@@ -423,6 +427,7 @@ export default function ParettoApp({
   courseId = DEFAULT_COURSE_ID,
   curriculumRevision = "compiled-v1",
   curriculumSource = "compiled",
+  turnstileSiteKey = null,
 }: {
   storageKey?: string;
   legacyCachePolicy?: LegacyCachePolicy;
@@ -431,6 +436,7 @@ export default function ParettoApp({
   courseId?: CourseId;
   curriculumRevision?: string;
   curriculumSource?: "cms" | "compiled" | "compiled-fallback";
+  turnstileSiteKey?: string | null;
 } = {}) {
   const {
     state,
@@ -871,6 +877,7 @@ export default function ParettoApp({
               onDelete={deleteProgress}
               accountSession={account.data ?? null}
               accountPending={account.isPending}
+              turnstileSiteKey={turnstileSiteKey}
               onAccountPrivacyTransition={protectCompletedAccountTransition}
               onAccountTransitionChange={(transitioning) => {
                 accountTransitionRef.current = transitioning;
@@ -2050,6 +2057,268 @@ function MasteryDots({ stage, learned }: { stage: number; learned: boolean }) {
   );
 }
 
+function RecoveryCodeManager({
+  username,
+  turnstileSiteKey,
+}: {
+  username: string;
+  turnstileSiteKey: string | null;
+}) {
+  const [open, setOpen] = useState(false);
+  const [password, setPassword] = useState("");
+  const [token, setToken] = useState("");
+  const [challengeReset, setChallengeReset] = useState(0);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+  const [codes, setCodes] = useState<string[] | null>(null);
+  const [saved, setSaved] = useState(false);
+  const [status, setStatus] = useState("");
+  const triggerRef = useRef<HTMLButtonElement>(null);
+  const passwordRef = useRef<HTMLInputElement>(null);
+  const receiptHeadingRef = useRef<HTMLHeadingElement>(null);
+
+  useEffect(() => {
+    if (!codes) return;
+    receiptHeadingRef.current?.focus({ preventScroll: true });
+    const clearCodes = () => {
+      setCodes(null);
+      setSaved(false);
+      setStatus("");
+      setOpen(false);
+    };
+    window.addEventListener("pagehide", clearCodes);
+    return () => window.removeEventListener("pagehide", clearCodes);
+  }, [codes]);
+
+  async function replaceCodes(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setBusy(true);
+    setError("");
+    try {
+      const response = await fetch("/api/account/recovery-codes", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        credentials: "same-origin",
+        body: JSON.stringify({
+          password,
+          turnstileToken: token,
+        }),
+      });
+      const payload = (await response.json().catch(() => null)) as
+        | { error?: string; recoveryCodes?: unknown }
+        | null;
+      if (!response.ok) {
+        throw new Error(
+          payload?.error ??
+            "Recovery codes could not be replaced. Please retry.",
+        );
+      }
+      const nextCodes = parseProfileRecoveryCodes(payload?.recoveryCodes);
+      if (!nextCodes) {
+        throw new Error(
+          "Recovery codes were replaced, but the receipt was incomplete. Retry from this signed-in browser.",
+        );
+      }
+      setCodes(nextCodes);
+      setPassword("");
+      setToken("");
+    } catch (reason) {
+      setError(
+        reason instanceof Error
+          ? reason.message
+          : "Recovery codes could not be replaced. Please retry.",
+      );
+      setToken("");
+      setChallengeReset((current) => current + 1);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function copyCodes() {
+    if (!codes) return;
+    try {
+      await navigator.clipboard.writeText(
+        profileRecoveryReceipt(username, codes),
+      );
+      setStatus("Recovery codes copied.");
+    } catch {
+      setStatus(
+        "Copy was blocked. Select the visible codes or download them instead.",
+      );
+    }
+  }
+
+  function downloadCodes() {
+    if (!codes) return;
+    const blob = new Blob([profileRecoveryReceipt(username, codes)], {
+      type: "text/plain;charset=utf-8",
+    });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = "paretto-recovery-codes.txt";
+    link.click();
+    URL.revokeObjectURL(url);
+    setStatus("Recovery-code file downloaded.");
+  }
+
+  function close() {
+    setOpen(false);
+    setCodes(null);
+    setPassword("");
+    setToken("");
+    setError("");
+    setSaved(false);
+    setStatus("");
+    setChallengeReset((current) => current + 1);
+    window.requestAnimationFrame(() =>
+      triggerRef.current?.focus({ preventScroll: true }),
+    );
+  }
+
+  if (!open) {
+    return (
+      <button
+        ref={triggerRef}
+        className="account-recovery-trigger"
+        type="button"
+        disabled={!turnstileSiteKey}
+        aria-expanded={false}
+        aria-controls="account-recovery-panel"
+        onClick={() => {
+          setOpen(true);
+          window.requestAnimationFrame(() =>
+            passwordRef.current?.focus({ preventScroll: true }),
+          );
+        }}
+      >
+        Replace recovery codes
+      </button>
+    );
+  }
+
+  if (codes) {
+    return (
+      <section
+        id="account-recovery-panel"
+        className="account-recovery-panel"
+        aria-labelledby="profile-recovery-receipt-title"
+      >
+        <h3
+          id="profile-recovery-receipt-title"
+          ref={receiptHeadingRef}
+          tabIndex={-1}
+        >
+          Save the new codes now
+        </h3>
+        <p>
+          The old set is invalid. These codes are shown once, and Support
+          cannot retrieve them.
+        </p>
+        <ol className="account-recovery-codes">
+          {codes.map((code) => (
+            <li key={code}>
+              <code>{code}</code>
+            </li>
+          ))}
+        </ol>
+        <div className="account-recovery-actions">
+          <button type="button" onClick={() => void copyCodes()}>
+            Copy all
+          </button>
+          <button type="button" onClick={downloadCodes}>
+            Download codes
+          </button>
+        </div>
+        {status && <p role="status">{status}</p>}
+        <label className="account-recovery-saved">
+          <input
+            type="checkbox"
+            checked={saved}
+            onChange={(event) => setSaved(event.target.checked)}
+          />
+          <span>I saved these codes somewhere private.</span>
+        </label>
+        <button type="button" disabled={!saved} onClick={close}>
+          Done
+        </button>
+      </section>
+    );
+  }
+
+  return (
+    <form
+      id="account-recovery-panel"
+      className="account-recovery-panel"
+      onSubmit={(event) => void replaceCodes(event)}
+    >
+      <h3>Replace every recovery code?</h3>
+      <p>
+        Your current codes will stop working. Enter your password and save the
+        replacement set.
+      </p>
+      <label>
+        <span>Current password</span>
+        <input
+          ref={passwordRef}
+          type="password"
+          value={password}
+          onChange={(event) => setPassword(event.target.value)}
+          autoComplete="current-password"
+          maxLength={128}
+          required
+        />
+      </label>
+      <TurnstileWidget
+        siteKey={turnstileSiteKey}
+        action="recovery_codes_rotate"
+        resetKey={challengeReset}
+        onTokenChange={setToken}
+      />
+      {error && <p className="account-error" role="alert">{error}</p>}
+      <div className="account-recovery-actions">
+        <button type="button" disabled={busy} onClick={close}>
+          Cancel
+        </button>
+        <button type="submit" disabled={busy || !token}>
+          {busy ? "Replacing…" : "Replace codes"}
+        </button>
+      </div>
+    </form>
+  );
+}
+
+function parseProfileRecoveryCodes(value: unknown): string[] | null {
+  if (
+    !Array.isArray(value) ||
+    value.length !== 8 ||
+    !value.every(
+      (code) =>
+        typeof code === "string" &&
+        /^[A-HJ-NP-Z2-9]{4}(?:-[A-HJ-NP-Z2-9]{4}){5}$/.test(code),
+    )
+  ) {
+    return null;
+  }
+  return [...value];
+}
+
+function profileRecoveryReceipt(
+  username: string,
+  codes: readonly string[],
+): string {
+  return [
+    "Paretto recovery codes",
+    `Paretto ID: ${username}`,
+    "",
+    ...codes,
+    "",
+    "Each code can be used once. Using one replaces this entire set.",
+    "Keep these codes private. Paretto Support cannot retrieve them.",
+  ].join("\n");
+}
+
 function ProfileScreen({
   state,
   words,
@@ -2061,6 +2330,7 @@ function ProfileScreen({
   onDelete,
   accountSession,
   accountPending,
+  turnstileSiteKey,
   onAccountPrivacyTransition,
   onAccountTransitionChange,
 }: {
@@ -2074,6 +2344,7 @@ function ProfileScreen({
   onDelete: () => Promise<boolean>;
   accountSession: LearnerAccountSession | null;
   accountPending: boolean;
+  turnstileSiteKey: string | null;
   onAccountPrivacyTransition: (
     kind: AccountPrivacyTransition["kind"],
   ) => void;
@@ -2234,20 +2505,29 @@ function ProfileScreen({
     setAccountDeleting(true);
     setAccountError("");
     onAccountTransitionChange(true);
-    let result: Awaited<ReturnType<typeof authClient.deleteUser>>;
     try {
-      result = await authClient.deleteUser({
-        ...(accountPassword ? { password: accountPassword } : {}),
+      const response = await fetch("/api/account/delete", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        credentials: "same-origin",
+        body: JSON.stringify({ password: accountPassword }),
       });
+      const payload = (await response.json().catch(() => null)) as
+        | { error?: string; code?: string }
+        | null;
+      if (!response.ok) {
+        onAccountTransitionChange(false);
+        setAccountError(
+          accountDeletionError({
+            code: payload?.code,
+          }),
+        );
+        setAccountDeleting(false);
+        return;
+      }
     } catch {
       onAccountTransitionChange(false);
       setAccountError("The account could not be deleted.");
-      setAccountDeleting(false);
-      return;
-    }
-    if (result.error) {
-      onAccountTransitionChange(false);
-      setAccountError(accountDeletionError(result.error));
       setAccountDeleting(false);
       return;
     }
@@ -2331,8 +2611,10 @@ function ProfileScreen({
                 {accountPending
                   ? "Confirming this browser’s secure session."
                   : accountSession
-                    ? `Signed in as ${accountSession.user.email}.`
-                    : "Sign in—or create an account when registration is available—and this browser’s progress will connect automatically."}
+                    ? accountSession.user.username
+                      ? `Paretto ID: ${accountSession.user.username}.`
+                      : "Signed in with a linked identity provider."
+                    : "Create a free Paretto ID or sign in, and this browser’s progress will connect automatically."}
               </span>
               {accountError && (
                 <span className="account-error" role="alert">
@@ -2343,36 +2625,59 @@ function ProfileScreen({
                 <Link href="/sign-in">Account sign in</Link>
               )}
               {accountSession && !confirmAccountDelete && (
-                <div className="account-actions">
-                  <button
-                    type="button"
-                    onClick={() => void reconnectAccountProgress()}
-                  >
-                    Reconnect progress
-                  </button>
-                  <button type="button" onClick={() => void signOut()}>
-                    Sign out
-                  </button>
-                  <button
-                    ref={accountDeleteTriggerRef}
-                    className="danger"
-                    type="button"
-                    onClick={() => {
-                      setAccountError("");
-                      restoreAccountDeleteFocusRef.current = true;
-                      setConfirmAccountDelete(true);
-                    }}
-                  >
-                    Delete account
-                  </button>
-                </div>
+                <>
+                  <div className="account-actions">
+                    <button
+                      type="button"
+                      onClick={() => void reconnectAccountProgress()}
+                    >
+                      Reconnect progress
+                    </button>
+                    <button type="button" onClick={() => void signOut()}>
+                      Sign out
+                    </button>
+                    <button
+                      ref={accountDeleteTriggerRef}
+                      className="danger"
+                      type="button"
+                      onClick={() => {
+                        setAccountError("");
+                        restoreAccountDeleteFocusRef.current = true;
+                        setConfirmAccountDelete(true);
+                      }}
+                    >
+                      Delete account
+                    </button>
+                  </div>
+                  {accountSession.user.username && (
+                    <RecoveryCodeManager
+                      username={accountSession.user.username}
+                      turnstileSiteKey={turnstileSiteKey}
+                    />
+                  )}
+                </>
               )}
               {accountSession && confirmAccountDelete && (
-                <div className="account-delete-confirm" role="alert">
-                  <strong>Delete your account and synced learning data?</strong>
-                  <p>This cannot be undone. Social-only accounts can leave the password field blank. If your social sign-in is older, sign out and sign in again first.</p>
+                <div
+                  className="account-delete-confirm"
+                  role="group"
+                  aria-labelledby="account-delete-title"
+                  onKeyDown={(event) => {
+                    if (event.key !== "Escape" || accountDeleting) return;
+                    setConfirmAccountDelete(false);
+                    setAccountPassword("");
+                  }}
+                >
+                  <strong id="account-delete-title">
+                    Delete your account and synced learning data?
+                  </strong>
+                  <p>
+                    This cannot be undone. Enter the current password for a
+                    Paretto ID account. Linked-provider accounts can leave it
+                    blank after signing in again.
+                  </p>
                   <label>
-                    <span>Current password, if your account uses one</span>
+                    <span>Current password</span>
                     <input
                       type="password"
                       value={accountPassword}
@@ -2396,7 +2701,13 @@ function ProfileScreen({
                     <button
                       className="danger"
                       type="button"
-                      disabled={accountDeleting}
+                      disabled={
+                        accountDeleting ||
+                        Boolean(
+                          accountSession.user.username &&
+                            !accountPassword,
+                        )
+                      }
                       onClick={() => void deleteAccount()}
                     >
                       {accountDeleting ? "Deleting…" : "Delete account permanently"}
@@ -2407,7 +2718,7 @@ function ProfileScreen({
             </div>
           </section>
           <div className="beta-pass"><Sparkles aria-hidden="true" /><div><strong>Current French curriculum included</strong><span>All {formatCount(curriculumSummary.lessonCount, "current lesson")} and current practice modes are included. Each new region opens after you complete the previous region’s first lesson.</span></div></div>
-          <div className="privacy-summary"><ShieldCheck size={18} aria-hidden="true" /><div><strong>Your learning data stays private</strong><span>{accountSession ? "Your signed-in account synchronizes progress across supported browsers and devices." : "Without an account, progress is tied to this browser profile."} {offlineCacheStatus === "available" ? "This browser profile also has a working offline progress queue." : offlineCacheStatus === "unavailable" ? "This browser is currently blocking the offline progress queue." : "Offline storage availability is still being checked."} Paretto never uses learning data for ads.</span><a href="/privacy">Privacy</a><a href="/terms">Terms</a><a href="/accessibility">Accessibility</a><a href="/attributions">Attributions</a><a href="/support">Support</a></div></div>
+          <div className="privacy-summary"><ShieldCheck size={18} aria-hidden="true" /><div><strong>Your learning data stays private</strong><span>{accountSession ? "Your signed-in account synchronizes progress across supported web browsers." : "Without an account, progress is tied to this browser profile."} {offlineCacheStatus === "available" ? "This browser profile also has a working offline progress queue." : offlineCacheStatus === "unavailable" ? "This browser is currently blocking the offline progress queue." : "Offline storage availability is still being checked."} Paretto never uses learning data for ads.</span><a href="/privacy">Privacy</a><a href="/terms">Terms</a><a href="/accessibility">Accessibility</a><a href="/attributions">Attributions</a><a href="/support">Support</a></div></div>
           <button className="secondary-button full" type="button" onClick={exportProgress}><Download size={17} aria-hidden="true" /> Export my progress</button>
           <input
             ref={importInputRef}

@@ -51,11 +51,15 @@ export type BrowserProgressCacheIdentityResult =
 
 export type RuntimeConfigurationReadiness = {
   launchMode: "controlled-beta" | "public" | null;
+  workersPlan: "free" | "paid" | null;
   userKeySecret: boolean;
   supportRateLimitSecret: boolean;
   learnerAuthRateLimitSecret: boolean;
   learnerAuthentication: boolean;
   learnerAuthOrigin: boolean;
+  learnerParettoIdAccountCreation: boolean;
+  learnerParettoIdSignIn: boolean;
+  learnerRecoveryCodes: boolean;
   learnerEmailAccountCreation: boolean;
   learnerEmailVerification: boolean;
   learnerPasswordReset: boolean;
@@ -77,11 +81,19 @@ export async function getRuntimeConfigurationReadiness(): Promise<RuntimeConfigu
   const bindings = await serverBindings();
   const turnstile = turnstileConfiguration(bindings);
   const learnerAuth = await learnerAuthReadiness();
+  const learnerAccountAbuseProtection = Boolean(
+    turnstile?.siteKey && turnstile.secret,
+  );
   return {
     launchMode:
       bindings.LAUNCH_MODE === "controlled-beta" ||
       bindings.LAUNCH_MODE === "public"
         ? bindings.LAUNCH_MODE
+        : null,
+    workersPlan:
+      bindings.WORKERS_PLAN === "free" ||
+      bindings.WORKERS_PLAN === "paid"
+        ? bindings.WORKERS_PLAN
         : null,
     userKeySecret:
       typeof bindings.USER_KEY_SECRET === "string" &&
@@ -93,6 +105,13 @@ export async function getRuntimeConfigurationReadiness(): Promise<RuntimeConfigu
       validBetterAuthRateLimitSecret(bindings),
     learnerAuthentication: learnerAuth.configured,
     learnerAuthOrigin: learnerAuth.canonicalOrigin,
+    learnerParettoIdAccountCreation:
+      learnerAuth.parettoIdAccountCreation &&
+      learnerAccountAbuseProtection,
+    learnerParettoIdSignIn:
+      learnerAuth.configured && learnerAccountAbuseProtection,
+    learnerRecoveryCodes:
+      learnerAuth.recoveryCodes && learnerAccountAbuseProtection,
     learnerEmailAccountCreation: learnerAuth.emailAccountCreation,
     learnerEmailVerification: learnerAuth.emailVerification,
     learnerPasswordReset: learnerAuth.passwordReset,
@@ -304,7 +323,12 @@ export async function resolveLearnerAccountSession(
   | {
       session: {
         session: { id: string; expiresAt: Date };
-        user: { id: string; email: string; name: string; image?: string | null };
+        user: {
+          id: string;
+          name: string;
+          image?: string | null;
+          username: string | null;
+        };
       } | null;
     }
   | { error: true }
@@ -467,6 +491,7 @@ async function serverBindings(): Promise<{
   TURNSTILE_SITE_KEY?: unknown;
   TURNSTILE_SECRET?: unknown;
   LAUNCH_MODE?: unknown;
+  WORKERS_PLAN?: unknown;
   NATIVE_API_ENABLED?: unknown;
   APPLE_CLIENT_ID?: unknown;
   APPLE_TEAM_ID?: unknown;
@@ -496,6 +521,7 @@ async function serverBindings(): Promise<{
     TURNSTILE_SITE_KEY?: unknown;
     TURNSTILE_SECRET?: unknown;
     LAUNCH_MODE?: unknown;
+    WORKERS_PLAN?: unknown;
     NATIVE_API_ENABLED?: unknown;
     APPLE_CLIENT_ID?: unknown;
     APPLE_TEAM_ID?: unknown;

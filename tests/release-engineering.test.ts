@@ -6,34 +6,38 @@ const ROOT = resolve(import.meta.dirname, "..");
 
 describe("release engineering contracts", () => {
   it("commits cross-browser Playwright journeys without folding them into unit tests", async () => {
+    const currentVersion = JSON.parse(
+      await readFile(resolve(ROOT, "package.json"), "utf8"),
+    ).version as string;
+    const releaseSeries = currentVersion.split(".").slice(0, 2).join(".");
     const [
       packageSource,
       configuration,
       journeys,
-      localAuthSeed,
       localRuntimeSetup,
       localWorker,
       workflow,
       nativeProject,
       releaseQa,
       productAcceptance,
-    ] =
-      await Promise.all([
-        readFile(resolve(ROOT, "package.json"), "utf8"),
-        readFile(resolve(ROOT, "playwright.config.ts"), "utf8"),
-        readFile(resolve(ROOT, "e2e/learner-journeys.spec.ts"), "utf8"),
-        readFile(resolve(ROOT, "e2e/seed-local-auth.mjs"), "utf8"),
-        readFile(resolve(ROOT, "e2e/prepare-local-runtime.mjs"), "utf8"),
-        readFile(resolve(ROOT, "e2e/start-local-worker.mjs"), "utf8"),
-        readFile(resolve(ROOT, ".github/workflows/ci.yml"), "utf8"),
-        readFile(resolve(ROOT, "ios/Paretto/project.yml"), "utf8"),
-        readFile(resolve(ROOT, "docs/RELEASE-QA.md"), "utf8"),
-        readFile(
-          resolve(ROOT, "docs/PRODUCT-ACCEPTANCE-V1.3.md"),
-          "utf8",
-        ),
-      ]);
+    ] = await Promise.all([
+      readFile(resolve(ROOT, "package.json"), "utf8"),
+      readFile(resolve(ROOT, "playwright.config.ts"), "utf8"),
+      readFile(resolve(ROOT, "e2e/learner-journeys.spec.ts"), "utf8"),
+      readFile(resolve(ROOT, "e2e/prepare-local-runtime.mjs"), "utf8"),
+      readFile(resolve(ROOT, "e2e/start-local-worker.mjs"), "utf8"),
+      readFile(resolve(ROOT, ".github/workflows/ci.yml"), "utf8"),
+      readFile(resolve(ROOT, "ios/Paretto/project.yml"), "utf8"),
+      readFile(resolve(ROOT, "docs/RELEASE-QA.md"), "utf8"),
+      readFile(
+        resolve(ROOT, `docs/PRODUCT-ACCEPTANCE-V${releaseSeries}.md`),
+        "utf8",
+      ),
+    ]);
 
+    expect(productAcceptance).toContain(
+      `# Paretto v${releaseSeries} product acceptance matrix`,
+    );
     expect(packageSource).toContain('"test:e2e"');
     expect(packageSource).toContain('"test:e2e:gate"');
     expect(packageSource).not.toMatch(/"test":\s*"[^"]*test:e2e/);
@@ -53,13 +57,11 @@ describe("release engineering contracts", () => {
     expect(configuration).toContain("actionTimeout: 10_000");
     expect(configuration).toContain("navigationTimeout: 30_000");
     expect(configuration).toContain("retries: 0");
-    expect(configuration).not.toContain(
-      "retries: process.env.CI",
-    );
+    expect(configuration).not.toContain("retries: process.env.CI");
     expect(configuration).toContain('trace: "retain-on-failure"');
     expect(configuration).toContain('serviceWorkers: "block"');
     expect(configuration).toContain("node e2e/prepare-local-runtime.mjs");
-    expect(configuration).toContain("node e2e/seed-local-auth.mjs");
+    expect(configuration).not.toContain("seed-local-auth");
     expect(journeys).toContain("first five-card lesson");
     expect(journeys).toContain("setOffline(true)");
     expect(journeys).toContain("toBeFocused()");
@@ -67,7 +69,24 @@ describe("release engineering contracts", () => {
     expect(journeys).toContain('reducedMotion: "reduce"');
     expect(journeys).toContain("font-size: 200%");
     expect(journeys).toContain('serviceWorkers: "allow"');
-    expect(journeys).toContain("seeded verified email account");
+    expect(journeys).toContain("fresh public Paretto ID");
+    expect(journeys).toContain("installAccountTurnstileHarness");
+    expect(journeys).toContain("createParettoAccount");
+    expect(journeys).toContain("Save your recovery codes now.");
+    expect(journeys).toContain("rotateRecoveryCodes");
+    expect(journeys).toContain("expectRecoveryRejected");
+    expect(journeys).toContain("Password recovery revokes both");
+    expect(journeys).toContain("Delete account permanently");
+    expect(journeys).toContain(
+      'deletionRequestPaths).toContain("/api/account/delete")',
+    );
+    expect(journeys).toContain(
+      'deletionRequestPaths).not.toContain("/api/auth/delete-user")',
+    );
+    expect(journeys).toContain("ACCOUNT_ROUTE_DISABLED");
+    expect(journeys).toContain('not.toContain(".invalid")');
+    expect(journeys).not.toContain("@e2e.paretto.invalid");
+    expect(journeys).not.toContain("seeded");
     expect(journeys).toContain("Practice anyway");
     expect(journeys).toContain("See today’s result");
     expect(journeys).toContain("Export my progress");
@@ -75,18 +94,17 @@ describe("release engineering contracts", () => {
     expect(journeys).toContain("window.isSecureContext");
     expect(journeys).toContain('cookie.name.includes("session_token")');
     expect(configuration).not.toContain("BETTER_AUTH_TRUSTED_ORIGINS");
-    expect(localAuthSeed).toContain('from "better-auth/crypto"');
-    expect(localAuthSeed).toContain('"--local"');
-    expect(localAuthSeed).not.toContain('"--remote"');
-    expect(localAuthSeed).toContain("email_verified");
-    expect(localAuthSeed).toContain("process.execPath");
-    expect(localAuthSeed).toContain('"wrangler.js"');
-    expect(localAuthSeed).not.toMatch(
-      /wrangler\.cmd|node_modules[\s\S]+?\.bin/,
-    );
     expect(localWorker).toContain('protocol !== "https"');
     expect(localWorker).toContain("unstable_getMiniflareWorkerOptions");
     expect(localWorker).toContain("new Miniflare({");
+    expect(localWorker).toContain(
+      "outboundService: createAcceptanceOutboundService()",
+    );
+    expect(localWorker).toContain(
+      'url.pathname === "/turnstile/v0/siteverify"',
+    );
+    expect(localWorker).toContain("E2E_TURNSTILE_ACTIONS.has(action)");
+    expect(localWorker).toContain('hostname: "localhost"');
     expect(localWorker).toContain("unsafeHandleRuntimeRestart");
     expect(localWorker).toContain('engine: "miniflare-direct"');
     expect(localWorker).toContain("createHttpsServer({ key, cert }");
@@ -108,53 +126,35 @@ describe("release engineering contracts", () => {
       "The local Worker backend exited unexpectedly",
     );
     expect(
-      localWorker.match(
-        /The local Worker backend exited unexpectedly/g,
-      ),
+      localWorker.match(/The local Worker backend exited unexpectedly/g),
     ).toHaveLength(1);
     expect(localWorker).toContain(
       "The acceptance proxy lost its Worker backend connection",
     );
     expect(localWorker).toContain("keepAlive: false");
-    expect(localWorker).toContain(
-      "downstreamAborted || shuttingDown",
-    );
-    expect(localWorker).toContain(
-      'incoming.once("aborted", abortUpstream)',
-    );
-    expect(localWorker).toContain(
-      'outgoing.once("close", abortUpstream)',
-    );
-    expect(localWorker).toContain(
-      'error.code === "ECONNREFUSED"',
-    );
-    expect(localWorker).not.toMatch(
-      /\["ECONNREFUSED",\s*"ECONNRESET"/,
-    );
+    expect(localWorker).toContain("downstreamAborted || shuttingDown");
+    expect(localWorker).toContain('incoming.once("aborted", abortUpstream)');
+    expect(localWorker).toContain('outgoing.once("close", abortUpstream)');
+    expect(localWorker).toContain('error.code === "ECONNREFUSED"');
+    expect(localWorker).not.toMatch(/\["ECONNREFUSED",\s*"ECONNRESET"/);
     expect(localWorker).toContain('"proxy-request-error"');
     expect(localWorker).toContain('"shutdown-started"');
     expect(localWorker).toContain('"shutdown-complete"');
     expect(localWorker).not.toContain('[wrangler, "dev"');
     expect(localWorker).not.toContain("process.platform");
     expect(localRuntimeSetup).toContain(
-      '`test-results${sep}playwright-runtime`',
+      "`test-results${sep}playwright-runtime`",
     );
-    expect(workflow).toContain(
-      "Compile and test the Staging configuration",
-    );
+    expect(workflow).toContain("Compile and test the Staging configuration");
     expect(workflow).toContain("-scheme Paretto-Staging");
     expect(workflow).toContain("-configuration Staging");
     expect(workflow).toContain("-only-testing:ParettoTests");
     expect(nativeProject).toMatch(
       /Staging:\n\s+ENABLE_TESTABILITY: YES\n\s+SWIFT_ACTIVE_COMPILATION_CONDITIONS: STAGING/,
     );
-    expect(workflow).toContain(
-      "Compile and inspect the Release configuration",
-    );
+    expect(workflow).toContain("Compile and inspect the Release configuration");
     expect(workflow).toContain("-configuration Release");
-    expect(workflow).toContain(
-      "-destination 'generic/platform=iOS Simulator'",
-    );
+    expect(workflow).toContain("-destination 'generic/platform=iOS Simulator'");
     expect(workflow).toContain('test "$audio_count" = "270"');
     expect(workflow).toContain('test -s "$app/fr/v1/idf-metro.wav"');
     expect(workflow).toContain("windows-chromium-compatibility:");
@@ -162,12 +162,8 @@ describe("release engineering contracts", () => {
     expect(workflow).toContain(
       "Windows-hosted Chromium compatibility (not device certification)",
     );
-    expect(workflow).not.toContain(
-      "PLAYWRIGHT_SKIP_SEEDED_ACCOUNT_JOURNEY",
-    );
-    expect(journeys).not.toContain(
-      "PLAYWRIGHT_SKIP_SEEDED_ACCOUNT_JOURNEY",
-    );
+    expect(workflow).not.toContain("PLAYWRIGHT_SKIP_SEEDED_ACCOUNT_JOURNEY");
+    expect(journeys).not.toContain("PLAYWRIGHT_SKIP_SEEDED_ACCOUNT_JOURNEY");
     const browserJobStart = workflow.indexOf("\n  browser-gate:");
     const windowsJobStart = workflow.indexOf(
       "\n  windows-chromium-compatibility:",
@@ -176,9 +172,7 @@ describe("release engineering contracts", () => {
     const browserJob = workflow.slice(browserJobStart, windowsJobStart);
     const windowsJob = workflow.slice(windowsJobStart, nativeJobStart);
     const nativeJob = workflow.slice(nativeJobStart);
-    expect(browserJob).not.toContain(
-      "PLAYWRIGHT_SKIP_SEEDED_ACCOUNT_JOURNEY",
-    );
+    expect(browserJob).not.toContain("PLAYWRIGHT_SKIP_SEEDED_ACCOUNT_JOURNEY");
     expect(browserJob).toContain(
       'npm run test:e2e:gate -- --project="${{ matrix.browser }}"',
     );
@@ -189,9 +183,7 @@ describe("release engineering contracts", () => {
     expect(browserJob).toContain(
       "${{ runner.temp }}/worker-runtime-logs/${{ matrix.browser }}/",
     );
-    expect(windowsJob).not.toContain(
-      "PLAYWRIGHT_SKIP_SEEDED_ACCOUNT_JOURNEY",
-    );
+    expect(windowsJob).not.toContain("PLAYWRIGHT_SKIP_SEEDED_ACCOUNT_JOURNEY");
     expect(windowsJob).toContain("PARETTO_E2E_RUNTIME_LOG_PATH:");
     expect(windowsJob).toContain(
       "${{ runner.temp }}/worker-runtime-logs/windows-chromium",
@@ -219,16 +211,12 @@ describe("release engineering contracts", () => {
     expect(nativeJob).toContain(
       "name: native-xcode-results-${{ github.run_attempt }}",
     );
-    expect(nativeJob).toContain(
-      "${{ runner.temp }}/paretto-native-results/",
-    );
+    expect(nativeJob).toContain("${{ runner.temp }}/paretto-native-results/");
     expect(nativeJob).toContain("retention-days: 14");
-    expect(workflow.match(/github\.event\.pull_request\.head\.sha/g)).toHaveLength(
-      4,
-    );
-    expect(workflow).toContain(
-      "npm run test:e2e -- --project=chromium",
-    );
+    expect(
+      workflow.match(/github\.event\.pull_request\.head\.sha/g),
+    ).toHaveLength(4);
+    expect(workflow).toContain("npm run test:e2e -- --project=chromium");
     expect(windowsJob).not.toContain("test:e2e:gate");
     expect(workflow).toContain(
       "It is not evidence for Windows 11, Microsoft Edge, high",
@@ -237,12 +225,8 @@ describe("release engineering contracts", () => {
     expect(configuration).toContain("`exec ${localWorkerCommand}`");
     for (const releaseDocument of [releaseQa, productAcceptance]) {
       expect(releaseDocument).toContain("direct Miniflare");
-      expect(releaseDocument).not.toContain(
-        "skipped on hosted Windows",
-      );
-      expect(releaseDocument).not.toContain(
-        "Wrangler diagnostic log",
-      );
+      expect(releaseDocument).not.toContain("skipped on hosted Windows");
+      expect(releaseDocument).not.toContain("Wrangler diagnostic log");
     }
   });
 
@@ -257,12 +241,8 @@ describe("release engineering contracts", () => {
     expect(deploymentWorkflow).toContain("workflow_dispatch:");
     expect(deploymentWorkflow).toContain("environment:");
     expect(deploymentWorkflow).toContain("CLOUDFLARE_API_TOKEN");
-    expect(deploymentWorkflow).toContain(
-      "production:refs/tags/v*",
-    );
-    expect(deploymentWorkflow).not.toContain(
-      "production:refs/heads/main",
-    );
+    expect(deploymentWorkflow).toContain("production:refs/tags/v*");
+    expect(deploymentWorkflow).not.toContain("production:refs/heads/main");
     expect(deploymentWorkflow).toContain(
       "production requires an exact v* release tag",
     );
@@ -275,9 +255,7 @@ describe("release engineering contracts", () => {
     expect(deploymentWorkflow).toContain(
       "node scripts/verify-github-ci-run.mjs",
     );
-    expect(deploymentWorkflow).not.toContain(
-      "Apply reviewed D1 migrations",
-    );
+    expect(deploymentWorkflow).not.toContain("Apply reviewed D1 migrations");
     expect(deploymentWorkflow).not.toContain(
       "Deploy the reviewed Worker artifact",
     );
@@ -292,15 +270,9 @@ describe("release engineering contracts", () => {
     );
     expect(deploymentWorkflow).toContain("Run mandatory read-only smoke tests");
     expect(deploymentWorkflow).toContain("npm run smoke:deployment");
-    expect(deploymentWorkflow).toContain(
-      "D1_BACKUP_ENCRYPTION_PASSPHRASE",
-    );
-    expect(deploymentWorkflow).toContain(
-      "npx wrangler d1 time-travel info DB",
-    );
-    expect(deploymentWorkflow).toContain(
-      "npx wrangler d1 export DB",
-    );
+    expect(deploymentWorkflow).toContain("D1_BACKUP_ENCRYPTION_PASSPHRASE");
+    expect(deploymentWorkflow).toContain("npx wrangler d1 time-travel info DB");
+    expect(deploymentWorkflow).toContain("npx wrangler d1 export DB");
     expect(deploymentWorkflow).toContain("-aes-256-cbc");
     expect(deploymentWorkflow).toContain("-pbkdf2");
     expect(deploymentWorkflow).toContain(
@@ -325,9 +297,7 @@ describe("release engineering contracts", () => {
     expect(recoveryCapture).toBeGreaterThan(0);
     expect(recoveryUpload).toBeGreaterThan(recoveryCapture);
     expect(migration).toBeGreaterThan(recoveryUpload);
-    const browserJobStart = deploymentWorkflow.indexOf(
-      "\n  browser-gate:",
-    );
+    const browserJobStart = deploymentWorkflow.indexOf("\n  browser-gate:");
     const deployJobStart = deploymentWorkflow.indexOf("\n  deploy:");
     const browserJob = deploymentWorkflow.slice(
       browserJobStart,

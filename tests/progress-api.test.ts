@@ -1,15 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import {
-  DELETE,
-  GET,
-  PUT,
-} from "../app/api/progress/route";
+import { DELETE, GET, PUT } from "../app/api/progress/route";
 import { GET as HEALTH_GET } from "../app/api/health/route";
 import { resolveRequestIdentity } from "../app/server-auth";
-import {
-  createInitialState,
-  STATE_VERSION,
-} from "../app/learning-engine";
+import { createInitialState, STATE_VERSION } from "../app/learning-engine";
 import {
   createAdminTestAuth,
   learnerCookieHeaders,
@@ -43,98 +36,246 @@ const HEALTH_SCHEMA_COLUMNS: Record<string, string[]> = {
   learning_state: ["user_key", "revision", "payload", "updated_at"],
   learner_progress_generations: ["user_key", "generation", "updated_at"],
   learner_user: [
-    "id", "name", "email", "email_verified", "image", "created_at",
+    "id",
+    "name",
+    "email",
+    "email_verified",
+    "image",
+    "created_at",
     "updated_at",
+    "username",
+    "display_username",
   ],
   learner_session: [
-    "id", "expires_at", "token", "created_at", "updated_at", "ip_address",
-    "user_agent", "user_id",
+    "id",
+    "expires_at",
+    "token",
+    "created_at",
+    "updated_at",
+    "ip_address",
+    "user_agent",
+    "user_id",
   ],
   learner_account: [
-    "id", "account_id", "provider_id", "user_id", "access_token",
-    "refresh_token", "id_token", "access_token_expires_at",
-    "refresh_token_expires_at", "scope", "password", "created_at",
+    "id",
+    "account_id",
+    "provider_id",
+    "user_id",
+    "access_token",
+    "refresh_token",
+    "id_token",
+    "access_token_expires_at",
+    "refresh_token_expires_at",
+    "scope",
+    "password",
+    "created_at",
     "updated_at",
   ],
   learner_verification: [
-    "id", "identifier", "value", "expires_at", "created_at", "updated_at",
+    "id",
+    "identifier",
+    "value",
+    "expires_at",
+    "created_at",
+    "updated_at",
   ],
   learner_auth_rate_limits: [
-    "bucket_hash", "request_count", "last_request_at", "updated_at",
+    "bucket_hash",
+    "request_count",
+    "last_request_at",
+    "updated_at",
   ],
+  learner_recovery_codes: [
+    "code_hash",
+    "user_id",
+    "generation_id",
+    "created_at",
+  ],
+  learner_recovery_state: ["user_id", "generation_id", "updated_at"],
   learner_identity_links: ["anonymous_user_key", "account_id", "linked_at"],
   admin_login_attempts: [
-    "ip_hash", "window_started_at", "failed_attempts", "blocked_until",
+    "ip_hash",
+    "window_started_at",
+    "failed_attempts",
+    "blocked_until",
     "updated_at",
   ],
   cms_content: [
-    "id", "course_id", "kind", "slug", "stable_key", "title", "content", "status",
-    "revision", "created_at", "updated_at", "published_at", "review_status",
-    "reviewed_by_email", "reviewed_at", "approved_revision",
-    "created_by_email", "updated_by_email",
+    "id",
+    "course_id",
+    "kind",
+    "slug",
+    "stable_key",
+    "title",
+    "content",
+    "status",
+    "revision",
+    "created_at",
+    "updated_at",
+    "published_at",
+    "review_status",
+    "reviewed_by_email",
+    "reviewed_at",
+    "approved_revision",
+    "created_by_email",
+    "updated_by_email",
   ],
   cms_vocabulary_aliases: [
-    "course_id", "alias", "content_id", "stable_key", "created_at",
+    "course_id",
+    "alias",
+    "content_id",
+    "stable_key",
+    "created_at",
   ],
   cms_slug_tombstones: [
-    "course_id", "kind", "slug", "stable_key", "content_id", "retired_at",
+    "course_id",
+    "kind",
+    "slug",
+    "stable_key",
+    "content_id",
+    "retired_at",
     "retired_by_email",
   ],
   cms_content_revisions: [
-    "course_id", "content_id", "revision", "kind", "slug", "stable_key", "title",
-    "content", "status", "published_at", "actor_email", "action",
+    "course_id",
+    "content_id",
+    "revision",
+    "kind",
+    "slug",
+    "stable_key",
+    "title",
+    "content",
+    "status",
+    "published_at",
+    "actor_email",
+    "action",
     "created_at",
   ],
   support_requests: [
-    "id", "user_key", "reply_email", "category", "subject", "body", "status",
-    "revision", "created_at", "updated_at",
+    "id",
+    "user_key",
+    "reply_email",
+    "category",
+    "subject",
+    "body",
+    "status",
+    "revision",
+    "created_at",
+    "updated_at",
   ],
   support_rate_limits: [
-    "bucket_hash", "window_started_at", "request_count",
-    "last_reservation_id", "updated_at",
+    "bucket_hash",
+    "window_started_at",
+    "request_count",
+    "last_reservation_id",
+    "updated_at",
   ],
   support_notification_jobs: [
-    "id", "support_request_id", "event_type", "support_revision",
-    "support_status", "recipient_email", "status", "attempts",
-    "available_at", "lease_expires_at", "last_error", "completed_at",
-    "created_at", "updated_at",
+    "id",
+    "support_request_id",
+    "event_type",
+    "support_revision",
+    "support_status",
+    "recipient_email",
+    "status",
+    "attempts",
+    "available_at",
+    "lease_expires_at",
+    "last_error",
+    "completed_at",
+    "created_at",
+    "updated_at",
   ],
   admin_audit_log: [
-    "id", "entity_type", "entity_id", "actor_email", "action",
-    "from_revision", "to_revision", "details", "created_at",
+    "id",
+    "entity_type",
+    "entity_id",
+    "actor_email",
+    "action",
+    "from_revision",
+    "to_revision",
+    "details",
+    "created_at",
   ],
   product_events: [
-    "id", "user_key", "session_id", "event_name", "properties", "occurred_at",
+    "id",
+    "user_key",
+    "session_id",
+    "event_name",
+    "properties",
+    "occurred_at",
     "received_at",
   ],
   native_accounts: [
-    "id", "apple_subject_hash", "email", "display_name", "created_at", "updated_at",
+    "id",
+    "apple_subject_hash",
+    "email",
+    "display_name",
+    "created_at",
+    "updated_at",
   ],
-  native_learner_links: [
-    "native_account_id", "learner_user_id", "linked_at",
-  ],
+  native_learner_links: ["native_account_id", "learner_user_id", "linked_at"],
   native_sessions: [
-    "token_hash", "id", "account_id", "expires_at", "created_at", "revoked_at",
+    "token_hash",
+    "id",
+    "account_id",
+    "expires_at",
+    "created_at",
+    "revoked_at",
   ],
   native_learning_state: [
-    "account_id", "revision", "reset_generation", "payload", "updated_at",
+    "account_id",
+    "revision",
+    "reset_generation",
+    "payload",
+    "updated_at",
   ],
   native_apple_credentials: [
-    "account_id", "refresh_token_ciphertext", "updated_at",
+    "account_id",
+    "refresh_token_ciphertext",
+    "updated_at",
   ],
-  native_identity_token_uses: ["token_hash", "exchange_id", "expires_at", "used_at"],
+  native_identity_token_uses: [
+    "token_hash",
+    "exchange_id",
+    "expires_at",
+    "used_at",
+  ],
   learner_deletion_jobs: [
-    "user_id", "user_key", "native_account_id", "status", "requested_at",
-    "completed_at", "attempts", "last_error", "updated_at",
+    "user_id",
+    "user_key",
+    "native_account_id",
+    "status",
+    "requested_at",
+    "completed_at",
+    "attempts",
+    "last_error",
+    "updated_at",
   ],
   retention_legal_holds: [
-    "id", "data_class", "record_key", "reason", "status",
-    "created_by_email", "created_at", "released_by_email", "released_at",
+    "id",
+    "data_class",
+    "record_key",
+    "reason",
+    "status",
+    "created_by_email",
+    "created_at",
+    "released_by_email",
+    "released_at",
   ],
   retention_schedule_state: [
-    "job_name", "status", "monitoring_started_at", "run_id",
-    "scheduled_at", "started_at", "completed_at", "last_succeeded_at",
-    "last_failed_at", "last_error", "last_result", "updated_at",
+    "job_name",
+    "status",
+    "monitoring_started_at",
+    "run_id",
+    "scheduled_at",
+    "started_at",
+    "completed_at",
+    "last_succeeded_at",
+    "last_failed_at",
+    "last_error",
+    "last_result",
+    "updated_at",
   ],
 };
 
@@ -213,11 +354,7 @@ class MemoryStatement {
 
   async first<T>() {
     if (this.sql.startsWith("SELECT 1 AS OK")) return { ok: 1 } as T;
-    if (
-      this.sql.startsWith(
-        "SELECT STATUS, MONITORING_STARTED_AT",
-      )
-    ) {
+    if (this.sql.startsWith("SELECT STATUS, MONITORING_STARTED_AT")) {
       return this.database.retentionSchedule as T;
     }
     if (this.sql.includes("FROM LEARNER_DELETION_JOBS AS JOBS")) {
@@ -227,7 +364,8 @@ class MemoryStatement {
       return this.database.supportQueue as T;
     }
     if (this.sql.startsWith("SELECT PAYLOAD, REVISION, UPDATED_AT")) {
-      return (this.database.rows.get(String(this.values[0])) ?? null) as T | null;
+      return (this.database.rows.get(String(this.values[0])) ??
+        null) as T | null;
     }
     if (this.sql.startsWith("SELECT STATE.PAYLOAD, STATE.REVISION")) {
       const userKey = String(this.values[0]);
@@ -243,7 +381,11 @@ class MemoryStatement {
   }
 
   async all<T>() {
-    if (this.sql.startsWith("SELECT ALIAS, STABLE_KEY FROM CMS_VOCABULARY_ALIASES")) {
+    if (
+      this.sql.startsWith(
+        "SELECT ALIAS, STABLE_KEY FROM CMS_VOCABULARY_ALIASES",
+      )
+    ) {
       const requested = new Set(this.values.map(String));
       return {
         results: [...this.database.aliases.entries()]
@@ -254,8 +396,12 @@ class MemoryStatement {
       };
     }
     if (this.sql.startsWith("PRAGMA TABLE_INFO")) {
-      const tableName = this.sql.match(/PRAGMA TABLE_INFO\("([^"]+)"\)/)?.[1].toLowerCase();
-      const columns = tableName ? [...(HEALTH_SCHEMA_COLUMNS[tableName] ?? [])] : [];
+      const tableName = this.sql
+        .match(/PRAGMA TABLE_INFO\("([^"]+)"\)/)?.[1]
+        .toLowerCase();
+      const columns = tableName
+        ? [...(HEALTH_SCHEMA_COLUMNS[tableName] ?? [])]
+        : [];
       if (!this.database.schemaComplete && tableName === "product_events") {
         columns.splice(columns.indexOf("received_at"), 1);
       }
@@ -265,7 +411,9 @@ class MemoryStatement {
         meta: {},
       };
     }
-    if (this.sql.startsWith("SELECT NAME FROM SQLITE_MASTER WHERE TYPE = 'INDEX'")) {
+    if (
+      this.sql.startsWith("SELECT NAME FROM SQLITE_MASTER WHERE TYPE = 'INDEX'")
+    ) {
       const names = this.database.schemaComplete
         ? this.values.map(String)
         : this.values.map(String).slice(0, -1);
@@ -293,16 +441,13 @@ class MemoryStatement {
       const submittedGeneration = Number(this.values.at(-1));
       if (
         this.sql.includes("LEARNER_PROGRESS_GENERATIONS") &&
-        (this.database.generations.get(userKey) ?? 0) !==
-          submittedGeneration
+        (this.database.generations.get(userKey) ?? 0) !== submittedGeneration
       ) {
         return { meta: { changes: 0 } };
       }
       if (
         this.sql.includes("LEARNER_IDENTITY_LINKS") &&
-        this.database.linkedAnonymousKeys.has(
-          String(this.values[3]),
-        )
+        this.database.linkedAnonymousKeys.has(String(this.values[3]))
       ) {
         return { meta: { changes: 0 } };
       }
@@ -321,16 +466,13 @@ class MemoryStatement {
       const submittedGeneration = Number(this.values.at(-1));
       if (
         this.sql.includes("LEARNER_PROGRESS_GENERATIONS") &&
-        (this.database.generations.get(userKey) ?? 0) !==
-          submittedGeneration
+        (this.database.generations.get(userKey) ?? 0) !== submittedGeneration
       ) {
         return { meta: { changes: 0 } };
       }
       if (
         this.sql.includes("LEARNER_IDENTITY_LINKS") &&
-        this.database.linkedAnonymousKeys.has(
-          String(this.values[4]),
-        )
+        this.database.linkedAnonymousKeys.has(String(this.values[4]))
       ) {
         return { meta: { changes: 0 } };
       }
@@ -348,7 +490,9 @@ class MemoryStatement {
 
     if (this.sql.startsWith("DELETE FROM LEARNING_STATE")) {
       return {
-        meta: { changes: this.database.rows.delete(String(this.values[0])) ? 1 : 0 },
+        meta: {
+          changes: this.database.rows.delete(String(this.values[0])) ? 1 : 0,
+        },
       };
     }
 
@@ -402,6 +546,7 @@ describe("progress API", () => {
       TURNSTILE_SITE_KEY: TEST_TURNSTILE_SITE_KEY,
       TURNSTILE_SECRET: TEST_TURNSTILE_SECRET,
       LAUNCH_MODE: "public",
+      WORKERS_PLAN: "paid",
       NATIVE_API_ENABLED: "false",
     });
     const identity = await resolveRequestIdentity(
@@ -427,7 +572,10 @@ describe("progress API", () => {
     const saved = await PUT(
       request({
         method: "PUT",
-        headers: { ...authenticatedHeaders, "content-type": "application/json" },
+        headers: {
+          ...authenticatedHeaders,
+          "content-type": "application/json",
+        },
         body: JSON.stringify({
           revision: 0,
           progressStorageKey,
@@ -446,8 +594,7 @@ describe("progress API", () => {
   });
 
   it("rejects a stale tab whose cache identity no longer matches the authenticated browser", async () => {
-    const staleStorageKey =
-      "paretto-progress-v2:account:" + "b".repeat(64);
+    const staleStorageKey = "paretto-progress-v2:account:" + "b".repeat(64);
     const staleRead = await GET(
       request({
         headers: {
@@ -493,7 +640,10 @@ describe("progress API", () => {
     const invalidJson = await PUT(
       request({
         method: "PUT",
-        headers: { ...authenticatedHeaders, "content-type": "application/json" },
+        headers: {
+          ...authenticatedHeaders,
+          "content-type": "application/json",
+        },
         body: "{",
       }),
     );
@@ -518,7 +668,10 @@ describe("progress API", () => {
     const saved = await PUT(
       request({
         method: "PUT",
-        headers: { ...authenticatedHeaders, "content-type": "application/json" },
+        headers: {
+          ...authenticatedHeaders,
+          "content-type": "application/json",
+        },
         body: JSON.stringify({
           revision: 0,
           progressStorageKey,
@@ -549,7 +702,10 @@ describe("progress API", () => {
     const staleWrite = await PUT(
       request({
         method: "PUT",
-        headers: { ...authenticatedHeaders, "content-type": "application/json" },
+        headers: {
+          ...authenticatedHeaders,
+          "content-type": "application/json",
+        },
         body: JSON.stringify({
           revision: 0,
           progressStorageKey,
@@ -584,7 +740,10 @@ describe("progress API", () => {
     const staleGeneration = await PUT(
       request({
         method: "PUT",
-        headers: { ...authenticatedHeaders, "content-type": "application/json" },
+        headers: {
+          ...authenticatedHeaders,
+          "content-type": "application/json",
+        },
         body: JSON.stringify({
           revision: 0,
           generation: 0,
@@ -603,7 +762,10 @@ describe("progress API", () => {
     const currentGeneration = await PUT(
       request({
         method: "PUT",
-        headers: { ...authenticatedHeaders, "content-type": "application/json" },
+        headers: {
+          ...authenticatedHeaders,
+          "content-type": "application/json",
+        },
         body: JSON.stringify({
           revision: 0,
           generation: 1,
@@ -700,10 +862,12 @@ describe("progress API", () => {
     expect(await response.json()).toMatchObject({
       status: "ok",
       launchMode: "public",
+      workersPlan: "paid",
       productionReady: true,
-      schemaRevision: "0012",
+      schemaRevision: "0013",
       database: "ready",
       checks: {
+        workersPlan: "paid",
         database: "ready",
         schema: "ready",
         retentionSchedule: "ready",
@@ -713,6 +877,9 @@ describe("progress API", () => {
         supportRateLimitSecret: "ready",
         learnerAuthRateLimitSecret: "ready",
         learnerAuthentication: "ready",
+        learnerParettoIdAccountCreation: "ready",
+        learnerParettoIdSignIn: "ready",
+        learnerRecoveryCodes: "ready",
         learnerPasswordReset: "ready",
         learnerGoogleAuth: "optional-not-configured",
         learnerAppleAuth: "optional-not-configured",
@@ -747,9 +914,79 @@ describe("progress API", () => {
     });
   });
 
+  it("treats Paretto ID recovery as launch-ready without optional email delivery", async () => {
+    const adminAuth = await createAdminTestAuth(["admin@paretto.test"]);
+    const publicBindings = {
+      DB: database,
+      USER_KEY_SECRET: "qa-only-secret-with-at-least-thirty-two-characters",
+      SUPPORT_RATE_LIMIT_SECRET:
+        "qa-only-support-rate-secret-with-at-least-thirty-two-characters",
+      BETTER_AUTH_RATE_LIMIT_SECRET:
+        "qa-only-better-auth-rate-limit-secret-with-at-least-thirty-two-characters",
+      BETTER_AUTH_SECRET:
+        "qa-only-better-auth-secret-with-at-least-thirty-two-characters",
+      BETTER_AUTH_URL: "https://paretto.test",
+      ...adminAuth.bindings,
+      TURNSTILE_SITE_KEY: TEST_TURNSTILE_SITE_KEY,
+      TURNSTILE_SECRET: TEST_TURNSTILE_SECRET,
+      LAUNCH_MODE: "public",
+      WORKERS_PLAN: "paid",
+      NATIVE_API_ENABLED: "false",
+    };
+    setCloudflareEnv(publicBindings);
+
+    vi.stubEnv("NODE_ENV", "production");
+    try {
+      const response = await HEALTH_GET();
+      expect(response.status).toBe(200);
+      expect(await response.json()).toMatchObject({
+        status: "ok",
+        launchMode: "public",
+        workersPlan: "paid",
+        webReady: true,
+        productionReady: true,
+        warnings: [
+          "Optional transactional email is not configured; Paretto ID account creation and recovery codes remain available.",
+          "Operator support email delivery is not configured; tickets remain stored for authenticated administrator follow-up.",
+        ],
+        checks: {
+          workersPlan: "paid",
+          learnerParettoIdAccountCreation: "ready",
+          learnerParettoIdSignIn: "ready",
+          learnerRecoveryCodes: "ready",
+          learnerEmailAccountCreation: "disabled",
+          learnerEmailVerification: "not-configured",
+          learnerPasswordReset: "not-configured",
+          supportNotifications: "not-configured",
+        },
+      });
+
+      setCloudflareEnv({
+        ...publicBindings,
+        WORKERS_PLAN: "free",
+      });
+      const freePlan = await HEALTH_GET();
+      expect(freePlan.status).toBe(503);
+      expect(await freePlan.json()).toMatchObject({
+        status: "degraded",
+        launchMode: "public",
+        workersPlan: "free",
+        productionReady: false,
+        warnings: expect.arrayContaining([
+          "Public Paretto ID launch requires Workers Paid for the password-security CPU workload.",
+        ]),
+        checks: {
+          workersPlan: "free-controlled-beta-only",
+        },
+      });
+    } finally {
+      vi.unstubAllEnvs();
+    }
+  });
+
   it("serves a healthy controlled beta without claiming public readiness", async () => {
     const adminAuth = await createAdminTestAuth(["admin@paretto.test"]);
-    setCloudflareEnv({
+    const controlledBetaBindings = {
       DB: database,
       USER_KEY_SECRET: "qa-only-secret-with-at-least-thirty-two-characters",
       SUPPORT_RATE_LIMIT_SECRET:
@@ -763,8 +1000,10 @@ describe("progress API", () => {
       TURNSTILE_SITE_KEY: TEST_TURNSTILE_SITE_KEY,
       TURNSTILE_SECRET: TEST_TURNSTILE_SECRET,
       LAUNCH_MODE: "controlled-beta",
+      WORKERS_PLAN: "free",
       NATIVE_API_ENABLED: "false",
-    });
+    };
+    setCloudflareEnv(controlledBetaBindings);
 
     vi.stubEnv("NODE_ENV", "production");
     try {
@@ -773,21 +1012,26 @@ describe("progress API", () => {
       expect(await response.json()).toMatchObject({
         status: "ok",
         launchMode: "controlled-beta",
+        workersPlan: "free",
         webReady: true,
         productionReady: false,
         database: "ready",
         warnings: [
           "Controlled beta mode is operational but is not approved for a broad public launch.",
-          "Transactional email is not configured; email registration, verification, and password recovery remain unavailable.",
+          "Optional transactional email is not configured; Paretto ID account creation and recovery codes remain available.",
           "Operator support email delivery is not configured; tickets remain stored for authenticated administrator follow-up.",
         ],
         checks: {
+          workersPlan: "free-controlled-beta-only",
           database: "ready",
           schema: "ready",
           retentionSchedule: "ready",
           accountDeletionQueue: "ready",
           supportNotificationQueue: "ready",
           learnerAuthentication: "ready",
+          learnerParettoIdAccountCreation: "ready",
+          learnerParettoIdSignIn: "ready",
+          learnerRecoveryCodes: "ready",
           learnerEmailAccountCreation: "disabled",
           learnerEmailVerification: "not-configured",
           learnerPasswordReset: "not-configured",
@@ -795,6 +1039,42 @@ describe("progress API", () => {
         },
       });
 
+      setCloudflareEnv({
+        ...controlledBetaBindings,
+        WORKERS_PLAN: "paid",
+      });
+      const paidPlan = await HEALTH_GET();
+      expect(paidPlan.status).toBe(200);
+      expect(await paidPlan.json()).toMatchObject({
+        status: "ok",
+        launchMode: "controlled-beta",
+        workersPlan: "paid",
+        productionReady: false,
+        checks: {
+          workersPlan: "paid",
+        },
+      });
+
+      setCloudflareEnv({
+        ...controlledBetaBindings,
+        WORKERS_PLAN: "invalid",
+      });
+      const invalidPlan = await HEALTH_GET();
+      expect(invalidPlan.status).toBe(503);
+      expect(await invalidPlan.json()).toMatchObject({
+        status: "degraded",
+        launchMode: "controlled-beta",
+        workersPlan: null,
+        productionReady: false,
+        warnings: expect.arrayContaining([
+          "WORKERS_PLAN is missing or invalid.",
+        ]),
+        checks: {
+          workersPlan: "misconfigured",
+        },
+      });
+
+      setCloudflareEnv(controlledBetaBindings);
       database.supportQueue = {
         open_jobs: 1,
         failed_jobs: 1,
@@ -805,10 +1085,50 @@ describe("progress API", () => {
       expect(await unhealthyQueue.json()).toMatchObject({
         status: "degraded",
         launchMode: "controlled-beta",
+        workersPlan: "free",
         webReady: true,
         productionReady: false,
         checks: {
           supportNotificationQueue: "failed",
+        },
+      });
+    } finally {
+      vi.unstubAllEnvs();
+    }
+  });
+
+  it("fails Paretto ID readiness closed when Turnstile is unavailable", async () => {
+    const adminAuth = await createAdminTestAuth(["admin@paretto.test"]);
+    setCloudflareEnv({
+      DB: database,
+      USER_KEY_SECRET: "qa-only-secret-with-at-least-thirty-two-characters",
+      SUPPORT_RATE_LIMIT_SECRET:
+        "qa-only-support-rate-secret-with-at-least-thirty-two-characters",
+      BETTER_AUTH_RATE_LIMIT_SECRET:
+        "qa-only-better-auth-rate-limit-secret-with-at-least-thirty-two-characters",
+      BETTER_AUTH_SECRET:
+        "qa-only-better-auth-secret-with-at-least-thirty-two-characters",
+      BETTER_AUTH_URL: "https://paretto.test",
+      ...adminAuth.bindings,
+      LAUNCH_MODE: "public",
+      NATIVE_API_ENABLED: "false",
+    });
+
+    vi.stubEnv("NODE_ENV", "production");
+    try {
+      const response = await HEALTH_GET();
+      expect(response.status).toBe(503);
+      expect(await response.json()).toMatchObject({
+        status: "degraded",
+        webReady: false,
+        productionReady: false,
+        checks: {
+          learnerAuthentication: "ready",
+          learnerParettoIdAccountCreation: "misconfigured",
+          learnerParettoIdSignIn: "misconfigured",
+          learnerRecoveryCodes: "misconfigured",
+          turnstileSiteKey: "misconfigured",
+          turnstileSecret: "misconfigured",
         },
       });
     } finally {
@@ -929,7 +1249,9 @@ describe("progress API", () => {
       TURNSTILE_SECRET: TEST_TURNSTILE_SECRET,
       NATIVE_API_ENABLED: "false",
     });
-    const consoleError = vi.spyOn(console, "error").mockImplementation(() => undefined);
+    const consoleError = vi
+      .spyOn(console, "error")
+      .mockImplementation(() => undefined);
     try {
       const incompleteSchema = await HEALTH_GET();
       expect(incompleteSchema.status).toBe(503);
@@ -961,6 +1283,9 @@ describe("progress API", () => {
           userKeySecret: "misconfigured",
           supportRateLimitSecret: "misconfigured",
           learnerAuthentication: "ready",
+          learnerParettoIdAccountCreation: "misconfigured",
+          learnerParettoIdSignIn: "misconfigured",
+          learnerRecoveryCodes: "misconfigured",
           learnerPasswordReset: "not-configured",
           learnerGoogleAuth: "optional-not-configured",
           learnerAppleAuth: "optional-not-configured",

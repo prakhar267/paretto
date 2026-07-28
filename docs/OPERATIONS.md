@@ -27,15 +27,16 @@ deployment and monitoring history exist.
 | `BETTER_AUTH_SECRET` | Signs and encrypts learner-account authentication state | Independent random secret of at least 32 characters; never reuse `USER_KEY_SECRET` |
 | `BETTER_AUTH_URL` | Pins authentication callbacks and trusted origin | Exact HTTPS origin for the matching staging or production Worker |
 | `LAUNCH_MODE` | Selects the enforced readiness contract | Exactly `controlled-beta` or `public`; never infer readiness from missing delivery settings |
-| `RESEND_API_KEY` | Delivers learner verification, recovery, and queued support email | Required in `public`; deliberately absent in `controlled-beta` |
-| `AUTH_EMAIL_FROM` | Verified transactional sender identity | Required in `public` as `Paretto <accounts@verified-domain>`; empty in `controlled-beta` |
-| `SUPPORT_NOTIFICATION_EMAIL` | Receives new-ticket notifications | Required in `public`; empty in `controlled-beta`, where tickets remain in the authenticated admin queue |
+| `WORKERS_PLAN` | Declares the CPU contract used by password authentication | `free` is controlled-beta-only; `public` requires `paid`, with the real Cloudflare subscription verified separately |
+| `RESEND_API_KEY` | Delivers queued support notifications and replies; Paretto ID recovery does not use email | Optional; when absent, tickets remain in the authenticated administrator queue |
+| `AUTH_EMAIL_FROM` | Verified support-notification sender identity | Required only when support email delivery is enabled |
+| `SUPPORT_NOTIFICATION_EMAIL` | Receives new-ticket notifications | Optional; when absent, a named administrator must review the ticket queue |
 | `ADMIN_EMAILS` | Server-side CMS allowlist | One normalized email for a controlled compiled-curriculum beta, or 2–25 unique comma-separated emails when CMS publishing is enabled |
 | `ADMIN_PASSWORD_VERIFIER` | Verifies the one administrator access key without storing it | Single-admin only: `sha256$` plus the 43-character base64url SHA-256 digest; managed secret |
 | `ADMIN_PASSWORD_VERIFIERS` | Maps each allowlisted administrator to a distinct access-key verifier | Multi-admin only: compact canonical JSON whose keys exactly match `ADMIN_EMAILS`, in order; each value uses the `sha256$…` format |
 | `ADMIN_SESSION_SECRET` | Signs eight-hour administrator session cookies and hashes login IPs | Independent 256-bit random managed secret |
-| `TURNSTILE_SITE_KEY` | Renders the support-form abuse challenge | Public site key for the environment's exact hostnames |
-| `TURNSTILE_SECRET` | Verifies support challenges server-side | Matching managed secret; never store in Git or browser code |
+| `TURNSTILE_SITE_KEY` | Renders exact-action account and support abuse challenges | Public site key for the environment's exact hostnames |
+| `TURNSTILE_SECRET` | Verifies account and support challenges server-side | Matching managed secret; never store in Git or browser code |
 | `NATIVE_API_ENABLED` | Controls native Apple-account API readiness | Set to the string `false` for this web release |
 | `DB` | D1 database binding | Provision through hosting and apply every checked-in migration |
 | Daily Cron Trigger | Automatic privacy retention | Deploy `17 3 * * *` from the checked-in Worker configuration and verify the scheduled-run log |
@@ -50,12 +51,21 @@ administrator access key by generating a new 256-bit value, replacing only that
 email&apos;s verifier, testing login, and then deleting the old key from the
 password manager. Rotating
 `ADMIN_SESSION_SECRET` immediately signs out every administrator. Rotate a
-Turnstile widget key pair together and verify a real support submission afterward.
+Turnstile widget key pair together and verify account creation, sign-in,
+recovery, recovery-code replacement, and a real support submission afterward.
 Rotate `SUPPORT_RATE_LIMIT_SECRET` separately during a controlled release; rotation
 starts fresh opaque IP quota buckets and must never change learner identity keys.
 Rotate `BETTER_AUTH_RATE_LIMIT_SECRET` separately; rotation starts fresh
 authentication quota buckets. A missing, short, or reused value makes
 production health non-ready and account endpoints fail closed.
+
+Learner passwords are stored only as salted
+`pbkdf2-sha256-v1` verifiers derived with 600,000 Web Crypto iterations.
+Do not replace this with Better Auth&apos;s default scrypt in a Worker: its
+per-request memory profile is unsafe under concurrent authentication. Workers
+Free is an evaluation-only `controlled-beta` runtime because its 10 ms CPU
+limit cannot guarantee this password workload. Set `WORKERS_PLAN=paid` before
+selecting `LAUNCH_MODE=public`.
 
 Apple and native-session values are intentionally absent while
 `NATIVE_API_ENABLED=false`. When native cloud sync is scheduled, use the separate
@@ -92,7 +102,9 @@ authentication launch.
    For direct Cloudflare, create ignored configurations with
    `npm run cloudflare:prepare`, run the matching
    `cloudflare:verify:<environment>` gate, and only then run
-   `cloudflare:migrate:<environment>`. Never run a bare `wrangler deploy` or
+   `cloudflare:migrate:<environment>`. Before migration 0013, prove there are
+   zero credential accounts that lack a Paretto ID; the hosted deployment
+   workflow performs this read-only preflight automatically. Never run a bare `wrangler deploy` or
    deploy `dist/server/wrangler.json`; it carries the local Sites placeholder ID.
 4. In staging, test health, a fresh anonymous learner session, first lesson, review,
    web progress conflict handling, admin login/logout and throttling,
@@ -116,6 +128,11 @@ authentication launch.
    precondition and a secret-free matrix must pass the built,
    isolated Worker journeys in Chromium, Firefox, and WebKit. The deployment job
    then validates all scoped variables/secrets and reruns the release gate.
+   Select the declared Workers plan as well as the launch mode. The workflow
+   rejects `public` with `free` before browser jobs and propagates the declaration
+   into the generated Worker configuration, but its least-privilege deployment
+   token does not prove billing. Record separate Cloudflare account evidence for
+   Workers Paid before a public launch.
    A production run must capture a current D1 Time Travel bookmark and full
    export, encrypt the export with the production-only backup passphrase, and
    successfully upload the seven-day recovery artifact before it can apply any
@@ -199,9 +216,13 @@ exercise remains required.
 ## Monitoring and alerts
 
 The checked-in `Monitor production health` GitHub Actions workflow is an
-independent six-hourly controlled-beta probe sized to avoid exhausting a
-private GitHub Free Actions allowance (about 120 rounded Linux minutes per
-30-day month, before manual runs). Set the repository variable
+independent six-hourly controlled-beta probe running on a standard hosted runner
+in the public repository. Standard GitHub-hosted runners are currently free for
+public repositories, but artifact/storage and platform limits still apply; if
+the repository becomes private, re-evaluate its minute budget. GitHub may
+disable a public repository's scheduled workflows after 60 days without
+repository activity, so the operator must also monitor that the schedule itself
+continues to run. Set the repository variable
 `PRODUCTION_APP_ORIGIN` to the exact public HTTPS origin and
 `PRODUCTION_LAUNCH_MODE` to the deployed `controlled-beta` or `public` contract.
 An absent monitor mode defaults to strict `public`. A failed probe opens
@@ -211,6 +232,11 @@ recovery and closes it. Before launch, run the workflow once with
 then run it normally and confirm automatic recovery. This tests the GitHub
 incident path; configure the repository owner&apos;s GitHub notification settings
 or a separate paging integration if email, SMS, or push delivery is required.
+See GitHub's
+[hosted-runner reference](https://docs.github.com/en/actions/reference/runners/github-hosted-runners)
+and
+[workflow enablement guidance](https://docs.github.com/en/actions/how-tos/manage-workflow-runs/disable-and-enable-workflows)
+before relying on the schedule.
 
 Six-hourly detection is not sufficient for a marketed public service. Add a
 second probe from another provider or region and increase the effective cadence
@@ -309,8 +335,10 @@ support bodies, secrets, or authentication headers.
   IP-and-route key is domain-separated and HMACed under
   `BETTER_AUTH_RATE_LIMIT_SECRET` before database access. The table stores only
   that 64-character bucket hash, a count, and timestamps—never a raw IP,
-  authentication path, or submitted email. Inactive buckets become eligible
-  for bounded deletion after 24 hours.
+  authentication path, password, recovery code, or readable Paretto ID.
+  App-owned account actions additionally enforce HMACed IP and normalized-ID
+  quotas after an exact-action Turnstile check. Inactive buckets become
+  eligible for bounded deletion after 24 hours.
 - New-ticket operator mail can use the stored reply address only as `Reply-To`.
   Automatic requester receipts and status messages are enqueued only when that
   exact reply address belongs to the verified signed-in learner. Anonymous or
@@ -330,7 +358,7 @@ support bodies, secrets, or authentication headers.
 - Admin → Operations can create record/user/entity-specific or class-wide legal
   holds. Active holds are excluded from automatic and manual deletion. Creating
   or releasing a hold requires a reason and creates an immutable audit event.
-- Expired learner sessions and email-verification tokens, opaque authentication
+- Expired learner sessions and authentication-verification records, opaque authentication
   rate-limit buckets inactive for 24 hours, opaque support IP-quota buckets
   inactive for 24 hours, expired/revoked native sessions, and consumed Apple
   identity-token replay guards are removed in the same bounded maintenance

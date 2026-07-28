@@ -13,14 +13,16 @@ const SCRIPT = resolve(ROOT, "scripts/monitor-production-health.mjs");
 function readyHealth(
   productionReady = true,
   launchMode: "controlled-beta" | "public" = "public",
+  workersPlan: "free" | "paid" = launchMode === "public" ? "paid" : "free",
 ) {
   return {
     service: "paretto-web",
     status: "ok",
     version: "1.3.0",
-    schemaRevision: "0012",
+    schemaRevision: "0013",
     webReady: true,
     launchMode,
+    workersPlan,
     productionReady,
     database: "ready",
     warnings:
@@ -30,6 +32,8 @@ function readyHealth(
           ]
         : [],
     checks: {
+      workersPlan:
+        workersPlan === "paid" ? "paid" : "free-controlled-beta-only",
       schema: "ready",
       accountDeletionQueue: "ready",
       supportNotificationQueue: "ready",
@@ -76,8 +80,9 @@ describe("independent production monitor", () => {
       expect(JSON.parse(result.stdout)).toMatchObject({
         origin,
         version: "1.3.0",
-        schemaRevision: "0012",
+        schemaRevision: "0013",
         status: "ready",
+        workersPlan: "paid",
       });
       expect(requests).toEqual(["GET /api/health"]);
     });
@@ -94,33 +99,56 @@ describe("independent production monitor", () => {
     });
   });
 
-  it("monitors an explicitly selected controlled beta without treating it as public-ready", async () => {
+  it("rejects the free Workers plan for a public launch", async () => {
     await withHealthServer(
-      readyHealth(false, "controlled-beta"),
-      async (origin, requests) => {
-        const result = await execFileAsync(
-          process.execPath,
-          [SCRIPT, origin, "--mode", "controlled-beta"],
-          {
-            cwd: ROOT,
-            env: { ...process.env, ALLOW_HTTP_MONITOR: "1" },
-          },
-        );
-        expect(JSON.parse(result.stdout)).toMatchObject({
-          status: "ready",
-          launchMode: "controlled-beta",
-        });
-        expect(requests).toEqual(["GET /api/health"]);
-
+      readyHealth(true, "public", "free"),
+      async (origin) => {
         await expect(
           execFileAsync(process.execPath, [SCRIPT, origin], {
             cwd: ROOT,
             env: { ...process.env, ALLOW_HTTP_MONITOR: "1" },
           }),
-        ).rejects.toMatchObject({ code: 1 });
+        ).rejects.toMatchObject({
+          code: 1,
+          stderr: expect.stringContaining(
+            "Public launch requires the Workers Paid plan.",
+          ),
+        });
       },
     );
   });
+
+  it.each(["free", "paid"] as const)(
+    "monitors a controlled beta on the %s Workers plan without treating it as public-ready",
+    async (workersPlan) => {
+      await withHealthServer(
+        readyHealth(false, "controlled-beta", workersPlan),
+        async (origin, requests) => {
+          const result = await execFileAsync(
+            process.execPath,
+            [SCRIPT, origin, "--mode", "controlled-beta"],
+            {
+              cwd: ROOT,
+              env: { ...process.env, ALLOW_HTTP_MONITOR: "1" },
+            },
+          );
+          expect(JSON.parse(result.stdout)).toMatchObject({
+            status: "ready",
+            launchMode: "controlled-beta",
+            workersPlan,
+          });
+          expect(requests).toEqual(["GET /api/health"]);
+
+          await expect(
+            execFileAsync(process.execPath, [SCRIPT, origin], {
+              cwd: ROOT,
+              env: { ...process.env, ALLOW_HTTP_MONITOR: "1" },
+            }),
+          ).rejects.toMatchObject({ code: 1 });
+        },
+      );
+    },
+  );
 
   it("keeps a deduplicated GitHub issue open until a successful probe", async () => {
     const workflow = await readFile(

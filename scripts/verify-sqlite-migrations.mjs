@@ -14,6 +14,7 @@ const healthPath = resolve(root, "app/api/health/route.ts");
 const COURSE_SCOPE_MIGRATION_TAG = "0011_sour_post";
 const RESET_AND_AUTH_LIMIT_MIGRATION_TAG =
   "0012_private_auth_reset_generation";
+const LATEST_SCHEMA_MIGRATION_TAG = "0013_paretto_id_recovery";
 const DEFAULT_COURSE_ID = "french-from-english";
 const temporaryDirectory = await mkdtemp(
   join(tmpdir(), "paretto-migration-replay-"),
@@ -46,6 +47,10 @@ try {
   }
 
   const newestMigration = journal.entries.at(-1).tag;
+  invariant(
+    newestMigration === LATEST_SCHEMA_MIGRATION_TAG,
+    `Latest migration is ${newestMigration}; expected ${LATEST_SCHEMA_MIGRATION_TAG}.`,
+  );
   const schemaRevision = newestMigration.slice(0, 4);
   const healthRevision = healthSource.match(
     /const SCHEMA_REVISION = "(\d{4})";/,

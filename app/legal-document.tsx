@@ -1,7 +1,7 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
 
-export const LEGAL_EFFECTIVE_DATE = "July 25, 2026";
+export const LEGAL_EFFECTIVE_DATE = "July 29, 2026";
 export const OPERATOR_NAME = "Paretto";
 export const OPERATOR_POSTAL_ADDRESS =
   "25/38 Kaveri Path, Mansarovar, Jaipur, Rajasthan, India";

@@ -10,13 +10,13 @@ import { createInitialState, type LearningState } from "../app/learning-engine";
 
 const authMocks = vi.hoisted(() => ({
   signOut: vi.fn(),
-  deleteUser: vi.fn(),
   session: {
     data: {
       user: {
         id: "learner-1",
-        email: "camille@example.test",
         name: "Camille",
+        image: null,
+        username: "camille",
       },
     },
     isPending: false,
@@ -27,7 +27,6 @@ vi.mock("../app/auth-client", () => ({
   authClient: {
     useSession: () => authMocks.session,
     signOut: authMocks.signOut,
-    deleteUser: authMocks.deleteUser,
   },
 }));
 
@@ -44,6 +43,8 @@ describe("learner account lifecycle errors", () => {
   let serverState: LearningState;
   let browserProfileStatus: number;
   let claimNetworkFailure: boolean;
+  let accountDeleteStatus: number;
+  let accountDeletePayload: Record<string, unknown>;
   let fetchMock: ReturnType<typeof vi.fn>;
 
   beforeEach(() => {
@@ -56,8 +57,9 @@ describe("learner account lifecycle errors", () => {
     };
     browserProfileStatus = 200;
     claimNetworkFailure = false;
+    accountDeleteStatus = 200;
+    accountDeletePayload = { deleted: true };
     authMocks.signOut.mockReset();
-    authMocks.deleteUser.mockReset();
     fetchMock = vi.fn(
       async (input: RequestInfo | URL, init?: RequestInit) => {
         const url = String(input);
@@ -66,6 +68,9 @@ describe("learner account lifecycle errors", () => {
         }
         if (url === "/api/account/browser-profile") {
           return jsonResponse({}, browserProfileStatus);
+        }
+        if (url === "/api/account/delete") {
+          return jsonResponse(accountDeletePayload, accountDeleteStatus);
         }
         if ((init?.method ?? "GET") === "PUT") {
           const request = JSON.parse(String(init?.body)) as {
@@ -152,12 +157,15 @@ describe("learner account lifecycle errors", () => {
   it("hides deleted-account data when browser-profile rotation fails", async () => {
     const user = userEvent.setup();
     browserProfileStatus = 503;
-    authMocks.deleteUser.mockResolvedValue({ data: {}, error: null });
 
     render(<ParettoApp storageKey="account-delete-error-test" />);
     await screen.findByRole("heading", { name: /your french is going places/i });
     await user.click(screen.getByRole("button", { name: /open profile/i }));
     await user.click(screen.getByRole("button", { name: "Delete account" }));
+    await user.type(
+      screen.getByLabelText("Current password"),
+      "correct horse battery staple",
+    );
     await user.click(
       screen.getByRole("button", { name: "Delete account permanently" }),
     );
@@ -197,32 +205,55 @@ describe("learner account lifecycle errors", () => {
     ).toBeVisible();
   });
 
-  it("explains how a social-only learner can recover from an expired deletion session", async () => {
+  it("explains how a learner can recover from an expired deletion session", async () => {
     const user = userEvent.setup();
-    authMocks.deleteUser.mockResolvedValue({
-      data: null,
-      error: {
-        code: "SESSION_EXPIRED",
-        message: "raw provider session error",
-      },
-    });
+    accountDeleteStatus = 401;
+    accountDeletePayload = {
+      code: "SESSION_EXPIRED",
+      error: "raw provider session error",
+    };
 
     render(<ParettoApp storageKey="account-delete-expired-test" />);
     await screen.findByRole("heading", { name: /your french is going places/i });
     await user.click(screen.getByRole("button", { name: /open profile/i }));
     await user.click(screen.getByRole("button", { name: "Delete account" }));
+    await user.type(
+      screen.getByLabelText("Current password"),
+      "correct horse battery staple",
+    );
     await user.click(
       screen.getByRole("button", { name: "Delete account permanently" }),
     );
 
     expect(
       await screen.findByText(
-        "For security, sign out and sign in again before deleting this social-only account.",
+        "For security, sign out and sign in again before deleting this account.",
       ),
     ).toBeVisible();
     expect(screen.queryByText("raw provider session error")).not.toBeInTheDocument();
     expect(
       screen.getByRole("button", { name: "Delete account permanently" }),
     ).toBeEnabled();
+  });
+
+  it("does not submit Paretto ID deletion without the current password", async () => {
+    const user = userEvent.setup();
+
+    render(<ParettoApp storageKey="account-delete-password-required-test" />);
+    await screen.findByRole("heading", {
+      name: /your french is going places/i,
+    });
+    await user.click(screen.getByRole("button", { name: /open profile/i }));
+    await user.click(screen.getByRole("button", { name: "Delete account" }));
+
+    const deleteButton = screen.getByRole("button", {
+      name: "Delete account permanently",
+    });
+    expect(deleteButton).toBeDisabled();
+    expect(
+      fetchMock.mock.calls.some(
+        ([input]) => String(input) === "/api/account/delete",
+      ),
+    ).toBe(false);
   });
 });

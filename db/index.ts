@@ -23,11 +23,14 @@ const localSchemaSql = [
     email TEXT NOT NULL,
     email_verified INTEGER NOT NULL DEFAULT 0,
     image TEXT,
+    username TEXT,
+    display_username TEXT,
     created_at INTEGER NOT NULL,
     updated_at INTEGER NOT NULL
   )
   `,
   `CREATE UNIQUE INDEX IF NOT EXISTS learner_user_email_unique ON learner_user (email)`,
+  `CREATE UNIQUE INDEX IF NOT EXISTS learner_user_username_unique ON learner_user (username)`,
   `
   CREATE TABLE IF NOT EXISTS learner_session (
     id TEXT PRIMARY KEY NOT NULL,
@@ -83,6 +86,22 @@ const localSchemaSql = [
   )
   `,
   `CREATE INDEX IF NOT EXISTS learner_auth_rate_limits_updated_idx ON learner_auth_rate_limits (updated_at)`,
+  `
+  CREATE TABLE IF NOT EXISTS learner_recovery_codes (
+    code_hash TEXT PRIMARY KEY NOT NULL,
+    user_id TEXT NOT NULL REFERENCES learner_user(id) ON DELETE CASCADE,
+    generation_id TEXT NOT NULL,
+    created_at INTEGER NOT NULL
+  )
+  `,
+  `CREATE INDEX IF NOT EXISTS learner_recovery_codes_user_generation_idx ON learner_recovery_codes (user_id, generation_id)`,
+  `
+  CREATE TABLE IF NOT EXISTS learner_recovery_state (
+    user_id TEXT PRIMARY KEY NOT NULL REFERENCES learner_user(id) ON DELETE CASCADE,
+    generation_id TEXT NOT NULL,
+    updated_at INTEGER NOT NULL
+  )
+  `,
   `DROP TABLE IF EXISTS learner_rate_limit`,
   `
   CREATE TABLE IF NOT EXISTS learner_identity_links (
@@ -424,6 +443,22 @@ export async function initializeLocalSchema(
 async function upgradeLegacyLocalSchema(
   database: D1Database,
 ): Promise<void> {
+  if (await tableNeedsColumn(database, "learner_user", "username")) {
+    await database
+      .prepare("ALTER TABLE learner_user ADD username TEXT")
+      .run();
+  }
+  if (
+    await tableNeedsColumn(
+      database,
+      "learner_user",
+      "display_username",
+    )
+  ) {
+    await database
+      .prepare("ALTER TABLE learner_user ADD display_username TEXT")
+      .run();
+  }
   if (
     await tableNeedsColumn(
       database,

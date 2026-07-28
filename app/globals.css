@@ -2008,7 +2008,7 @@ button.sync-pill {
 
 .account-actions button,
 .account-delete-confirm button {
-  min-height: 36px;
+  min-height: 44px;
   border: 1px solid #9ab6a8;
   border-radius: 9px;
   background: white;
@@ -2056,6 +2056,114 @@ button.sync-pill {
 .account-delete-confirm > div {
   display: flex;
   gap: 7px;
+}
+
+.account-recovery-trigger {
+  min-height: 44px;
+  margin-top: 8px;
+  border: 1px solid #9ab6a8;
+  border-radius: 9px;
+  background: white;
+  color: #225b43;
+  padding: 8px 10px;
+  cursor: pointer;
+  font-size: 10px;
+  font-weight: 800;
+}
+
+.account-recovery-trigger:disabled {
+  cursor: not-allowed;
+  opacity: .58;
+}
+
+.account-recovery-panel {
+  display: grid;
+  min-width: 0;
+  gap: 10px;
+  margin-top: 10px;
+  border-top: 1px solid #c7ddd2;
+  padding-top: 12px;
+}
+
+.account-recovery-panel h3,
+.account-recovery-panel p {
+  margin: 0;
+}
+
+.account-recovery-panel h3 {
+  font-size: 13px;
+}
+
+.account-recovery-panel p {
+  color: var(--muted);
+  font-size: 10px;
+  line-height: 1.5;
+}
+
+.account-recovery-panel label {
+  display: grid;
+  gap: 5px;
+  font-size: 10px;
+  font-weight: 800;
+}
+
+.account-recovery-panel input[type="password"] {
+  width: 100%;
+  min-height: 44px;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  background: white;
+  padding: 8px 10px;
+}
+
+.account-recovery-codes {
+  display: grid;
+  min-width: 0;
+  gap: 5px;
+  margin: 0;
+  border-radius: 10px;
+  background: white;
+  padding: 10px 10px 10px 30px;
+}
+
+.account-recovery-codes code {
+  overflow-wrap: anywhere;
+  font-size: 10px;
+  font-weight: 800;
+}
+
+.account-recovery-actions {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 7px;
+}
+
+.account-recovery-panel button {
+  min-height: 44px;
+  border: 1px solid #9ab6a8;
+  border-radius: 9px;
+  background: white;
+  color: #225b43;
+  padding: 8px 10px;
+  cursor: pointer;
+  font-size: 10px;
+  font-weight: 800;
+}
+
+.account-recovery-panel button:disabled {
+  cursor: wait;
+  opacity: .58;
+}
+
+.account-recovery-saved {
+  grid-template-columns: auto 1fr;
+  align-items: start;
+}
+
+.account-recovery-saved input {
+  width: 20px;
+  height: 20px;
+  margin: 0;
 }
 
 .profile-action-message {

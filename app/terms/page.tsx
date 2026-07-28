@@ -27,11 +27,12 @@ export default function TermsPage() {
           You must be at least 13 and legally able to accept these Terms. A
           parent or guardian must authorize use where required by local law.
           You may learn with an anonymous browser profile or create a learner
-          account to synchronize progress across supported devices. Provide
-          accurate account information, use a unique password, protect access
-          to your email and devices, and promptly report suspected unauthorized
-          access. Export progress before clearing site data if you continue
-          without an account.
+          account to synchronize progress across supported web browsers. Choose
+          an appropriate permanent Paretto ID, use a unique password, keep
+          recovery codes private, protect access to your devices, and promptly
+          report suspected unauthorized access. Paretto cannot retrieve a lost
+          password or recovery code. Export progress before clearing site data
+          if you continue without an account.
         </p>
       </LegalSection>
 

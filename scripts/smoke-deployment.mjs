@@ -31,9 +31,21 @@ assert.ok(
   candidate.protocol === "https:" || allowHttp,
   "Smoke tests require HTTPS. ALLOW_HTTP_SMOKE=1 is accepted only for localhost.",
 );
-assert.equal(candidate.origin, rawOrigin, "Use an exact origin without a path.");
-assert.equal(candidate.username, "", "Credentials are not allowed in the smoke URL.");
-assert.equal(candidate.password, "", "Credentials are not allowed in the smoke URL.");
+assert.equal(
+  candidate.origin,
+  rawOrigin,
+  "Use an exact origin without a path.",
+);
+assert.equal(
+  candidate.username,
+  "",
+  "Credentials are not allowed in the smoke URL.",
+);
+assert.equal(
+  candidate.password,
+  "",
+  "Credentials are not allowed in the smoke URL.",
+);
 
 const origin = candidate.origin;
 const packageMetadata = JSON.parse(
@@ -180,6 +192,9 @@ function assertHealthReady(candidateHealth) {
     "learnerAuthRateLimitSecret",
     "learnerAuthentication",
     "learnerAuthOrigin",
+    "learnerParettoIdAccountCreation",
+    "learnerParettoIdSignIn",
+    "learnerRecoveryCodes",
     "adminAllowlist",
     "adminAuthentication",
     "turnstileSiteKey",
@@ -192,15 +207,30 @@ function assertHealthReady(candidateHealth) {
     );
   }
   if (launchMode === "public") {
+    assert.equal(
+      candidateHealth.workersPlan,
+      "paid",
+      "Public launch requires the Workers Paid plan.",
+    );
+    assert.equal(candidateHealth.checks.workersPlan, "paid");
     assert.equal(candidateHealth.productionReady, true);
     assert.equal(
       candidateHealth.checks.learnerEmailAccountCreation,
-      "ready",
+      "disabled",
     );
-    assert.equal(candidateHealth.checks.learnerEmailVerification, "ready");
-    assert.equal(candidateHealth.checks.learnerPasswordReset, "ready");
     assert.equal(candidateHealth.checks.supportNotifications, "ready");
   } else {
+    assert.ok(
+      candidateHealth.workersPlan === "free" ||
+        candidateHealth.workersPlan === "paid",
+      "Controlled beta requires an explicit free or paid Workers plan.",
+    );
+    assert.equal(
+      candidateHealth.checks.workersPlan,
+      candidateHealth.workersPlan === "paid"
+        ? "paid"
+        : "free-controlled-beta-only",
+    );
     assert.equal(
       candidateHealth.productionReady,
       false,
@@ -214,21 +244,15 @@ function assertHealthReady(candidateHealth) {
       candidateHealth.checks.learnerEmailVerification,
       "not-configured",
     );
-    assert.equal(
-      candidateHealth.checks.learnerPasswordReset,
-      "not-configured",
-    );
-    assert.equal(
-      candidateHealth.checks.supportNotifications,
-      "not-configured",
-    );
+    assert.equal(candidateHealth.checks.learnerPasswordReset, "not-configured");
+    assert.equal(candidateHealth.checks.supportNotifications, "not-configured");
     assert.ok(
       Array.isArray(candidateHealth.warnings) &&
         candidateHealth.warnings.includes(
           "Controlled beta mode is operational but is not approved for a broad public launch.",
         ) &&
         candidateHealth.warnings.includes(
-          "Transactional email is not configured; email registration, verification, and password recovery remain unavailable.",
+          "Optional transactional email is not configured; Paretto ID account creation and recovery codes remain available.",
         ) &&
         candidateHealth.warnings.includes(
           "Operator support email delivery is not configured; tickets remain stored for authenticated administrator follow-up.",
@@ -272,7 +296,10 @@ function assertHealthReady(candidateHealth) {
 const homeResponse = await request("/");
 const home = await homeResponse.text();
 assert.match(home, /Paretto/);
-assert.match(homeResponse.headers.get("x-content-type-options") ?? "", /nosniff/i);
+assert.match(
+  homeResponse.headers.get("x-content-type-options") ?? "",
+  /nosniff/i,
+);
 assert.equal(homeResponse.headers.get("x-frame-options"), "DENY");
 if (candidate.protocol === "https:") {
   assert.match(
@@ -287,7 +314,6 @@ assert.match(
 
 const htmlRoutes = [
   "/sign-in",
-  "/reset-password",
   "/privacy",
   "/terms",
   "/cookies",
@@ -302,7 +328,11 @@ for (const path of htmlRoutes) {
     /text\/html/i,
     `${path} did not return HTML.`,
   );
-  assert.match(await response.text(), /Paretto/, `${path} is not Paretto-branded.`);
+  assert.match(
+    await response.text(),
+    /Paretto/,
+    `${path} is not Paretto-branded.`,
+  );
 }
 
 const manifestResponse = await request("/manifest.webmanifest");
@@ -319,10 +349,7 @@ assert.match(
 assert.match(await serviceWorkerResponse.text(), /paretto-static-v\d+/);
 
 const offlineResponse = await request("/offline.html");
-assert.match(
-  offlineResponse.headers.get("content-type") ?? "",
-  /text\/html/i,
-);
+assert.match(offlineResponse.headers.get("content-type") ?? "", /text\/html/i);
 const offlineSource = await offlineResponse.text();
 assert.match(offlineSource, /<title>Reconnect to Paretto<\/title>/);
 assert.match(
@@ -355,6 +382,7 @@ console.log(
     staticAssets: 5,
     mode: "read-only",
     launchMode,
+    workersPlan: health.workersPlan,
     readinessAttempts,
   }),
 );

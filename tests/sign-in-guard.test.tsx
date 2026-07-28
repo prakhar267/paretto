@@ -23,6 +23,10 @@ vi.mock("../app/server-auth", () => ({
   resolveLearnerAccountSession: mocks.resolveSession,
 }));
 
+vi.mock("../app/turnstile", () => ({
+  loadTurnstilePublicSiteKey: vi.fn(async () => "test-site-key"),
+}));
+
 const { default: SignInPage } = await import("../app/sign-in/page");
 
 describe("learner sign-in account switching guard", () => {
@@ -37,8 +41,11 @@ describe("learner sign-in account switching guard", () => {
     mocks.readiness.mockResolvedValue({
       configured: true,
       canonicalOrigin: true,
+      rateLimit: true,
       emailPassword: true,
-      emailAccountCreation: true,
+      parettoIdAccountCreation: true,
+      recoveryCodes: true,
+      emailAccountCreation: false,
       emailVerification: false,
       passwordReset: false,
       google: false,
@@ -55,8 +62,9 @@ describe("learner sign-in account switching guard", () => {
         },
         user: {
           id: "account-a",
-          email: "a@example.test",
           name: "Account A",
+          image: null,
+          username: "account-a",
         },
       },
     });

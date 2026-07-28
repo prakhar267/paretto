@@ -19,9 +19,9 @@ lessons and a journey through all 18 administrative regions of France.
 - Searchable wordbook with accent-insensitive lookup and mastery filters
 - Responsive desktop and mobile navigation, reduced-motion support, keyboard focus states, and semantic dialogs
 - Per-user Cloudflare D1 progress with conflict-safe merges, a durable offline queue, and explicit sync status
-- Optional email/password learner accounts with email verification, password
-  recovery, anonymous-progress claiming, cross-browser synchronization,
-  sign-out, and account deletion
+- Paretto ID accounts with password sign-in, one-time recovery codes,
+  anonymous-progress claiming, cross-browser synchronization, sign-out, code
+  rotation, and account deletion; no learner email address is required
 - An identity-free cold-offline reconnect page; authenticated HTML and API responses are never cached
 - Keyboard-contained dialogs, high-contrast regional art, progress export and
   restore, and permanent progress/account deletion
@@ -101,9 +101,10 @@ administrators with distinct access keys.
 Support submissions are protected by server-verified Cloudflare Turnstile plus
 an hourly opaque IP quota HMACed under an independent
 `SUPPORT_RATE_LIMIT_SECRET`; raw IP addresses never enter the limiter table.
-Account endpoints use Better Auth&apos;s route-specific limits through a separate,
-atomic D1 counter HMACed under `BETTER_AUTH_RATE_LIMIT_SECRET`; its table never
-stores the raw client IP, auth path, or submitted email.
+Account endpoints require exact-action Cloudflare Turnstile checks and use
+atomic IP and normalized-ID quotas through a separate D1 counter HMACed under
+`BETTER_AUTH_RATE_LIMIT_SECRET`; its table never stores the raw client IP,
+authentication path, password, recovery code, or readable Paretto ID.
 
 Native sync and Sign in with Apple remain implemented behind
 `NATIVE_API_ENABLED=false`; their Apple and native-session credentials are not

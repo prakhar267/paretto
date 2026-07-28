@@ -4,6 +4,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { learnerAuthReadiness } from "@/app/learner-auth";
 import { resolveLearnerAccountSession } from "@/app/server-auth";
+import { loadTurnstilePublicSiteKey } from "@/app/turnstile";
 import AuthForm from "./AuthForm";
 import styles from "./auth.module.css";
 
@@ -24,8 +25,9 @@ export default async function SignInPage({
 }: {
   searchParams?: SignInSearchParams;
 } = {}) {
-  const [readiness, requestHeaders, query] = await Promise.all([
+  const [readiness, turnstileSiteKey, requestHeaders, query] = await Promise.all([
     learnerAuthReadiness(),
+    loadTurnstilePublicSiteKey(),
     headers(),
     searchParams ??
       Promise.resolve<Record<string, string | string[] | undefined>>({}),
@@ -48,10 +50,13 @@ export default async function SignInPage({
         <p className={styles.eyebrow}>Your learning account</p>
         <h1 id="account-title">Keep every word with you.</h1>
         <p className={styles.intro}>
-          Sign in to continue across browsers and devices. Progress already
-          saved in this browser is connected automatically.
+          Create a Paretto ID to continue across supported web browsers.
+          Progress already saved here connects after sign-in. No email is
+          required.
         </p>
-        {accountCheckUnavailable || !readiness.configured ? (
+        {accountCheckUnavailable ||
+        !readiness.configured ||
+        !turnstileSiteKey ? (
           <p className={styles.notice} role="status">
             Account access is temporarily unavailable. Your current browser
             progress remains private and unchanged.
@@ -60,9 +65,9 @@ export default async function SignInPage({
           <AuthForm
             googleEnabled={readiness.google}
             appleEnabled={readiness.apple}
-            accountCreationEnabled={readiness.emailAccountCreation}
-            passwordResetEnabled={readiness.passwordReset}
-            emailVerificationEnabled={readiness.emailVerification}
+            accountCreationEnabled={readiness.parettoIdAccountCreation}
+            recoveryEnabled={readiness.recoveryCodes}
+            turnstileSiteKey={turnstileSiteKey}
             initialError={socialCallbackError(query.error)}
           />
         )}
@@ -82,7 +87,7 @@ function socialCallbackError(
   const code = Array.isArray(value) ? value[0] : value;
   if (!code) return "";
   if (code === "access_denied") {
-    return "Social sign-in was cancelled. You can try again or use email.";
+    return "Social sign-in was cancelled. You can try again or use a Paretto ID.";
   }
   return "Social sign-in could not be completed. Please try again.";
 }

@@ -52,6 +52,26 @@ describe("transactional email transport", () => {
     ).rejects.toThrow("not configured");
   });
 
+  it("never sends mail to a synthetic Paretto account alias", async () => {
+    const fetchMock = vi.fn();
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(
+      sendTransactionalEmail(
+        {
+          RESEND_API_KEY: "re_test_only",
+          AUTH_EMAIL_FROM: "Paretto <accounts@paretto.test>",
+        },
+        {
+          to: "u-private@accounts.paretto.invalid",
+          subject: "Must not leave the service",
+          text: "Synthetic account aliases are not delivery addresses.",
+        },
+      ),
+    ).rejects.toThrow("recipient is invalid");
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
   it("accepts only a valid operator mailbox", () => {
     expect(
       supportOperatorEmail({

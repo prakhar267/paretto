@@ -3,6 +3,12 @@ import { isRecord } from "@/app/api/_lib/api-utils";
 const SITEVERIFY_URL =
   "https://challenges.cloudflare.com/turnstile/v0/siteverify";
 const SUPPORT_ACTION = "support_submit";
+export type TurnstileAction =
+  | "support_submit"
+  | "account_create"
+  | "account_sign_in"
+  | "account_recover"
+  | "recovery_codes_rotate";
 const MAX_TOKEN_LENGTH = 2_048;
 const MAX_RESPONSE_BYTES = 32 * 1_024;
 const DEVELOPMENT_SITE_KEY = "1x00000000000000000000AA";
@@ -63,6 +69,18 @@ export async function loadTurnstilePublicSiteKey(): Promise<string | null> {
 export async function verifySupportTurnstile(
   token: unknown,
   request: Request,
+  options: {
+    configuration?: TurnstileConfiguration | null;
+    fetcher?: typeof fetch;
+  } = {},
+): Promise<TurnstileVerification> {
+  return verifyTurnstile(token, request, SUPPORT_ACTION, options);
+}
+
+export async function verifyTurnstile(
+  token: unknown,
+  request: Request,
+  expectedAction: TurnstileAction,
   options: {
     configuration?: TurnstileConfiguration | null;
     fetcher?: typeof fetch;
@@ -145,7 +163,7 @@ export async function verifySupportTurnstile(
   if (
     !isRecord(result) ||
     result.success !== true ||
-    result.action !== SUPPORT_ACTION ||
+    result.action !== expectedAction ||
     typeof result.hostname !== "string" ||
     normalizeHostname(result.hostname) !== normalizeHostname(url.hostname)
   ) {

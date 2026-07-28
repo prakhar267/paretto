@@ -26,9 +26,11 @@ the live health check reports `productionReady: true`.
 A smaller controlled beta has a separate, explicit contract. It may report HTTP
 200 with `webReady: true` while `productionReady: false` only when core
 identity, D1/schema, retention, and durable queues are healthy. Its health
-warnings must state that transactional email/password recovery and operator
-support delivery are unavailable. This is operational beta evidence, not broad
-public-launch approval.
+warnings must identify any unavailable optional support-email delivery, while
+Paretto ID creation, sign-in, and recovery remain available without email.
+Optional support-email delivery does not determine whether either launch mode
+can serve learners. This is operational beta evidence, not broad public-launch
+approval.
 
 ## Free-start alternatives
 
@@ -57,11 +59,14 @@ and hashed application assets stay asset-first. The templates bind `ASSETS` for
 Vinext, bind one D1 database as `DB`, read migrations from `drizzle/`, schedule
 retention at 03:17 UTC, and enable Worker observability. They omit Images, R2,
 paid-plan CPU limits, and every unused product binding. They declare seven core
-runtime secrets; the secret verifier additionally requires `RESEND_API_KEY`
-only for `public` mode and rejects it from the controlled-beta secret file. The
-deployment verifier enforces both the
+runtime secrets. Support-email delivery is optional in both launch modes: its
+two runtime values must either be exact empty strings with no `RESEND_API_KEY`,
+or a valid sender and support mailbox must be paired with that provider secret.
+The deployment verifier enforces both the
 selective Worker route list and the Workers Free static-asset limits before
-Wrangler can run.
+Wrangler can run. The same conservative free-compatible asset envelope remains
+an artifact portability gate when `WORKERS_PLAN=paid`; it is not proof of the
+account's billing plan.
 
 Authenticate using Cloudflare's browser OAuth; never send an account password,
 API token, or verification code:
@@ -91,7 +96,8 @@ npm run cloudflare:prepare -- \
   --admin-emails <administrator-email> \
   --turnstile-site-key <staging-turnstile-site-key> \
   --auth-url https://<staging-worker-origin> \
-  --launch-mode controlled-beta
+  --launch-mode controlled-beta \
+  --workers-plan free
 
 npm run cloudflare:prepare -- \
   --environment production \
@@ -102,8 +108,7 @@ npm run cloudflare:prepare -- \
   --turnstile-site-key <production-turnstile-site-key> \
   --auth-url https://<production-worker-origin> \
   --launch-mode public \
-  --auth-email-from 'Paretto <accounts@verified-domain>' \
-  --support-notification-email <working-operator-mailbox>
+  --workers-plan paid
 ```
 
 `--admin-email` remains a backwards-compatible alias for a single-admin
@@ -111,9 +116,17 @@ controlled beta. Use `--admin-emails` for new environments. One address selects
 the single `ADMIN_PASSWORD_VERIFIER` contract; two or more addresses select the
 per-email `ADMIN_PASSWORD_VERIFIERS` contract. Addresses must already be
 normalized, unique, and in the intended stable order. The preparer rejects
-sentinel IDs. `--launch-mode` is mandatory. Controlled beta rejects sender and
-support-delivery arguments; public mode requires both. The verifier then checks
-the exact built Worker, static-file count
+sentinel IDs. `--launch-mode` and `--workers-plan` are mandatory. Password
+verifiers use Web Crypto PBKDF2-SHA256 with 600,000 iterations to avoid
+memory-heavy per-request hashing. Cloudflare Workers Free is limited to 10 ms
+CPU per request, so `free` is accepted only with `controlled-beta`; broad
+`public` launch requires Workers Paid. Email delivery is optional in
+either mode. Omit both email flags to materialize exact empty values. To enable
+delivery, provide both `--auth-email-from 'Paretto
+<accounts@verified-domain>'` and `--support-notification-email
+<working-operator-mailbox>`, then include `RESEND_API_KEY` in that environment's
+secret file. Partial configuration is rejected. The verifier then checks the
+exact built Worker, static-file count
 and sizes, D1 migration journal, service-worker headers, Cron, observability,
 and absence of paid-only bindings:
 
@@ -169,7 +182,7 @@ ADMIN_PASSWORD_VERIFIER=sha256$<generated-base64url-digest>
 # ADMIN_PASSWORD_VERIFIERS=<compact-json-map-in-ADMIN_EMAILS-order>
 ADMIN_SESSION_SECRET=<another-generated-random-value>
 TURNSTILE_SECRET=<secret-from-the-matching-Turnstile-widget>
-# Public mode only:
+# Only when both optional support-email runtime values are configured:
 # RESEND_API_KEY=<secret-from-the-transactional-email-provider>
 ```
 
@@ -185,19 +198,19 @@ Keychain account. It reads the independent limiter values from
 `Paretto Staging Better Auth Rate Limit Secret` and
 `Paretto Production Better Auth Rate Limit Secret`; create those Keychain items
 under the same account used by the other Paretto environment secrets. Add
-`RESEND_API_KEY` to the ignored file immediately before a broad
-public deployment, after the sender domain is verified, or configure the same
-secret directly through Sites. Support mutations persist body-free email jobs
+`RESEND_API_KEY` to the ignored file only when the matching sender and support
+mailbox are configured and verified, or configure the same complete trio
+through Sites. Support mutations persist body-free email jobs
 transactionally; scheduled and manual retention runs retry a bounded page, and
-Admin → Operations exposes pending and failed deliveries. Requester mail is
-created only for the exact verified signed-in account address. Delivery is
-scheduled after the HTTP response and provider failure remains queued; completed
-jobs are deleted after 7 days and orphan jobs on the next bounded maintenance
-run. Health remains deliberately not
-`productionReady` while verification, recovery, and support-status email cannot
-be delivered. In production, existing email/password accounts can still sign
-in, but new email account registration and password recovery remain disabled
-until both `RESEND_API_KEY` and a valid `AUTH_EMAIL_FROM` are present.
+Admin → Operations exposes pending and failed deliveries. The internal
+non-routable Paretto ID alias never receives mail, and passwords or recovery
+codes must never enter a support request. Delivery is scheduled after the HTTP
+response and provider failure remains queued; completed jobs are deleted after
+7 days and orphan jobs on the next bounded maintenance run. Without the
+optional trio, tickets remain in the authenticated
+administrator queue for manual review; Paretto ID registration, sign-in,
+recovery codes, progress synchronization, export, and deletion remain
+available.
 
 Restrict and validate each file before deployment:
 
@@ -223,9 +236,9 @@ npm run smoke:deployment -- https://<production-worker-origin> --mode public
 Both `.env.*` and materialized Wrangler files are ignored. The guarded deploy
 scripts always validate and pass the matching file through Wrangler's official
 `--secrets-file` option, so the first public Worker version cannot be created
-without its required secrets. Cloudflare then stores those values as managed
-Worker secrets. `--keep-vars` protects values managed through the dashboard
-from deletion during later code deployments.
+without its required core secrets. Cloudflare then stores those values as
+managed Worker secrets. `--keep-vars` protects values managed through the
+dashboard from deletion during later code deployments.
 
 The checked-in `Deploy Cloudflare release` workflow provides the same guarded
 sequence. Staging accepts `main` or a `v*` tag; production accepts only a `v*`
@@ -240,11 +253,17 @@ named `staging` and `production`. Each environment needs variables
 `BETTER_AUTH_RATE_LIMIT_SECRET`, `BETTER_AUTH_SECRET`,
 either `ADMIN_PASSWORD_VERIFIER` for one administrator or
 `ADMIN_PASSWORD_VERIFIERS` for multiple administrators,
-`ADMIN_SESSION_SECRET`, and `TURNSTILE_SECRET`. Public mode additionally
-requires the `AUTH_EMAIL_FROM` and `SUPPORT_NOTIFICATION_EMAIL` variables and
-the `RESEND_API_KEY` secret; controlled beta ignores those delivery values and
-materializes empty delivery configuration. The workflow requires an explicit
-`launch_mode` choice and defaults to `controlled-beta`. The production
+`ADMIN_SESSION_SECRET`, and `TURNSTILE_SECRET`. In either mode, omit
+`AUTH_EMAIL_FROM`, `SUPPORT_NOTIFICATION_EMAIL`, and `RESEND_API_KEY` together
+to materialize disabled delivery, or configure all three together to enable
+support email. The workflow rejects any partial trio. It requires an explicit
+`launch_mode` choice and explicit `workers_plan` declaration, defaulting to
+`controlled-beta` and `free`. It rejects `public` with `free` before the browser
+matrix and writes the declaration into the generated runtime configuration.
+This value is not billing evidence: the least-privilege deployment token does
+not read account subscriptions. Before a public launch, verify Workers Paid in
+the Cloudflare account and record the provider evidence in the release record.
+The production
 environment additionally requires an
 independent `D1_BACKUP_ENCRYPTION_PASSPHRASE` of at least 32 characters.
 For a team-operated or public launch, require independent reviewer approval for
@@ -277,20 +296,22 @@ availability break. New environments must use `ADMIN_EMAILS`.
 - A new learner receives a random 256-bit, origin-bound, `HttpOnly`,
   `SameSite=Lax` cookie. The database key is an HMAC of that session value under
   `USER_KEY_SECRET`; neither a raw email nor the raw cookie is stored in D1.
-- Learners may remain anonymous or create an email/password account. Account
+- Learners may remain anonymous or create a Paretto ID/password account. Account
   creation claims the current anonymous journal through an immutable link;
   subsequent requests use an account-derived learning key and synchronize
   across supported browsers. Sign-out clears the account&apos;s local cache and
   rotates the anonymous browser identity before another learner can use it.
-- Email verification and password recovery require `RESEND_API_KEY` and
-  `AUTH_EMAIL_FROM`. Production email/password registration is disabled until
-  both are present; existing-account sign-in remains available. Optional Google
-  and Apple web sign-in remain disabled unless both credentials for the
-  provider are present.
+- Paretto ID recovery uses one-time recovery codes, not email. The learner
+  stores the only plaintext copy; D1 stores user-bound hashes and a recovery
+  generation. Successful recovery rotates every code and revokes existing
+  sessions. Optional support-email delivery has no role in account creation,
+  sign-in, or recovery.
 - Better Auth&apos;s route-specific request limits use an atomic D1 counter. Its
   ephemeral IP-and-path key is HMACed under the independent
   `BETTER_AUTH_RATE_LIMIT_SECRET` before persistence, so the limiter table
-  contains no raw IP address, auth path, or submitted email.
+  contains no raw IP address, auth path, password, recovery code, or readable
+  Paretto ID. App-owned account actions also enforce HMACed IP and
+  normalized-ID quotas after exact-action Turnstile verification.
 - `/admin/login` accepts only a normalized `ADMIN_EMAILS` identity and its own
   generated high-entropy access key. A one-admin beta uses
   `ADMIN_PASSWORD_VERIFIER`; a multi-admin publishing environment uses an exact
@@ -310,9 +331,13 @@ availability break. New environments must use `ADMIN_EMAILS`.
   `productionReady: true`.
 - `LAUNCH_MODE=controlled-beta` can return HTTP 200 only for a healthy core,
   retention schedule, and queues. It always reports `productionReady: false`
-  with explicit delivery warnings. `LAUNCH_MODE=public` additionally requires
-  working password recovery and support delivery; the guarded smoke and monitor
-  default to this strict public contract when no mode is supplied.
+  with explicit capability warnings. `WORKERS_PLAN=free` is restricted to this
+  controlled-beta contract. `LAUNCH_MODE=public` additionally requires
+  `WORKERS_PLAN=paid` and
+  the strict public web contract, including working Paretto ID recovery, but
+  optional support-email delivery may remain disabled when a named
+  administrator owns manual ticket-queue review. The guarded smoke and monitor
+  default to the public contract when no mode is supplied.
 - `/api/health` performs the deep schema, retention, and queue readiness check
   needed by deployment smoke. Each Worker isolate and Cloudflare's
   per-data-center Cache API cache healthy results for 30 seconds (degraded
@@ -349,10 +374,13 @@ Time Travel. Verify these limits again at launch:
   `ADMIN_SESSION_SECRET`, and `TURNSTILE_SECRET`
   only through the ignored secret files and Cloudflare managed secrets.
   Configure the exact `BETTER_AUTH_URL`, normalized `ADMIN_EMAILS`, the
-  matching `TURNSTILE_SITE_KEY`, explicit `LAUNCH_MODE`, and
-  `NATIVE_API_ENABLED=false` as runtime values. Add `AUTH_EMAIL_FROM`,
-  `SUPPORT_NOTIFICATION_EMAIL`, and `RESEND_API_KEY` only for a broad public
-  launch.
+  matching `TURNSTILE_SITE_KEY`, explicit `LAUNCH_MODE`, explicit
+  `WORKERS_PLAN`, and `NATIVE_API_ENABLED=false` as runtime values. Treat
+  `WORKERS_PLAN` as a fail-closed declaration, not subscription proof; public
+  operation requires separately recorded Workers Paid evidence. Add `AUTH_EMAIL_FROM`,
+  `SUPPORT_NOTIFICATION_EMAIL`, and `RESEND_API_KEY` only as one complete
+  optional support-email trio; otherwise keep both runtime values exactly empty
+  and omit the secret.
 - Keep the administrator access key only in a password manager. Never use or
   store an Apple account password or verification code.
 - Enable provider backup/recovery, test a restore, and document the observed recovery point.

@@ -7,31 +7,8 @@ const TURNSTILE_SCRIPT_URL =
   "https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit";
 const TURNSTILE_LOAD_TIMEOUT_MS = 12_000;
 
-type TurnstileApi = {
-  render: (
-    container: HTMLElement,
-    options: {
-      sitekey: string;
-      action: string;
-      theme: "auto";
-      size: "flexible";
-      callback: (token: string) => void;
-      "expired-callback": () => void;
-      "error-callback": () => void;
-    },
-  ) => string;
-  reset: (widgetId: string) => void;
-  remove: (widgetId: string) => void;
-};
-
-declare global {
-  interface Window {
-    turnstile?: TurnstileApi;
-  }
-}
-
 const CATEGORIES = [
-  ["technical", "Technical problem"],
+  ["technical", "Technical or account-access problem"],
   ["content", "French content or audio"],
   ["feedback", "Product feedback"],
   ["privacy", "Privacy request"],

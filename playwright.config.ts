@@ -18,7 +18,6 @@ const localWebServerCommand =
   "npx wrangler d1 migrations apply DB --local " +
   "--cwd dist/server --config wrangler.json " +
   "--persist-to ../../test-results/playwright-runtime && " +
-  "node e2e/seed-local-auth.mjs && " +
   // Playwright starts webServer commands through a shell. Replacing that
   // shell on POSIX makes graceful shutdown wait for the Node/Miniflare owner,
   // so lifecycle evidence and disposable-certificate cleanup complete.

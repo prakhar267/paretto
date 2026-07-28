@@ -40,6 +40,7 @@ describe("administrator deployment credentials", () => {
     );
     expect(configuration.vars).toMatchObject({
       LAUNCH_MODE: "controlled-beta",
+      WORKERS_PLAN: "free",
       AUTH_EMAIL_FROM: "",
       SUPPORT_NOTIFICATION_EMAIL: "",
     });
@@ -117,7 +118,7 @@ describe("administrator deployment credentials", () => {
     }
   });
 
-  it("requires complete transactional delivery only in public mode", async () => {
+  it("permits a public Paretto ID launch with optional email delivery disabled", async () => {
     const directory = await fixtureDirectory();
     await prepare(
       directory,
@@ -129,14 +130,19 @@ describe("administrator deployment credentials", () => {
     );
     expect(configuration.vars).toMatchObject({
       LAUNCH_MODE: "public",
-      AUTH_EMAIL_FROM: "Paretto <accounts@paretto.test>",
-      SUPPORT_NOTIFICATION_EMAIL: "support@paretto.test",
+      WORKERS_PLAN: "paid",
+      AUTH_EMAIL_FROM: "",
+      SUPPORT_NOTIFICATION_EMAIL: "",
     });
 
     await writeSecretFile(directory, {
       ADMIN_PASSWORD_VERIFIER: verifier("solo-admin-access-key"),
     });
-    await expect(verify(directory)).rejects.toMatchObject({ code: 1 });
+    await expect(verify(directory)).resolves.toMatchObject({
+      stdout: expect.stringContaining(
+        "disabled optional email-delivery policy",
+      ),
+    });
 
     await writeSecretFile(
       directory,
@@ -145,9 +151,119 @@ describe("administrator deployment credentials", () => {
         RESEND_API_KEY: "re_abcdefghijklmnop",
       },
     );
-    await expect(verify(directory)).resolves.toMatchObject({
-      stdout: expect.stringContaining("public delivery policy"),
-    });
+    await expect(verify(directory)).rejects.toMatchObject({ code: 1 });
+  });
+
+  it("rejects Cloudflare's public Turnstile test credentials from hosted environments", async () => {
+    const directory = await fixtureDirectory();
+    await expect(
+      prepare(
+        directory,
+        ["--admin-email", "solo@paretto.test"],
+        "controlled-beta",
+        false,
+        "1x00000000000000000000AA",
+      ),
+    ).rejects.toMatchObject({ code: 1 });
+
+    await prepare(directory, [
+      "--admin-email",
+      "solo@paretto.test",
+    ]);
+    await writeSecretFile(
+      directory,
+      {
+        ADMIN_PASSWORD_VERIFIER: verifier("solo-admin-access-key"),
+      },
+      "1x0000000000000000000000000000000AA",
+    );
+    await expect(verify(directory)).rejects.toMatchObject({ code: 1 });
+  });
+
+  it("rejects public launch on the Workers Free runtime", async () => {
+    const directory = await fixtureDirectory();
+    await expect(
+      prepare(
+        directory,
+        ["--admin-email", "solo@paretto.test"],
+        "public",
+        false,
+        "0x4AAAAAAAContractFixtureSiteKey",
+        "free",
+      ),
+    ).rejects.toMatchObject({ code: 1 });
+  });
+
+  it.each(["controlled-beta", "public"] as const)(
+    "requires a complete sender, support mailbox, and provider secret in %s mode",
+    async (launchMode) => {
+      const directory = await fixtureDirectory();
+      await prepare(
+        directory,
+        ["--admin-email", "solo@paretto.test"],
+        launchMode,
+        true,
+      );
+      const configuration = JSON.parse(
+        await readFile(join(directory, "wrangler.staging.jsonc"), "utf8"),
+      );
+      expect(configuration.vars).toMatchObject({
+        LAUNCH_MODE: launchMode,
+        AUTH_EMAIL_FROM: "Paretto <accounts@paretto.test>",
+        SUPPORT_NOTIFICATION_EMAIL: "support@paretto.test",
+      });
+
+      await writeSecretFile(directory, {
+        ADMIN_PASSWORD_VERIFIER: verifier("solo-admin-access-key"),
+      });
+      await expect(verify(directory)).rejects.toMatchObject({ code: 1 });
+
+      await writeSecretFile(directory, {
+        ADMIN_PASSWORD_VERIFIER: verifier("solo-admin-access-key"),
+        RESEND_API_KEY: "not-a-provider-key",
+      });
+      await expect(verify(directory)).rejects.toMatchObject({ code: 1 });
+
+      await writeSecretFile(directory, {
+        ADMIN_PASSWORD_VERIFIER: verifier("solo-admin-access-key"),
+        RESEND_API_KEY: "re_abcdefghijklmnop",
+      });
+      await expect(verify(directory)).resolves.toMatchObject({
+        stdout: expect.stringContaining(
+          "configured optional email-delivery policy",
+        ),
+      });
+    },
+  );
+
+  it("rejects a partial optional email-delivery configuration in every launch mode", async () => {
+    for (const launchMode of ["controlled-beta", "public"] as const) {
+      const senderOnlyDirectory = await fixtureDirectory();
+      await expect(
+        prepare(
+          senderOnlyDirectory,
+          ["--admin-email", "solo@paretto.test"],
+          launchMode,
+          [
+            "--auth-email-from",
+            "Paretto <accounts@paretto.test>",
+          ],
+        ),
+      ).rejects.toMatchObject({ code: 1 });
+
+      const mailboxOnlyDirectory = await fixtureDirectory();
+      await expect(
+        prepare(
+          mailboxOnlyDirectory,
+          ["--admin-email", "solo@paretto.test"],
+          launchMode,
+          [
+            "--support-notification-email",
+            "support@paretto.test",
+          ],
+        ),
+      ).rejects.toMatchObject({ code: 1 });
+    }
   });
 });
 
@@ -169,9 +285,14 @@ async function prepare(
   directory: string,
   adminArguments: string[],
   launchMode: "controlled-beta" | "public" = "controlled-beta",
+  emailDelivery: boolean | string[] = false,
+  turnstileSiteKey = "0x4AAAAAAAContractFixtureSiteKey",
+  workersPlan: "free" | "paid" =
+    launchMode === "public" ? "paid" : "free",
 ) {
-  const deliveryArguments =
-    launchMode === "public"
+  const deliveryArguments = Array.isArray(emailDelivery)
+    ? emailDelivery
+    : emailDelivery
       ? [
           "--auth-email-from",
           "Paretto <accounts@paretto.test>",
@@ -193,11 +314,13 @@ async function prepare(
       "12345678-1234-4234-8234-1234567890ab",
       ...adminArguments,
       "--turnstile-site-key",
-      "1x00000000000000000000AA",
+      turnstileSiteKey,
       "--auth-url",
       "https://staging.paretto.test",
       "--launch-mode",
       launchMode,
+      "--workers-plan",
+      workersPlan,
       ...deliveryArguments,
     ],
     { cwd: directory },
@@ -207,6 +330,7 @@ async function prepare(
 async function writeSecretFile(
   directory: string,
   admin: Record<string, string>,
+  turnstileSecret = "0x4AAAAAAAContractFixtureSecretKey",
 ) {
   const values = {
     USER_KEY_SECRET: "user-key-material-abcdefghijklmnopqrstuvwxyz-012345",
@@ -219,7 +343,7 @@ async function writeSecretFile(
     ...admin,
     ADMIN_SESSION_SECRET:
       "admin-session-material-abcdefghijklmnopqrstuvwxyz-012345",
-    TURNSTILE_SECRET: "1x0000000000000000000000000000000AA",
+    TURNSTILE_SECRET: turnstileSecret,
   };
   const path = join(directory, ".env.staging");
   await rm(path, { force: true });

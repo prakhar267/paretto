@@ -1,5 +1,6 @@
 import { execFile } from "node:child_process";
 import { once } from "node:events";
+import { readFileSync } from "node:fs";
 import { createServer } from "node:http";
 import { promisify } from "node:util";
 import { resolve } from "node:path";
@@ -7,6 +8,10 @@ import { describe, expect, it } from "vitest";
 
 const execFileAsync = promisify(execFile);
 const ROOT = resolve(import.meta.dirname, "..");
+const CURRENT_VERSION = JSON.parse(
+  readFileSync(resolve(ROOT, "package.json"), "utf8"),
+).version as string;
+const STALE_VERSION = "0.0.0";
 
 describe("read-only deployment smoke", () => {
   it("checks readiness, auth pages, legal routes, and static assets with GET only", async () => {
@@ -16,14 +21,16 @@ describe("read-only deployment smoke", () => {
     let health = {
       status: "ok",
       service: "paretto-web",
-      version: "1.3.4",
-      schemaRevision: "0012",
+      version: CURRENT_VERSION,
+      schemaRevision: "0013",
       launchMode: "public",
+      workersPlan: "paid",
       productionReady: true,
       webReady: true,
       database: "ready",
       warnings: [] as string[],
       checks: {
+        workersPlan: "paid",
         database: "ready",
         schema: "ready",
         retentionSchedule: "ready",
@@ -34,7 +41,10 @@ describe("read-only deployment smoke", () => {
         learnerAuthRateLimitSecret: "ready",
         learnerAuthentication: "ready",
         learnerAuthOrigin: "ready",
-        learnerEmailAccountCreation: "ready",
+        learnerParettoIdAccountCreation: "ready",
+        learnerParettoIdSignIn: "ready",
+        learnerRecoveryCodes: "ready",
+        learnerEmailAccountCreation: "disabled",
         learnerEmailVerification: "ready",
         learnerPasswordReset: "ready",
         learnerGoogleAuth: "optional-not-configured",
@@ -76,7 +86,9 @@ describe("read-only deployment smoke", () => {
         return;
       }
       if (path === "/manifest.webmanifest") {
-        response.writeHead(200, { "content-type": "application/manifest+json" });
+        response.writeHead(200, {
+          "content-type": "application/manifest+json",
+        });
         response.end(
           JSON.stringify({
             name: "Paretto — Learn French",
@@ -155,20 +167,21 @@ describe("read-only deployment smoke", () => {
 
       expect(JSON.parse(result.stdout)).toMatchObject({
         origin,
-        version: "1.3.4",
+        version: CURRENT_VERSION,
         health: "ready",
         authPages: "ready",
         staticAssets: 5,
         mode: "read-only",
         launchMode: "public",
+        workersPlan: "paid",
         readinessAttempts: 2,
       });
 
       queuedHealthVersions = [
-        "1.3.3",
-        "1.3.4",
-        "1.3.3",
-        "1.3.4",
+        STALE_VERSION,
+        CURRENT_VERSION,
+        STALE_VERSION,
+        CURRENT_VERSION,
       ];
       const convergenceStart = requests.length;
       const converged = await execFileAsync(
@@ -183,12 +196,13 @@ describe("read-only deployment smoke", () => {
         },
       );
       expect(JSON.parse(converged.stdout)).toMatchObject({
-        version: "1.3.4",
+        version: CURRENT_VERSION,
         readinessAttempts: 5,
       });
       expect(
-        converged.stderr.match(/still serving version 1\.3\.3/g),
-      ).toHaveLength(2);
+        converged.stderr.split(`still serving version ${STALE_VERSION}`)
+          .length - 1,
+      ).toBe(2);
       const convergenceRequests = requests.slice(convergenceStart);
       expect(
         convergenceRequests.filter(({ url }) => url === "/api/health"),
@@ -207,7 +221,6 @@ describe("read-only deployment smoke", () => {
           "/manifest.webmanifest",
           "/offline.html",
           "/privacy",
-          "/reset-password",
           "/service-worker.js",
           "/sign-in",
           "/support",
@@ -218,7 +231,7 @@ describe("read-only deployment smoke", () => {
         new Set(["GET"]),
       );
 
-      queuedHealthVersions = ["1.3.3", "1.3.3"];
+      queuedHealthVersions = [STALE_VERSION, STALE_VERSION];
       const exhaustionStart = requests.length;
       await expect(
         execFileAsync(
@@ -288,9 +301,7 @@ describe("read-only deployment smoke", () => {
         ),
       ).rejects.toMatchObject({
         code: 1,
-        stderr: expect.stringContaining(
-          "actual: 'not-paretto'",
-        ),
+        stderr: expect.stringContaining("actual: 'not-paretto'"),
       });
       expect(requests.slice(invariantStart)).toEqual([
         { method: "GET", url: "/api/health" },
@@ -298,6 +309,40 @@ describe("read-only deployment smoke", () => {
       health = {
         ...health,
         service: "paretto-web",
+      };
+
+      health = {
+        ...health,
+        workersPlan: "free",
+        productionReady: false,
+        checks: {
+          ...health.checks,
+          workersPlan: "free-controlled-beta-only",
+        },
+      };
+      await expect(
+        execFileAsync(
+          process.execPath,
+          [resolve(ROOT, "scripts/smoke-deployment.mjs"), origin],
+          {
+            cwd: ROOT,
+            env: smokeEnvironment,
+          },
+        ),
+      ).rejects.toMatchObject({
+        code: 1,
+        stderr: expect.stringContaining(
+          "Public launch requires the Workers Paid plan.",
+        ),
+      });
+      health = {
+        ...health,
+        workersPlan: "paid",
+        productionReady: true,
+        checks: {
+          ...health.checks,
+          workersPlan: "paid",
+        },
       };
 
       const invalidConfigurationStart = requests.length;
@@ -345,14 +390,16 @@ describe("read-only deployment smoke", () => {
       health = {
         ...health,
         launchMode: "controlled-beta",
+        workersPlan: "free",
         productionReady: false,
         warnings: [
           "Controlled beta mode is operational but is not approved for a broad public launch.",
-          "Transactional email is not configured; email registration, verification, and password recovery remain unavailable.",
+          "Optional transactional email is not configured; Paretto ID account creation and recovery codes remain available.",
           "Operator support email delivery is not configured; tickets remain stored for authenticated administrator follow-up.",
         ],
         checks: {
           ...health.checks,
+          workersPlan: "free-controlled-beta-only",
           learnerEmailAccountCreation: "disabled",
           learnerEmailVerification: "not-configured",
           learnerPasswordReset: "not-configured",
@@ -375,7 +422,42 @@ describe("read-only deployment smoke", () => {
       expect(JSON.parse(controlled.stdout)).toMatchObject({
         health: "ready",
         launchMode: "controlled-beta",
+        workersPlan: "free",
       });
+      health = {
+        ...health,
+        workersPlan: "paid",
+        checks: {
+          ...health.checks,
+          workersPlan: "paid",
+        },
+      };
+      const paidControlled = await execFileAsync(
+        process.execPath,
+        [
+          resolve(ROOT, "scripts/smoke-deployment.mjs"),
+          origin,
+          "--mode",
+          "controlled-beta",
+        ],
+        {
+          cwd: ROOT,
+          env: smokeEnvironment,
+        },
+      );
+      expect(JSON.parse(paidControlled.stdout)).toMatchObject({
+        health: "ready",
+        launchMode: "controlled-beta",
+        workersPlan: "paid",
+      });
+      health = {
+        ...health,
+        workersPlan: "free",
+        checks: {
+          ...health.checks,
+          workersPlan: "free-controlled-beta-only",
+        },
+      };
       await expect(
         execFileAsync(
           process.execPath,
@@ -410,7 +492,7 @@ describe("read-only deployment smoke", () => {
         new Set(["GET"]),
       );
       expect(requests.map((request) => request.url)).toContain("/sign-in");
-      expect(requests.map((request) => request.url)).toContain(
+      expect(requests.map((request) => request.url)).not.toContain(
         "/reset-password",
       );
       expect(requests.map((request) => request.url)).not.toContain(
