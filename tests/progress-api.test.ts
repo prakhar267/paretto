@@ -11,6 +11,14 @@ import {
 } from "./auth-fixtures";
 import { setCloudflareEnv } from "./cloudflare-workers-mock";
 
+const PASSWORD_PEPPER_KEYRING = JSON.stringify({
+  current: "test-v1",
+  keys: {
+    "test-v1":
+      "qa-only-password-pepper-with-at-least-thirty-two-characters",
+  },
+});
+
 type Row = { payload: string; revision: number; updated_at: number };
 type ProgressResponse = {
   revision: number;
@@ -538,6 +546,7 @@ describe("progress API", () => {
         "qa-only-better-auth-rate-limit-secret-with-at-least-thirty-two-characters",
       BETTER_AUTH_SECRET:
         "qa-only-better-auth-secret-with-at-least-thirty-two-characters",
+      PARETTO_PASSWORD_PEPPERS: PASSWORD_PEPPER_KEYRING,
       BETTER_AUTH_URL: "https://paretto.test",
       RESEND_API_KEY: "re_qa_only",
       AUTH_EMAIL_FROM: "Paretto <accounts@paretto.test>",
@@ -925,6 +934,7 @@ describe("progress API", () => {
         "qa-only-better-auth-rate-limit-secret-with-at-least-thirty-two-characters",
       BETTER_AUTH_SECRET:
         "qa-only-better-auth-secret-with-at-least-thirty-two-characters",
+      PARETTO_PASSWORD_PEPPERS: PASSWORD_PEPPER_KEYRING,
       BETTER_AUTH_URL: "https://paretto.test",
       ...adminAuth.bindings,
       TURNSTILE_SITE_KEY: TEST_TURNSTILE_SITE_KEY,
@@ -995,6 +1005,7 @@ describe("progress API", () => {
         "qa-only-better-auth-rate-limit-secret-with-at-least-thirty-two-characters",
       BETTER_AUTH_SECRET:
         "qa-only-better-auth-secret-with-at-least-thirty-two-characters",
+      PARETTO_PASSWORD_PEPPERS: PASSWORD_PEPPER_KEYRING,
       BETTER_AUTH_URL: "https://paretto.test",
       ...adminAuth.bindings,
       TURNSTILE_SITE_KEY: TEST_TURNSTILE_SITE_KEY,
@@ -1108,6 +1119,7 @@ describe("progress API", () => {
         "qa-only-better-auth-rate-limit-secret-with-at-least-thirty-two-characters",
       BETTER_AUTH_SECRET:
         "qa-only-better-auth-secret-with-at-least-thirty-two-characters",
+      PARETTO_PASSWORD_PEPPERS: PASSWORD_PEPPER_KEYRING,
       BETTER_AUTH_URL: "https://paretto.test",
       ...adminAuth.bindings,
       LAUNCH_MODE: "public",
@@ -1241,6 +1253,7 @@ describe("progress API", () => {
         "qa-only-better-auth-rate-limit-secret-with-at-least-thirty-two-characters",
       BETTER_AUTH_SECRET:
         "qa-only-better-auth-secret-with-at-least-thirty-two-characters",
+      PARETTO_PASSWORD_PEPPERS: PASSWORD_PEPPER_KEYRING,
       RESEND_API_KEY: "re_qa_only",
       AUTH_EMAIL_FROM: "Paretto <accounts@paretto.test>",
       SUPPORT_NOTIFICATION_EMAIL: "support@paretto.test",
@@ -1267,7 +1280,10 @@ describe("progress API", () => {
   });
 
   it("keeps localhost development health useful without claiming production readiness", async () => {
-    setCloudflareEnv({ DB: new MemoryD1() });
+    setCloudflareEnv({
+      DB: new MemoryD1(),
+      PARETTO_PASSWORD_PEPPERS: PASSWORD_PEPPER_KEYRING,
+    });
     vi.stubEnv("NODE_ENV", "development");
     try {
       const response = await HEALTH_GET();

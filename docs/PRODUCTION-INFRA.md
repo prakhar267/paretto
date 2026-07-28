@@ -117,11 +117,18 @@ the single `ADMIN_PASSWORD_VERIFIER` contract; two or more addresses select the
 per-email `ADMIN_PASSWORD_VERIFIERS` contract. Addresses must already be
 normalized, unique, and in the intended stable order. The preparer rejects
 sentinel IDs. `--launch-mode` and `--workers-plan` are mandatory. Password
-verifiers use Web Crypto PBKDF2-SHA256 with 600,000 iterations to avoid
-memory-heavy per-request hashing. Cloudflare Workers Free is limited to 10 ms
-CPU per request, so `free` is accepted only with `controlled-beta`; broad
-`public` launch requires Workers Paid. Email delivery is optional in
-either mode. Omit both email flags to materialize exact empty values. To enable
+verifiers use a versioned Web Crypto HMAC-peppered PBKDF2-SHA256 scheme at
+Cloudflare's 100,000-iteration ceiling. Each verifier records a non-secret key
+ID; its matching HMAC pepper comes from the independently managed
+`PARETTO_PASSWORD_PEPPERS` keyring outside D1. This prevents a database-only
+breach from testing password guesses offline and supports bounded rotation with
+retained keys and lazy re-hashing after successful sign-in. Cloudflare Workers
+Free is limited to 10 ms CPU per request, so `free` is accepted only with
+`controlled-beta`; broad `public` launch requires Workers Paid. Email delivery
+is optional in either mode. Rotate `BETTER_AUTH_SECRET` separately because it
+still invalidates sessions and can require linked providers to relink. Follow
+the rotation procedures in `docs/OPERATIONS.md`. Omit both email flags to
+materialize exact empty values. To enable
 delivery, provide both `--auth-email-from 'Paretto
 <accounts@verified-domain>'` and `--support-notification-email
 <working-operator-mailbox>`, then include `RESEND_API_KEY` in that environment's
@@ -129,6 +136,12 @@ secret file. Partial configuration is rejected. The verifier then checks the
 exact built Worker, static-file count
 and sizes, D1 migration journal, service-worker headers, Cron, observability,
 and absence of paid-only bindings:
+
+`PARETTO_PASSWORD_PEPPERS` must be minified JSON no longer than 256
+characters, with exactly `current` and `keys`. Use 1–3 unique key IDs matching
+`[A-Za-z0-9_-]{1,16}`; each secret must be a unique random 32–128 character
+value, and `current` must name one included key. Add a new ID for rotation;
+never replace the secret behind an existing ID.
 
 ```sh
 npm run cloudflare:verify:staging
@@ -139,7 +152,8 @@ npm run cloudflare:dry-run:production
 
 Create independent 256-bit values for `USER_KEY_SECRET`,
 `SUPPORT_RATE_LIMIT_SECRET`, `BETTER_AUTH_RATE_LIMIT_SECRET`,
-`BETTER_AUTH_SECRET`, `ADMIN_SESSION_SECRET`, and each administrator access key.
+`BETTER_AUTH_SECRET`, the current `PARETTO_PASSWORD_PEPPERS` entry,
+`ADMIN_SESSION_SECRET`, and each administrator access key.
 Save every access key in that administrator&apos;s password manager. Store only
 SHA-256 verifiers in the deployment secret file:
 
@@ -153,6 +167,10 @@ console.log("USER_KEY_SECRET=" + value());
 console.log("SUPPORT_RATE_LIMIT_SECRET=" + value());
 console.log("BETTER_AUTH_RATE_LIMIT_SECRET=" + value());
 console.log("BETTER_AUTH_SECRET=" + value());
+console.log(
+  "PARETTO_PASSWORD_PEPPERS=" +
+    JSON.stringify({ current: "v1", keys: { v1: value() } }),
+);
 console.log(
   "ADMIN_PASSWORD_VERIFIER=sha256$" +
     createHash("sha256").update(adminAccessKey, "utf8").digest("base64url"),
@@ -177,6 +195,7 @@ USER_KEY_SECRET=<generated-random-value>
 SUPPORT_RATE_LIMIT_SECRET=<different-generated-random-value>
 BETTER_AUTH_RATE_LIMIT_SECRET=<another-generated-random-value>
 BETTER_AUTH_SECRET=<different-generated-random-value>
+PARETTO_PASSWORD_PEPPERS={"current":"v1","keys":{"v1":"<independent-generated-random-value>"}}
 ADMIN_PASSWORD_VERIFIER=sha256$<generated-base64url-digest>
 # For 2–25 administrators, replace the line above with:
 # ADMIN_PASSWORD_VERIFIERS=<compact-json-map-in-ADMIN_EMAILS-order>
@@ -186,7 +205,7 @@ TURNSTILE_SECRET=<secret-from-the-matching-Turnstile-widget>
 # RESEND_API_KEY=<secret-from-the-transactional-email-provider>
 ```
 
-The local Keychain materializer intentionally creates only the seven core
+The local Keychain materializer intentionally creates only the eight core
 secret fields. For one administrator it hashes the existing
 `Paretto Staging Admin Access Key` or `Paretto Production Admin Access Key`
 Keychain item. For multiple administrators, store the compact verifier map—not
@@ -196,8 +215,10 @@ Keychain account. It reads the independent limiter values from
 `Paretto Staging Support Rate Limit Secret` and
 `Paretto Production Support Rate Limit Secret`, plus
 `Paretto Staging Better Auth Rate Limit Secret` and
-`Paretto Production Better Auth Rate Limit Secret`; create those Keychain items
-under the same account used by the other Paretto environment secrets. Add
+`Paretto Production Better Auth Rate Limit Secret`, and the compact keyrings
+from `Paretto Staging Password Pepper Keyring` and
+`Paretto Production Password Pepper Keyring`; create those Keychain items under
+the same account used by the other Paretto environment secrets. Add
 `RESEND_API_KEY` to the ignored file only when the matching sender and support
 mailbox are configured and verified, or configure the same complete trio
 through Sites. Support mutations persist body-free email jobs
@@ -251,6 +272,7 @@ named `staging` and `production`. Each environment needs variables
 `ADMIN_EMAILS`, and `TURNSTILE_SITE_KEY`, plus secrets
 `CLOUDFLARE_API_TOKEN`, `USER_KEY_SECRET`, `SUPPORT_RATE_LIMIT_SECRET`,
 `BETTER_AUTH_RATE_LIMIT_SECRET`, `BETTER_AUTH_SECRET`,
+`PARETTO_PASSWORD_PEPPERS`,
 either `ADMIN_PASSWORD_VERIFIER` for one administrator or
 `ADMIN_PASSWORD_VERIFIERS` for multiple administrators,
 `ADMIN_SESSION_SECRET`, and `TURNSTILE_SECRET`. In either mode, omit
@@ -370,6 +392,7 @@ Time Travel. Verify these limits again at launch:
   domains, and administrator access keys.
 - Store `USER_KEY_SECRET`, `SUPPORT_RATE_LIMIT_SECRET`,
   `BETTER_AUTH_RATE_LIMIT_SECRET`, `BETTER_AUTH_SECRET`,
+  `PARETTO_PASSWORD_PEPPERS`,
   the matching singular or plural administrator verifier secret,
   `ADMIN_SESSION_SECRET`, and `TURNSTILE_SECRET`
   only through the ignored secret files and Cloudflare managed secrets.

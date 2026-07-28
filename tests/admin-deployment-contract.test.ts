@@ -194,6 +194,33 @@ describe("administrator deployment credentials", () => {
     ).rejects.toMatchObject({ code: 1 });
   });
 
+  it("requires a valid, independent, versioned password-pepper keyring", async () => {
+    const directory = await fixtureDirectory();
+    await prepare(directory, ["--admin-email", "solo@paretto.test"]);
+
+    await writeSecretFile(directory, {
+      ADMIN_PASSWORD_VERIFIER: verifier("solo-admin-access-key"),
+      PARETTO_PASSWORD_PEPPERS: JSON.stringify({
+        current: "missing",
+        keys: {
+          v1: "password-pepper-material-abcdefghijklmnopqrstuvwxyz-012345",
+        },
+      }),
+    });
+    await expect(verify(directory)).rejects.toMatchObject({ code: 1 });
+
+    await writeSecretFile(directory, {
+      ADMIN_PASSWORD_VERIFIER: verifier("solo-admin-access-key"),
+      PARETTO_PASSWORD_PEPPERS: JSON.stringify({
+        current: "v1",
+        keys: {
+          v1: "auth-signing-material-abcdefghijklmnopqrstuvwxyz-012345",
+        },
+      }),
+    });
+    await expect(verify(directory)).rejects.toMatchObject({ code: 1 });
+  });
+
   it.each(["controlled-beta", "public"] as const)(
     "requires a complete sender, support mailbox, and provider secret in %s mode",
     async (launchMode) => {
@@ -340,6 +367,12 @@ async function writeSecretFile(
       "auth-rate-material-abcdefghijklmnopqrstuvwxyz-012345",
     BETTER_AUTH_SECRET:
       "auth-signing-material-abcdefghijklmnopqrstuvwxyz-012345",
+    PARETTO_PASSWORD_PEPPERS: JSON.stringify({
+      current: "v1",
+      keys: {
+        v1: "password-pepper-material-abcdefghijklmnopqrstuvwxyz-012345",
+      },
+    }),
     ...admin,
     ADMIN_SESSION_SECRET:
       "admin-session-material-abcdefghijklmnopqrstuvwxyz-012345",

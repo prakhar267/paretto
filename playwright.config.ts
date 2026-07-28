@@ -9,6 +9,7 @@ const localWorkerCommand =
   "--persist-to ../../test-results/playwright-runtime " +
   "--var BETTER_AUTH_URL:https://localhost:4173 " +
   "--var BETTER_AUTH_SECRET:paretto-e2e-auth-secret-local-only-2026 " +
+  "--var 'PARETTO_PASSWORD_PEPPERS:{\"current\":\"local-v1\",\"keys\":{\"local-v1\":\"paretto-e2e-password-pepper-local-only-2026\"}}' " +
   "--var BETTER_AUTH_RATE_LIMIT_SECRET:paretto-e2e-auth-rate-limit-local-only-2026 " +
   "--var USER_KEY_SECRET:paretto-e2e-user-key-local-only-2026 " +
   "--show-interactive-dev-session=false --log-level warn";

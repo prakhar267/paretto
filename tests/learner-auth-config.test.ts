@@ -6,6 +6,13 @@ import { setCloudflareEnv } from "./cloudflare-workers-mock";
 
 const BETTER_AUTH_RATE_LIMIT_SECRET =
   "test-better-auth-rate-limit-secret-with-at-least-32-characters";
+const PASSWORD_PEPPER_KEYRING = JSON.stringify({
+  current: "test-v1",
+  keys: {
+    "test-v1":
+      "test-password-pepper-with-at-least-thirty-two-characters",
+  },
+});
 
 describe("learner authentication configuration", () => {
   beforeEach(() => setCloudflareEnv({}));
@@ -33,6 +40,9 @@ describe("learner authentication configuration", () => {
 
   it("enables the documented development-only local account service", async () => {
     vi.stubEnv("NODE_ENV", "development");
+    setCloudflareEnv({
+      PARETTO_PASSWORD_PEPPERS: PASSWORD_PEPPER_KEYRING,
+    });
     try {
       await expect(learnerAuthReadiness()).resolves.toMatchObject({
         configured: true,
@@ -52,6 +62,7 @@ describe("learner authentication configuration", () => {
     setCloudflareEnv({
       BETTER_AUTH_SECRET:
         "test-better-auth-secret-with-at-least-thirty-two-characters",
+      PARETTO_PASSWORD_PEPPERS: PASSWORD_PEPPER_KEYRING,
       RESEND_API_KEY: "re_test_only",
       AUTH_EMAIL_FROM: "Paretto <accounts@paretto.test>",
       GOOGLE_CLIENT_ID: "google-client",
@@ -126,6 +137,7 @@ describe("learner authentication configuration", () => {
       BETTER_AUTH_RATE_LIMIT_SECRET,
       BETTER_AUTH_SECRET:
         "test-better-auth-secret-with-at-least-thirty-two-characters",
+      PARETTO_PASSWORD_PEPPERS: PASSWORD_PEPPER_KEYRING,
       ADMIN_SESSION_SECRET:
         "test-admin-session-secret-with-at-least-thirty-two-characters",
     });
@@ -149,6 +161,7 @@ describe("learner authentication configuration", () => {
       BETTER_AUTH_SECRET:
         "test-better-auth-secret-with-at-least-thirty-two-characters",
       BETTER_AUTH_RATE_LIMIT_SECRET,
+      PARETTO_PASSWORD_PEPPERS: PASSWORD_PEPPER_KEYRING,
     });
 
     try {
@@ -177,6 +190,7 @@ describe("learner authentication configuration", () => {
         BETTER_AUTH_SECRET:
           "test-better-auth-secret-with-at-least-thirty-two-characters",
         BETTER_AUTH_RATE_LIMIT_SECRET,
+        PARETTO_PASSWORD_PEPPERS: PASSWORD_PEPPER_KEYRING,
         BETTER_AUTH_URL: "http://learn.example",
       });
       await expect(learnerAuthReadiness()).resolves.toMatchObject({
@@ -200,6 +214,7 @@ describe("learner authentication configuration", () => {
       BETTER_AUTH_SECRET:
         "test-better-auth-secret-with-at-least-thirty-two-characters",
       BETTER_AUTH_RATE_LIMIT_SECRET,
+      PARETTO_PASSWORD_PEPPERS: PASSWORD_PEPPER_KEYRING,
       BETTER_AUTH_URL: "https://learn.example",
     });
 
@@ -289,6 +304,7 @@ describe("learner authentication configuration", () => {
       BETTER_AUTH_SECRET:
         "test-better-auth-secret-with-at-least-thirty-two-characters",
       BETTER_AUTH_RATE_LIMIT_SECRET,
+      PARETTO_PASSWORD_PEPPERS: PASSWORD_PEPPER_KEYRING,
       BETTER_AUTH_URL: "https://learn.example",
       RESEND_API_KEY: "re_test_only",
       AUTH_EMAIL_FROM: "Paretto <accounts@paretto.test>",
