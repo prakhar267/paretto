@@ -11,13 +11,21 @@ on:
           - staging
           - production
       launch_mode:
-        description: Controlled beta permits no email delivery; public is strict
+        description: Select web readiness; support email remains optional
         required: true
         default: controlled-beta
         type: choice
         options:
           - controlled-beta
           - public
+      workers_plan:
+        description: Declare the Workers plan; verify billing separately
+        required: true
+        default: free
+        type: choice
+        options:
+          - free
+          - paid
 
 permissions:
   actions: read
@@ -34,6 +42,8 @@ jobs:
     timeout-minutes: 10
     env:
       DEPLOY_ENVIRONMENT: ${{ inputs.environment }}
+      LAUNCH_MODE: ${{ inputs.launch_mode }}
+      WORKERS_PLAN: ${{ inputs.workers_plan }}
     steps:
       - name: Check out exact source
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -48,6 +58,22 @@ jobs:
             staging:refs/heads/main|staging:refs/tags/v*|production:refs/tags/v*) ;;
             *)
               echo "Staging requires main or v*; production requires an exact v* release tag." >&2
+              exit 1
+              ;;
+          esac
+
+      - name: Validate the requested launch contract
+        shell: bash
+        run: |
+          set -euo pipefail
+          case "$LAUNCH_MODE:$WORKERS_PLAN" in
+            controlled-beta:free|controlled-beta:paid|public:paid) ;;
+            public:free)
+              echo "Public Paretto ID launch requires Workers Paid; select controlled-beta for Workers Free." >&2
+              exit 1
+              ;;
+            *)
+              echo "Launch mode and Workers plan must be controlled-beta:(free|paid) or public:paid." >&2
               exit 1
               ;;
           esac
@@ -126,7 +152,7 @@ jobs:
           retention-days: 14
 
   deploy:
-    name: Deploy ${{ inputs.environment }} (${{ inputs.launch_mode }})
+    name: Deploy ${{ inputs.environment }} (${{ inputs.launch_mode }}, Workers ${{ inputs.workers_plan }})
     needs:
       - release-policy
       - browser-gate
@@ -142,6 +168,7 @@ jobs:
       WRANGLER_SEND_METRICS: "false"
       DEPLOY_ENVIRONMENT: ${{ inputs.environment }}
       LAUNCH_MODE: ${{ inputs.launch_mode }}
+      WORKERS_PLAN: ${{ inputs.workers_plan }}
       APP_ORIGIN: ${{ vars.APP_ORIGIN }}
       CLOUDFLARE_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
       D1_DATABASE_ID: ${{ vars.D1_DATABASE_ID }}
@@ -214,23 +241,39 @@ jobs:
             fi
           done
           case "$LAUNCH_MODE" in
-            public)
-              delivery_required=(
-                AUTH_EMAIL_FROM
-                SUPPORT_NOTIFICATION_EMAIL
-                RESEND_API_KEY
-              )
-              for name in "${delivery_required[@]}"; do
-                if [[ -z "${!name:-}" ]]; then
-                  echo "Public launch requires GitHub Environment value: $name" >&2
-                  exit 1
-                fi
-              done
-              ;;
-            controlled-beta)
-              ;;
+            public|controlled-beta) ;;
             *)
               echo "LAUNCH_MODE must be controlled-beta or public." >&2
+              exit 1
+              ;;
+          esac
+          case "$WORKERS_PLAN" in
+            free|paid) ;;
+            *)
+              echo "WORKERS_PLAN must be free or paid." >&2
+              exit 1
+              ;;
+          esac
+          if [[ "$LAUNCH_MODE" == "public" ]] &&
+             [[ "$WORKERS_PLAN" != "paid" ]]; then
+            echo "Public Paretto ID launch requires Workers Paid; select controlled-beta for Workers Free." >&2
+            exit 1
+          fi
+          delivery_values=0
+          for name in AUTH_EMAIL_FROM SUPPORT_NOTIFICATION_EMAIL RESEND_API_KEY; do
+            if [[ -n "${!name:-}" ]]; then
+              delivery_values=$((delivery_values + 1))
+            fi
+          done
+          case "$delivery_values" in
+            0)
+              echo "SUPPORT_EMAIL_DELIVERY_ENABLED=false" >> "$GITHUB_ENV"
+              ;;
+            3)
+              echo "SUPPORT_EMAIL_DELIVERY_ENABLED=true" >> "$GITHUB_ENV"
+              ;;
+            *)
+              echo "Optional support email requires AUTH_EMAIL_FROM, SUPPORT_NOTIFICATION_EMAIL, and RESEND_API_KEY together; otherwise all three must be empty." >&2
               exit 1
               ;;
           esac
@@ -332,8 +375,9 @@ jobs:
             --turnstile-site-key "$TURNSTILE_SITE_KEY"
             --auth-url "$APP_ORIGIN"
             --launch-mode "$LAUNCH_MODE"
+            --workers-plan "$WORKERS_PLAN"
           )
-          if [[ "$LAUNCH_MODE" == "public" ]]; then
+          if [[ "$SUPPORT_EMAIL_DELIVERY_ENABLED" == "true" ]]; then
             prepare_args+=(
               --auth-email-from "$AUTH_EMAIL_FROM"
               --support-notification-email "$SUPPORT_NOTIFICATION_EMAIL"
@@ -369,7 +413,7 @@ jobs:
             fi
             printf 'ADMIN_SESSION_SECRET=%s\n' "$ADMIN_SESSION_SECRET"
             printf 'TURNSTILE_SECRET=%s\n' "$TURNSTILE_SECRET"
-            if [[ "$LAUNCH_MODE" == "public" ]]; then
+            if [[ "$SUPPORT_EMAIL_DELIVERY_ENABLED" == "true" ]]; then
               printf 'RESEND_API_KEY=%s\n' "$RESEND_API_KEY"
             fi
           } > "$secret_file"
@@ -380,6 +424,89 @@ jobs:
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
         run: npx wrangler whoami
+
+      - name: Prove Paretto ID migration will not strand legacy credentials
+        shell: bash
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+        run: |
+          set -euo pipefail
+          config="wrangler.${DEPLOY_ENVIRONMENT}.jsonc"
+          migration_name="0013_paretto_id_recovery.sql"
+          test -f "drizzle/$migration_name"
+          preflight_dir="$(mktemp -d "$RUNNER_TEMP/paretto-id-preflight.XXXXXX")"
+          chmod 700 "$preflight_dir"
+          migration_json="$preflight_dir/migration.json"
+          credential_json="$preflight_dir/credentials.json"
+          cleanup_preflight() {
+            for file in "$migration_json" "$credential_json"; do
+              if [[ -f "$file" ]]; then
+                chmod u+w "$file"
+                : > "$file"
+                rm -f -- "$file"
+              fi
+            done
+            rmdir "$preflight_dir"
+          }
+          trap cleanup_preflight EXIT
+          npx wrangler d1 execute DB \
+            --remote \
+            --config "$config" \
+            --command "SELECT COUNT(*) AS applied FROM d1_migrations WHERE name = '$migration_name'" \
+            --json > "$migration_json"
+          migration_applied="$(
+            node -e '
+              const fs = require("node:fs");
+              const value = JSON.parse(fs.readFileSync(process.argv[1], "utf8"));
+              if (
+                !Array.isArray(value) ||
+                value.length !== 1 ||
+                value[0]?.success !== true ||
+                !Array.isArray(value[0]?.results) ||
+                value[0].results.length !== 1
+              ) {
+                throw new Error("D1 returned an invalid migration preflight envelope.");
+              }
+              const applied = Number(value[0].results[0]?.applied);
+              if (!Number.isSafeInteger(applied) || applied < 0 || applied > 1) {
+                throw new Error("D1 returned an invalid migration preflight result.");
+              }
+              process.stdout.write(String(applied));
+            ' "$migration_json"
+          )"
+          if [[ "$migration_applied" == "1" ]]; then
+            sql="SELECT COUNT(*) AS incompatible FROM learner_user AS users JOIN learner_account AS accounts ON accounts.user_id = users.id AND accounts.provider_id = 'credential' AND accounts.password IS NOT NULL WHERE users.username IS NULL"
+          else
+            sql="SELECT COUNT(*) AS incompatible FROM learner_user AS users JOIN learner_account AS accounts ON accounts.user_id = users.id AND accounts.provider_id = 'credential' AND accounts.password IS NOT NULL"
+          fi
+          npx wrangler d1 execute DB \
+            --remote \
+            --config "$config" \
+            --command "$sql" \
+            --json > "$credential_json"
+          node -e '
+            const fs = require("node:fs");
+            const value = JSON.parse(fs.readFileSync(process.argv[1], "utf8"));
+            if (
+              !Array.isArray(value) ||
+              value.length !== 1 ||
+              value[0]?.success !== true ||
+              !Array.isArray(value[0]?.results) ||
+              value[0].results.length !== 1
+            ) {
+              throw new Error("D1 returned an invalid credential preflight envelope.");
+            }
+            const incompatible = Number(value[0].results[0]?.incompatible);
+            if (!Number.isSafeInteger(incompatible) || incompatible < 0) {
+              throw new Error("D1 returned an invalid credential preflight result.");
+            }
+            if (incompatible !== 0) {
+              throw new Error(
+                `${incompatible} legacy credential account(s) would lose sign-in access; backfill them before migration.`,
+              );
+            }
+            console.log("Paretto ID migration preflight passed: zero incompatible credential accounts.");
+          ' "$credential_json"
 
       - name: Capture and encrypt production D1 recovery evidence
         if: ${{ inputs.environment == 'production' }}

@@ -7,8 +7,8 @@ import { getDatabase } from "@/db";
 
 export const dynamic = "force-dynamic";
 
-const SERVICE_VERSION = "1.3.4";
-const SCHEMA_REVISION = "0012";
+const SERVICE_VERSION = "1.4.0";
+const SCHEMA_REVISION = "0013";
 const QUEUE_STALE_AFTER_MS = 60 * 60 * 1000;
 const QUEUE_COUNT_REPORT_LIMIT = 1_000;
 
@@ -21,6 +21,8 @@ const REQUIRED_SCHEMA = {
     "email",
     "email_verified",
     "image",
+    "username",
+    "display_username",
     "created_at",
     "updated_at",
   ],
@@ -63,6 +65,13 @@ const REQUIRED_SCHEMA = {
     "last_request_at",
     "updated_at",
   ],
+  learner_recovery_codes: [
+    "code_hash",
+    "user_id",
+    "generation_id",
+    "created_at",
+  ],
+  learner_recovery_state: ["user_id", "generation_id", "updated_at"],
   learner_identity_links: ["anonymous_user_key", "account_id", "linked_at"],
   admin_login_attempts: [
     "ip_hash",
@@ -185,11 +194,7 @@ const REQUIRED_SCHEMA = {
     "created_at",
     "updated_at",
   ],
-  native_learner_links: [
-    "native_account_id",
-    "learner_user_id",
-    "linked_at",
-  ],
+  native_learner_links: ["native_account_id", "learner_user_id", "linked_at"],
   native_sessions: [
     "token_hash",
     "id",
@@ -199,7 +204,11 @@ const REQUIRED_SCHEMA = {
     "revoked_at",
   ],
   native_learning_state: [
-    "account_id", "revision", "reset_generation", "payload", "updated_at",
+    "account_id",
+    "revision",
+    "reset_generation",
+    "payload",
+    "updated_at",
   ],
   native_apple_credentials: [
     "account_id",
@@ -252,6 +261,7 @@ const REQUIRED_SCHEMA = {
 
 const REQUIRED_INDEXES = [
   "learner_user_email_unique",
+  "learner_user_username_unique",
   "learner_session_token_unique",
   "learner_session_user_idx",
   "learner_session_expiry_idx",
@@ -260,6 +270,7 @@ const REQUIRED_INDEXES = [
   "learner_verification_identifier_idx",
   "learner_verification_expiry_idx",
   "learner_auth_rate_limits_updated_idx",
+  "learner_recovery_codes_user_generation_idx",
   "learner_identity_links_account_idx",
   "admin_login_attempts_updated_idx",
   "cms_content_kind_slug_unique",
@@ -309,11 +320,15 @@ export async function GET() {
   const developmentPreview = process.env.NODE_ENV === "development";
   let configuration: RuntimeConfigurationReadiness = {
     launchMode: null,
+    workersPlan: null,
     userKeySecret: false,
     supportRateLimitSecret: false,
     learnerAuthRateLimitSecret: false,
     learnerAuthentication: false,
     learnerAuthOrigin: false,
+    learnerParettoIdAccountCreation: false,
+    learnerParettoIdSignIn: false,
+    learnerRecoveryCodes: false,
     learnerEmailAccountCreation: false,
     learnerEmailVerification: false,
     learnerPasswordReset: false,
@@ -461,45 +476,59 @@ export async function GET() {
     queueReadiness.healthy;
   const controlledBetaReady =
     configuration.launchMode === "controlled-beta" &&
+    configuration.workersPlan !== null &&
     webReady &&
     retentionSchedule.healthy &&
     queueReadiness.healthy;
   const serviceReady =
     productionReady || controlledBetaReady || developmentPreview;
+  const parettoAccountReady =
+    configuration.learnerParettoIdAccountCreation &&
+    configuration.learnerParettoIdSignIn &&
+    configuration.learnerRecoveryCodes;
   const warnings = [
     ...(configuration.launchMode === "controlled-beta"
       ? [
           "Controlled beta mode is operational but is not approved for a broad public launch.",
-          ...(!configuration.learnerPasswordReset
-            ? [
-                "Transactional email is not configured; email registration, verification, and password recovery remain unavailable.",
-              ]
-            : []),
-          ...(!configuration.supportNotifications
-            ? [
-                "Operator support email delivery is not configured; tickets remain stored for authenticated administrator follow-up.",
-              ]
-            : []),
+        ]
+      : []),
+    ...(!configuration.learnerPasswordReset
+      ? [
+          parettoAccountReady
+            ? "Optional transactional email is not configured; Paretto ID account creation and recovery codes remain available."
+            : "Optional transactional email is not configured.",
+        ]
+      : []),
+    ...(!configuration.supportNotifications
+      ? [
+          "Operator support email delivery is not configured; tickets remain stored for authenticated administrator follow-up.",
         ]
       : []),
     ...(configuration.launchMode === null && !developmentPreview
       ? ["LAUNCH_MODE is missing or invalid."]
       : []),
+    ...(configuration.workersPlan === null && !developmentPreview
+      ? ["WORKERS_PLAN is missing or invalid."]
+      : []),
+    ...(configuration.launchMode === "public" &&
+    configuration.workersPlan !== "paid"
+      ? [
+          "Public Paretto ID launch requires Workers Paid for the password-security CPU workload.",
+        ]
+      : []),
     ...(developmentPreview
       ? [
-        ...(!runtimeReadiness.productionReady
-          ? [
-              "Development preview is available, but production runtime bindings remain incomplete.",
-            ]
-          : []),
-        ...(!retentionSchedule.healthy
-          ? [
-              `Scheduled retention health is ${retentionSchedule.health}.`,
-            ]
-          : []),
-        ...(!queueReadiness.healthy
-          ? ["A durable operations queue requires attention."]
-          : []),
+          ...(!runtimeReadiness.productionReady
+            ? [
+                "Development preview is available, but production runtime bindings remain incomplete.",
+              ]
+            : []),
+          ...(!retentionSchedule.healthy
+            ? [`Scheduled retention health is ${retentionSchedule.health}.`]
+            : []),
+          ...(!queueReadiness.healthy
+            ? ["A durable operations queue requires attention."]
+            : []),
         ]
       : []),
   ];
@@ -513,6 +542,7 @@ export async function GET() {
       webReady,
       nativeReady,
       launchMode: configuration.launchMode,
+      workersPlan: configuration.workersPlan,
       environment: developmentPreview ? "development-preview" : "production",
       warnings,
       checkedAt,
@@ -522,8 +552,7 @@ export async function GET() {
         schema: "ready",
         retentionSchedule: retentionSchedule.health,
         accountDeletionQueue: queueReadiness.accountDeletion.status,
-        supportNotificationQueue:
-          queueReadiness.supportNotifications.status,
+        supportNotificationQueue: queueReadiness.supportNotifications.status,
         ...configurationCheckStatuses(configuration),
       },
       queues: {
@@ -602,10 +631,7 @@ export async function readQueueReadiness(
             ORDER BY jobs.updated_at ASC, jobs.id ASC
             LIMIT 1) AS oldest_open_at`,
       )
-      .bind(
-        QUEUE_COUNT_REPORT_LIMIT + 1,
-        QUEUE_COUNT_REPORT_LIMIT + 1,
-      )
+      .bind(QUEUE_COUNT_REPORT_LIMIT + 1, QUEUE_COUNT_REPORT_LIMIT + 1)
       .first<SupportQueueRow>(),
   ]);
   const pending = Number(deletion?.pending ?? 0);
@@ -616,30 +642,24 @@ export async function readQueueReadiness(
       ? deletion.oldest_pending_at
       : null;
   const deletionStalled =
-    oldestPendingAt !== null &&
-    oldestPendingAt < now - QUEUE_STALE_AFTER_MS;
-  const accountDeletionStatus = deletionErrors > 0
-    ? "failed"
-    : deletionStalled
-      ? "stalled"
-      : held > 0
-        ? "legal-hold"
-        : "ready";
+    oldestPendingAt !== null && oldestPendingAt < now - QUEUE_STALE_AFTER_MS;
+  const accountDeletionStatus =
+    deletionErrors > 0
+      ? "failed"
+      : deletionStalled
+        ? "stalled"
+        : held > 0
+          ? "legal-hold"
+          : "ready";
 
   const supportOpen = Number(support?.open_jobs ?? 0);
   const supportFailed = Number(support?.failed_jobs ?? 0);
   const oldestSupportAt =
-    typeof support?.oldest_open_at === "number"
-      ? support.oldest_open_at
-      : null;
+    typeof support?.oldest_open_at === "number" ? support.oldest_open_at : null;
   const supportStalled =
-    oldestSupportAt !== null &&
-    oldestSupportAt < now - QUEUE_STALE_AFTER_MS;
-  const supportStatus = supportFailed > 0
-    ? "failed"
-    : supportStalled
-      ? "stalled"
-      : "ready";
+    oldestSupportAt !== null && oldestSupportAt < now - QUEUE_STALE_AFTER_MS;
+  const supportStatus =
+    supportFailed > 0 ? "failed" : supportStalled ? "stalled" : "ready";
 
   return {
     healthy:
@@ -688,6 +708,9 @@ function evaluateRuntimeReadiness(
     configuration.learnerAuthRateLimitSecret &&
     configuration.learnerAuthentication &&
     configuration.learnerAuthOrigin &&
+    configuration.learnerParettoIdAccountCreation &&
+    configuration.learnerParettoIdSignIn &&
+    configuration.learnerRecoveryCodes &&
     configuration.adminAllowlist &&
     configuration.adminAuthentication &&
     configuration.turnstileSiteKey &&
@@ -703,9 +726,8 @@ function evaluateRuntimeReadiness(
     nativeReady,
     productionReady:
       configuration.launchMode === "public" &&
+      configuration.workersPlan === "paid" &&
       webReady &&
-      configuration.learnerPasswordReset &&
-      configuration.supportNotifications &&
       (!configuration.nativeApiEnabled || nativeReady),
   };
 }
@@ -720,20 +742,31 @@ function configurationCheckStatuses(
         ? "misconfigured"
         : "native-disabled";
   return {
-    userKeySecret: configuration.userKeySecret
-      ? "ready"
-      : "misconfigured",
+    workersPlan:
+      configuration.workersPlan === "paid"
+        ? "paid"
+        : configuration.workersPlan === "free"
+          ? "free-controlled-beta-only"
+          : "misconfigured",
+    userKeySecret: configuration.userKeySecret ? "ready" : "misconfigured",
     supportRateLimitSecret: configuration.supportRateLimitSecret
       ? "ready"
       : "misconfigured",
-    learnerAuthRateLimitSecret:
-      configuration.learnerAuthRateLimitSecret
-        ? "ready"
-        : "misconfigured",
+    learnerAuthRateLimitSecret: configuration.learnerAuthRateLimitSecret
+      ? "ready"
+      : "misconfigured",
     learnerAuthentication: configuration.learnerAuthentication
       ? "ready"
       : "misconfigured",
     learnerAuthOrigin: configuration.learnerAuthOrigin
+      ? "ready"
+      : "misconfigured",
+    learnerParettoIdAccountCreation:
+      configuration.learnerParettoIdAccountCreation ? "ready" : "misconfigured",
+    learnerParettoIdSignIn: configuration.learnerParettoIdSignIn
+      ? "ready"
+      : "misconfigured",
+    learnerRecoveryCodes: configuration.learnerRecoveryCodes
       ? "ready"
       : "misconfigured",
     learnerEmailAccountCreation: configuration.learnerEmailAccountCreation
@@ -754,23 +787,17 @@ function configurationCheckStatuses(
     supportNotifications: configuration.supportNotifications
       ? "ready"
       : "not-configured",
-    adminAllowlist: configuration.adminAllowlist
-      ? "ready"
-      : "misconfigured",
+    adminAllowlist: configuration.adminAllowlist ? "ready" : "misconfigured",
     adminAuthentication: configuration.adminAuthentication
       ? "ready"
       : "misconfigured",
     turnstileSiteKey: configuration.turnstileSiteKey
       ? "ready"
       : "misconfigured",
-    turnstileSecret: configuration.turnstileSecret
-      ? "ready"
-      : "misconfigured",
+    turnstileSecret: configuration.turnstileSecret ? "ready" : "misconfigured",
     nativeApi: configuration.nativeApiEnabled ? "enabled" : "disabled",
     appleClientId: nativeStatus(configuration.appleClientId),
-    appleServerCredentials: nativeStatus(
-      configuration.appleServerCredentials,
-    ),
+    appleServerCredentials: nativeStatus(configuration.appleServerCredentials),
     appleTokenEncryptionSecret: nativeStatus(
       configuration.appleTokenEncryptionSecret,
     ),
@@ -778,13 +805,13 @@ function configurationCheckStatuses(
   };
 }
 
-export async function verifyRequiredSchema(database: D1Database): Promise<void> {
+export async function verifyRequiredSchema(
+  database: D1Database,
+): Promise<void> {
   const tableEntries = Object.entries(REQUIRED_SCHEMA);
   const columnResults = await Promise.all(
     tableEntries.map(([tableName]) =>
-      database
-        .prepare(`PRAGMA table_info("${tableName}")`)
-        .all<SchemaColumn>(),
+      database.prepare(`PRAGMA table_info("${tableName}")`).all<SchemaColumn>(),
     ),
   );
 

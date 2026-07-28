@@ -53,11 +53,14 @@ export const learnerUser = sqliteTable(
       .notNull()
       .default(false),
     image: text("image"),
+    username: text("username"),
+    displayUsername: text("display_username"),
     createdAt: integer("created_at", { mode: "timestamp_ms" }).notNull(),
     updatedAt: integer("updated_at", { mode: "timestamp_ms" }).notNull(),
   },
   (table) => [
     uniqueIndex("learner_user_email_unique").on(table.email),
+    uniqueIndex("learner_user_username_unique").on(table.username),
   ],
 );
 
@@ -145,6 +148,35 @@ export const learnerAuthRateLimits = sqliteTable(
       sql`${table.requestCount} >= 1`,
     ),
   ],
+);
+
+export const learnerRecoveryCodes = sqliteTable(
+  "learner_recovery_codes",
+  {
+    codeHash: text("code_hash").primaryKey(),
+    userId: text("user_id")
+      .notNull()
+      .references(() => learnerUser.id, { onDelete: "cascade" }),
+    generationId: text("generation_id").notNull(),
+    createdAt: integer("created_at").notNull(),
+  },
+  (table) => [
+    index("learner_recovery_codes_user_generation_idx").on(
+      table.userId,
+      table.generationId,
+    ),
+  ],
+);
+
+export const learnerRecoveryState = sqliteTable(
+  "learner_recovery_state",
+  {
+    userId: text("user_id")
+      .primaryKey()
+      .references(() => learnerUser.id, { onDelete: "cascade" }),
+    generationId: text("generation_id").notNull(),
+    updatedAt: integer("updated_at").notNull(),
+  },
 );
 
 export const learnerIdentityLink = sqliteTable(

@@ -3,12 +3,14 @@ import ParettoApp from "./ParettoApp";
 import ProgressIdentityGate from "./ProgressIdentityGate";
 import { getPublishedCurriculum } from "./published-curriculum.server";
 import { resolveBrowserProgressCacheIdentity } from "./server-auth";
+import { loadTurnstilePublicSiteKey } from "./turnstile";
 
 export const dynamic = "force-dynamic";
 
 export default async function Home() {
-  const [publishedCurriculum, requestHeaders] = await Promise.all([
+  const [publishedCurriculum, turnstileSiteKey, requestHeaders] = await Promise.all([
     getPublishedCurriculum(),
+    loadTurnstilePublicSiteKey(),
     headers(),
   ]);
   const cacheIdentity = await resolveBrowserProgressCacheIdentity(
@@ -31,6 +33,7 @@ export default async function Home() {
       courseId={publishedCurriculum.course.id}
       curriculumRevision={publishedCurriculum.revision}
       curriculumSource={publishedCurriculum.source}
+      turnstileSiteKey={turnstileSiteKey}
     />
   );
 }

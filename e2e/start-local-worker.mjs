@@ -31,6 +31,13 @@ import {
 import { unstable_getMiniflareWorkerOptions } from "wrangler";
 
 const root = resolve(import.meta.dirname, "..");
+const E2E_TURNSTILE_TOKEN_PREFIX = "paretto-e2e-turnstile:";
+const E2E_TURNSTILE_ACTIONS = new Set([
+  "account_create",
+  "account_sign_in",
+  "account_recover",
+  "recovery_codes_rotate",
+]);
 const wranglerArguments = process.argv.slice(2);
 const externalPort = requiredNumberArgument(wranglerArguments, "--port");
 const protocol = requiredStringArgument(
@@ -299,6 +306,7 @@ async function createDirectWorkerRuntime(
     workers: [
       {
         ...workerOptions,
+        outboundService: createAcceptanceOutboundService(),
         bindings: {
           ...(workerOptions.bindings ?? {}),
           ...variableArguments(arguments_),
@@ -331,6 +339,32 @@ async function createDirectWorkerRuntime(
     await worker.dispose();
     throw error;
   }
+}
+
+function createAcceptanceOutboundService() {
+  return async (request) => {
+    const url = new URL(request.url);
+    if (
+      request.method === "POST" &&
+      url.origin === "https://challenges.cloudflare.com" &&
+      url.pathname === "/turnstile/v0/siteverify"
+    ) {
+      const form = new URLSearchParams(await request.text());
+      const response = form.get("response") ?? "";
+      const action = response.startsWith(E2E_TURNSTILE_TOKEN_PREFIX)
+        ? response.slice(E2E_TURNSTILE_TOKEN_PREFIX.length)
+        : "";
+      return Response.json({
+        success: E2E_TURNSTILE_ACTIONS.has(action),
+        action,
+        hostname: "localhost",
+        ...(E2E_TURNSTILE_ACTIONS.has(action)
+          ? {}
+          : { "error-codes": ["invalid-input-response"] }),
+      });
+    }
+    return fetch(request);
+  };
 }
 
 async function explicitWorkerModules(modulesRoot, main) {

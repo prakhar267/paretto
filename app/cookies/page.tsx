@@ -35,18 +35,22 @@ export default function CookiesPage() {
           If you sign in, Paretto sets a separate signed, HttpOnly learner
           session cookie for up to 30 days and refreshes it while the account is
           active. It is used only for account access and synchronized progress.
-          Short-lived verification and password-reset records protect account
-          workflows. Account abuse quotas are server-side one-way buckets that
-          do not contain the raw IP, authentication path, or email. Expired
-          records are removed in bounded maintenance batches.
+          Password verifiers and one-way recovery-code hashes are stored on the
+          server, not in browser storage. Recovery codes are shown once; using
+          one replaces the entire set and revokes active sessions. Account
+          abuse quotas are server-side one-way buckets that do not contain the
+          raw IP, password, recovery code, or Paretto ID in readable form.
+          Expired records are removed in bounded maintenance batches.
         </p>
         <p>
           Administrators receive a separate, strictly necessary HttpOnly,
           Secure, SameSite=Strict cookie after successful sign-in. It expires
           after eight hours. Cloudflare Turnstile may use strictly necessary
-          challenge storage when you submit Support; it is used for
-          abuse-prevention, not advertising. Support IP quotas use a keyed,
-          one-way server-side bucket and do not add a browser identifier.
+          challenge storage when you create, access, or recover an account,
+          replace recovery codes, or submit Support; it is used for
+          abuse-prevention, not advertising. Account and support IP quotas use
+          keyed, one-way server-side buckets and do not add a browser
+          identifier.
         </p>
       </LegalSection>
 

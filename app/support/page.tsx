@@ -17,9 +17,11 @@ export default async function SupportPage() {
     >
       <LegalSection title="Before you send">
         <p>
-          Never include passwords, payment-card details, health information, or
-          another person&apos;s private information. For a vocabulary or audio
-          correction, include the French word and the region where you found it.
+          Never include passwords, recovery codes, payment-card details, health
+          information, or another person&apos;s private information. Paretto
+          Support cannot retrieve or reset your password or recovery codes. For
+          a vocabulary or audio correction, include the French word and the
+          region where you found it.
         </p>
       </LegalSection>
 

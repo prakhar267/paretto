@@ -7,24 +7,31 @@ import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
-  emailSignIn: vi.fn(),
-  emailSignUp: vi.fn(),
   socialSignIn: vi.fn(),
-  passwordReset: vi.fn(),
   transition: vi.fn(),
 }));
 
 vi.mock("../app/auth-client", () => ({
   authClient: {
     signIn: {
-      email: mocks.emailSignIn,
       social: mocks.socialSignIn,
     },
-    signUp: {
-      email: mocks.emailSignUp,
-    },
-    requestPasswordReset: mocks.passwordReset,
   },
+}));
+
+vi.mock("../app/TurnstileWidget", () => ({
+  default: ({
+    onTokenChange,
+  }: {
+    onTokenChange: (token: string) => void;
+  }) => (
+    <button
+      type="button"
+      onClick={() => onTokenChange("verified-turnstile-token")}
+    >
+      Complete security check
+    </button>
+  ),
 }));
 
 vi.mock("../app/progress-cache", () => ({
@@ -38,10 +45,7 @@ const { default: ConnectedAccount } = await import(
 
 describe("account claim cache handoff callers", () => {
   beforeEach(() => {
-    mocks.emailSignIn.mockReset();
-    mocks.emailSignUp.mockReset();
     mocks.socialSignIn.mockReset();
-    mocks.passwordReset.mockReset();
     mocks.transition.mockReset();
   });
 
@@ -51,14 +55,14 @@ describe("account claim cache handoff callers", () => {
     vi.unstubAllGlobals();
   });
 
-  it("keeps existing-account sign-in visible while email registration and recovery are disabled", () => {
+  it("keeps Paretto ID sign-in visible when registration and recovery are disabled", () => {
     render(
       <AuthForm
         googleEnabled={false}
         appleEnabled={false}
         accountCreationEnabled={false}
-        passwordResetEnabled={false}
-        emailVerificationEnabled={false}
+        recoveryEnabled={false}
+        turnstileSiteKey="test-site-key"
       />,
     );
 
@@ -69,14 +73,14 @@ describe("account claim cache handoff callers", () => {
       screen.queryByRole("button", { name: "Create account" }),
     ).not.toBeInTheDocument();
     expect(
-      screen.queryByRole("button", { name: "Forgot password?" }),
+      screen.queryByRole("button", { name: "Use a recovery code" }),
     ).not.toBeInTheDocument();
     expect(
-      screen.getByText(/new email account registration is temporarily unavailable/i),
+      screen.getByRole("textbox", { name: "Paretto ID" }),
     ).toBeVisible();
   });
 
-  it("awaits the email sign-in handoff and reports a blocked local transition", async () => {
+  it("awaits the Paretto ID sign-in handoff and reports a blocked local transition", async () => {
     const user = userEvent.setup();
     const claimPayload = {
       state: { version: 1 },
@@ -86,11 +90,14 @@ describe("account claim cache handoff callers", () => {
         anonymousStorageKey: "anonymous-cache",
       },
     };
-    mocks.emailSignIn.mockResolvedValue({ data: {}, error: null });
     mocks.transition.mockResolvedValue(false);
     vi.stubGlobal(
       "fetch",
-      vi.fn(async () => Response.json(claimPayload)),
+      vi.fn(async (input: RequestInfo | URL) =>
+        String(input) === "/api/account/sign-in"
+          ? Response.json({ signedIn: true, username: "camille" })
+          : Response.json(claimPayload),
+      ),
     );
 
     render(
@@ -98,17 +105,21 @@ describe("account claim cache handoff callers", () => {
         googleEnabled={false}
         appleEnabled={false}
         accountCreationEnabled={true}
-        passwordResetEnabled={false}
-        emailVerificationEnabled={false}
+        recoveryEnabled={true}
+        turnstileSiteKey="test-site-key"
       />,
     );
+    await user.click(screen.getByRole("button", { name: "Sign in" }));
     await user.type(
-      screen.getByRole("textbox", { name: "Email" }),
-      "a@example.test",
+      screen.getByRole("textbox", { name: "Paretto ID" }),
+      "Camille",
     );
     await user.type(
       screen.getByLabelText("Password"),
       "long-test-password",
+    );
+    await user.click(
+      screen.getByRole("button", { name: "Complete security check" }),
     );
     await user.click(
       screen.getByRole("button", {
@@ -119,11 +130,17 @@ describe("account claim cache handoff callers", () => {
     expect(
       await screen.findByText(/could not safely hand off its local progress/i),
     ).toBeVisible();
-    expect(mocks.emailSignIn).toHaveBeenCalledWith({
-      email: "a@example.test",
-      password: "long-test-password",
-      callbackURL: "/auth/connected",
-    });
+    expect(fetch).toHaveBeenCalledWith(
+      "/api/account/sign-in",
+      expect.objectContaining({
+        method: "POST",
+        body: JSON.stringify({
+          username: "camille",
+          password: "long-test-password",
+          turnstileToken: "verified-turnstile-token",
+        }),
+      }),
+    );
     expect(mocks.transition).toHaveBeenCalledWith(claimPayload);
   });
 
@@ -176,8 +193,8 @@ describe("account claim cache handoff callers", () => {
         googleEnabled
         appleEnabled={false}
         accountCreationEnabled
-        passwordResetEnabled={false}
-        emailVerificationEnabled={false}
+        recoveryEnabled
+        turnstileSiteKey="test-site-key"
       />,
     );
 
@@ -199,8 +216,8 @@ describe("account claim cache handoff callers", () => {
         googleEnabled
         appleEnabled={false}
         accountCreationEnabled
-        passwordResetEnabled={false}
-        emailVerificationEnabled={false}
+        recoveryEnabled
+        turnstileSiteKey="test-site-key"
         initialError="Social sign-in could not be completed. Please try again."
       />,
     );

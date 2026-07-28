@@ -124,6 +124,7 @@ export function enqueueSupportCreatedNotifications(
            AND requests.created_at = ?
            AND requests.updated_at = ?
            AND users.email_verified = 1
+           AND lower(users.email) NOT LIKE '%.invalid'
            AND requests.reply_email IS NOT NULL
            AND lower(users.email) = lower(requests.reply_email)`,
       )

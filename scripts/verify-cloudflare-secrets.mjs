@@ -11,7 +11,11 @@ const COMMON_REQUIRED_SECRETS = [
   "ADMIN_SESSION_SECRET",
   "TURNSTILE_SECRET",
 ];
-const OPTIONAL_SECRETS = ["RESEND_API_KEY"];
+const TURNSTILE_TEST_SECRETS = new Set([
+  "1x0000000000000000000000000000000AA",
+  "2x0000000000000000000000000000000AA",
+  "3x0000000000000000000000000000000AA",
+]);
 const root = process.cwd();
 const options = parseArguments(process.argv.slice(2));
 const environment = options.environment;
@@ -31,9 +35,15 @@ const configuration = JSON.parse(
   await readFile(configurationPath, "utf8"),
 );
 const launchMode = configuration.vars?.LAUNCH_MODE;
+const workersPlan = configuration.vars?.WORKERS_PLAN;
 invariant(
   launchMode === "controlled-beta" || launchMode === "public",
   `${configurationPath} must select LAUNCH_MODE controlled-beta or public.`,
+);
+invariant(
+  (workersPlan === "free" || workersPlan === "paid") &&
+    (launchMode !== "public" || workersPlan === "paid"),
+  `${configurationPath} must select WORKERS_PLAN free or paid, and public launch requires paid.`,
 );
 const adminEmails = parseAdminEmails(configuration.vars?.ADMIN_EMAILS);
 invariant(
@@ -57,6 +67,16 @@ invariant(
     ),
   `${configurationPath} must require the matching ${adminPasswordSecretName} deployment secret.`,
 );
+const emailDeliveryConfigured =
+  validSender(configuration.vars?.AUTH_EMAIL_FROM) &&
+  validEmail(configuration.vars?.SUPPORT_NOTIFICATION_EMAIL);
+const emailDeliveryDisabled =
+  configuration.vars?.AUTH_EMAIL_FROM === "" &&
+  configuration.vars?.SUPPORT_NOTIFICATION_EMAIL === "";
+invariant(
+  emailDeliveryConfigured || emailDeliveryDisabled,
+  `${configurationPath} must either disable optional email delivery with exact empty AUTH_EMAIL_FROM and SUPPORT_NOTIFICATION_EMAIL values or configure both values validly.`,
+);
 
 const secretFilePath = resolve(root, `.env.${environment}`);
 const metadata = await lstat(secretFilePath);
@@ -78,7 +98,7 @@ invariant(
 
 const values = parseDotEnv(await readFile(secretFilePath, "utf8"));
 const deliverySecrets =
-  launchMode === "public" ? OPTIONAL_SECRETS : [];
+  emailDeliveryConfigured ? ["RESEND_API_KEY"] : [];
 invariant(
   [...requiredSecrets, ...deliverySecrets].every((name) =>
     values.has(name),
@@ -86,9 +106,9 @@ invariant(
     [...values.keys()].every((name) =>
       [...requiredSecrets, ...deliverySecrets].includes(name),
     ),
-  launchMode === "public"
-    ? `Public secret file must define exactly ${[...requiredSecrets, ...deliverySecrets].join(", ")}.`
-    : `Controlled-beta secret file must define exactly ${requiredSecrets.join(", ")} and must omit RESEND_API_KEY.`,
+  emailDeliveryConfigured
+    ? `Email-enabled secret file must define exactly ${[...requiredSecrets, ...deliverySecrets].join(", ")}.`
+    : `Email-disabled secret file must define exactly ${requiredSecrets.join(", ")} and must omit RESEND_API_KEY.`,
 );
 
 const userKeySecret = values.get("USER_KEY_SECRET");
@@ -131,13 +151,14 @@ invariant(
   "ADMIN_SESSION_SECRET must be an unquoted random value of at least 32 characters.",
 );
 invariant(
-  isBoundedSecret(turnstileSecret, 20),
+  isBoundedSecret(turnstileSecret, 20) &&
+    !TURNSTILE_TEST_SECRETS.has(turnstileSecret),
   "TURNSTILE_SECRET must be the Cloudflare Turnstile secret key.",
 );
-if (launchMode === "public") {
+if (emailDeliveryConfigured) {
   invariant(
     /^re_[A-Za-z0-9_-]{16,252}$/.test(resendApiKey),
-    "Public launch requires RESEND_API_KEY as an unquoted Resend API key.",
+    "Configured email delivery requires RESEND_API_KEY as an unquoted Resend API key.",
   );
 }
 invariant(
@@ -165,7 +186,8 @@ for (const [name, value] of values) {
 
 console.log(
   `Cloudflare ${environment} secret file verified: required launch secret names, ` +
-    `${launchMode} delivery policy, bounded formats, ${adminEmails.length} distinct administrator credential` +
+    `${emailDeliveryConfigured ? "configured" : "disabled"} optional email-delivery policy, ` +
+    `bounded formats, ${adminEmails.length} distinct administrator credential` +
     `${adminEmails.length === 1 ? "" : "s"}, independent signing keys, private file permissions, and no placeholders.`,
 );
 
@@ -195,6 +217,23 @@ function isBoundedSecret(value, minimumLength) {
     value.length >= minimumLength &&
     value.length <= 256 &&
     !/\s/.test(value)
+  );
+}
+
+function validEmail(value) {
+  return (
+    typeof value === "string" &&
+    value.length >= 3 &&
+    value.length <= 254 &&
+    /^[^\s,@]+@[^\s,@]+\.[^\s,@]+$/.test(value)
+  );
+}
+
+function validSender(value) {
+  return (
+    typeof value === "string" &&
+    value.length <= 320 &&
+    /<[^<>\s@]+@[^<>\s@]+\.[^<>\s@]+>$/.test(value)
   );
 }
 

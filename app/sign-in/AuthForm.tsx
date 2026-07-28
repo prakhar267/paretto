@@ -1,128 +1,182 @@
 "use client";
 
-import { useId, useLayoutEffect, useRef, useState } from "react";
+import {
+  useEffect,
+  useId,
+  useLayoutEffect,
+  useRef,
+  useState,
+} from "react";
 import { authClient } from "@/app/auth-client";
+import {
+  normalizeParettoId,
+  PARETTO_ID_MAX_LENGTH,
+  PARETTO_ID_MIN_LENGTH,
+} from "@/app/account-id";
 import { transitionClaimedProgressCache } from "@/app/progress-cache";
+import TurnstileWidget from "@/app/TurnstileWidget";
+import type { TurnstileAction } from "@/app/turnstile";
 import styles from "./auth.module.css";
 
-type Mode = "sign-in" | "create" | "recover";
+type Mode = "create" | "sign-in" | "recover";
+type RecoveryReceipt = {
+  kind: "created" | "recovered";
+  username: string;
+  codes: string[];
+};
+type AccountResponse = {
+  error?: string;
+  code?: string;
+  account?: { username?: string };
+  username?: string;
+  recoveryCodes?: unknown;
+};
 
 export default function AuthForm({
   googleEnabled,
   appleEnabled,
   accountCreationEnabled,
-  passwordResetEnabled,
-  emailVerificationEnabled,
+  recoveryEnabled,
+  turnstileSiteKey,
   initialError = "",
 }: {
   googleEnabled: boolean;
   appleEnabled: boolean;
   accountCreationEnabled: boolean;
-  passwordResetEnabled: boolean;
-  emailVerificationEnabled: boolean;
+  recoveryEnabled: boolean;
+  turnstileSiteKey: string | null;
   initialError?: string;
 }) {
-  const [mode, setMode] = useState<Mode>("sign-in");
-  const [name, setName] = useState("");
-  const [email, setEmail] = useState("");
+  const [mode, setMode] = useState<Mode>(
+    accountCreationEnabled ? "create" : "sign-in",
+  );
+  const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
+  const [recoveryCode, setRecoveryCode] = useState("");
+  const [turnstileToken, setTurnstileToken] = useState("");
+  const [challengeReset, setChallengeReset] = useState(0);
   const [error, setError] = useState(initialError);
   const [notice, setNotice] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [hydrated, setHydrated] = useState(false);
+  const [receipt, setReceipt] = useState<RecoveryReceipt | null>(null);
+  const [receiptSaved, setReceiptSaved] = useState(false);
+  const [receiptStatus, setReceiptStatus] = useState("");
   const errorId = useId();
+  const modeHeadingId = useId();
   const formRef = useRef<HTMLFormElement>(null);
+  const usernameRef = useRef<HTMLInputElement>(null);
+  const receiptHeadingRef = useRef<HTMLHeadingElement>(null);
 
   useLayoutEffect(() => {
     const fields = formRef.current?.elements;
     if (fields) {
-      const emailField = fields.namedItem("email");
+      const usernameField = fields.namedItem("username");
       const passwordField = fields.namedItem("password");
-      if (emailField instanceof HTMLInputElement && emailField.value) {
-        setEmail(emailField.value);
+      if (
+        usernameField instanceof HTMLInputElement &&
+        usernameField.value
+      ) {
+        setUsername(usernameField.value);
       }
-      if (passwordField instanceof HTMLInputElement && passwordField.value) {
+      if (
+        passwordField instanceof HTMLInputElement &&
+        passwordField.value
+      ) {
         setPassword(passwordField.value);
       }
     }
     setHydrated(true);
   }, []);
 
+  useEffect(() => {
+    if (!receipt) return;
+    receiptHeadingRef.current?.focus({ preventScroll: true });
+    const clearSecrets = () => {
+      setReceipt(null);
+      setReceiptSaved(false);
+      setReceiptStatus("");
+    };
+    window.addEventListener("pagehide", clearSecrets);
+    return () => window.removeEventListener("pagehide", clearSecrets);
+  }, [receipt]);
+
   async function submit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const submitted = new FormData(event.currentTarget);
-    const submittedName = String(submitted.get("name") ?? name).trim();
-    const submittedEmail = String(submitted.get("email") ?? email);
-    const submittedPassword = String(submitted.get("password") ?? password);
-    setName(submittedName);
-    setEmail(submittedEmail);
+    const submittedUsername = normalizeParettoId(
+      String(submitted.get("username") ?? username),
+    );
+    const submittedPassword = String(
+      submitted.get("password") ?? password,
+    );
+    const submittedRecoveryCode = String(
+      submitted.get("recoveryCode") ?? recoveryCode,
+    );
+    setUsername(submittedUsername);
     setPassword(submittedPassword);
+    setRecoveryCode(submittedRecoveryCode);
     setSubmitting(true);
     setError("");
     setNotice("");
+    let producedReceipt = false;
+
     try {
-      if (mode === "recover") {
-        const result = await authClient.requestPasswordReset({
-          email: submittedEmail,
-          redirectTo: "/reset-password",
+      if (mode === "create") {
+        const payload = await accountRequest("/api/account/register", {
+          username: submittedUsername,
+          password: submittedPassword,
+          turnstileToken,
         });
-        if (result.error) throw new Error(result.error.message);
-        setNotice(
-          "If an account uses that email, a secure reset link is on its way.",
-        );
-        setSubmitting(false);
-        return;
-      }
-
-      if (mode === "create" && !accountCreationEnabled) {
-        throw new Error(
-          "New email account registration is temporarily unavailable.",
-        );
-      }
-      const result =
-        mode === "create"
-          ? await authClient.signUp.email({
-              name: submittedName,
-              email: submittedEmail,
-              password: submittedPassword,
-              callbackURL: "/auth/connected",
-            })
-          : await authClient.signIn.email({
-              email: submittedEmail,
-              password: submittedPassword,
-              // Verified accounts are claimed below. Unverified accounts use
-              // this same callback after the verification link auto-signs
-              // them in, so their anonymous progress is never bypassed.
-              callbackURL: "/auth/connected",
-            });
-      if (result.error) throw new Error(result.error.message);
-      if (mode === "create" && emailVerificationEnabled) {
-        setNotice(
-          "Check your email to verify this account. Your browser progress will connect after verification.",
-        );
+        const codes = parseRecoveryCodes(payload.recoveryCodes);
+        if (!codes || payload.account?.username !== submittedUsername) {
+          throw new Error(
+            "The account was created, but its recovery receipt was incomplete. Sign in, then replace recovery codes from Profile.",
+          );
+        }
+        producedReceipt = true;
+        setReceipt({
+          kind: "created",
+          username: submittedUsername,
+          codes,
+        });
         setPassword("");
-        setSubmitting(false);
+        setRecoveryCode("");
+        setTurnstileToken("");
         return;
       }
 
-      const claim = await fetch("/api/account/claim", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        credentials: "same-origin",
+      if (mode === "recover") {
+        const payload = await accountRequest("/api/account/recover", {
+          username: submittedUsername,
+          recoveryCode: submittedRecoveryCode,
+          password: submittedPassword,
+          turnstileToken,
+        });
+        const codes = parseRecoveryCodes(payload.recoveryCodes);
+        if (!codes || payload.username !== submittedUsername) {
+          throw new Error(
+            "The password was updated, but the new recovery receipt was incomplete. Sign in and replace recovery codes from Profile.",
+          );
+        }
+        producedReceipt = true;
+        setReceipt({
+          kind: "recovered",
+          username: submittedUsername,
+          codes,
+        });
+        setPassword("");
+        setRecoveryCode("");
+        setTurnstileToken("");
+        return;
+      }
+
+      await accountRequest("/api/account/sign-in", {
+        username: submittedUsername,
+        password: submittedPassword,
+        turnstileToken,
       });
-      if (!claim.ok) {
-        throw new Error(
-          "You are signed in, but browser progress could not be connected yet. Retry from Profile.",
-        );
-      }
-      const cacheTransitioned = await transitionClaimedProgressCache(
-        await claim.json(),
-      );
-      if (!cacheTransitioned) {
-        throw new Error(
-          "You are signed in, but this browser could not safely hand off its local progress. Allow site storage changes, then retry from Profile.",
-        );
-      }
+      await connectProgress();
       window.location.assign("/");
     } catch (reason) {
       setError(
@@ -130,6 +184,11 @@ export default function AuthForm({
           ? reason.message
           : "Account access could not be completed.",
       );
+    } finally {
+      if (!producedReceipt) {
+        setTurnstileToken("");
+        setChallengeReset((current) => current + 1);
+      }
       setSubmitting(false);
     }
   }
@@ -145,44 +204,146 @@ export default function AuthForm({
       });
       if (!result?.error) return;
       setError(result.error.message ?? "Social sign-in could not be started.");
-      setSubmitting(false);
     } catch {
       setError(
         "Social sign-in could not be started. Check your connection and try again.",
       );
-      setSubmitting(false);
+    }
+    setSubmitting(false);
+  }
+
+  async function copyRecoveryCodes() {
+    if (!receipt) return;
+    try {
+      await navigator.clipboard.writeText(recoveryReceiptText(receipt));
+      setReceiptStatus("Recovery codes copied.");
+    } catch {
+      setReceiptStatus(
+        "Copy was blocked. Select the visible codes or download them instead.",
+      );
     }
   }
 
+  function downloadRecoveryCodes() {
+    if (!receipt) return;
+    const blob = new Blob([recoveryReceiptText(receipt)], {
+      type: "text/plain;charset=utf-8",
+    });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = "paretto-recovery-codes.txt";
+    link.click();
+    URL.revokeObjectURL(url);
+    setReceiptStatus("Recovery-code file downloaded.");
+  }
+
+  function finishReceipt() {
+    if (!receipt || !receiptSaved) return;
+    const kind = receipt.kind;
+    const savedUsername = receipt.username;
+    setReceipt(null);
+    setReceiptSaved(false);
+    setReceiptStatus("");
+    setUsername(savedUsername);
+    setMode("sign-in");
+    setNotice(
+      kind === "created"
+        ? "Account created. Sign in to connect this browser’s progress."
+        : "Password updated and other sessions signed out. Sign in with your new password.",
+    );
+    window.requestAnimationFrame(() =>
+      usernameRef.current?.focus({ preventScroll: true }),
+    );
+  }
+
+  if (receipt) {
+    return (
+      <section
+        className={styles.recoveryReceipt}
+        aria-labelledby="recovery-receipt-title"
+      >
+        <p className={styles.receiptEyebrow}>
+          {receipt.kind === "created"
+            ? "Account created"
+            : "Access recovered"}
+        </p>
+        <h2
+          id="recovery-receipt-title"
+          ref={receiptHeadingRef}
+          tabIndex={-1}
+        >
+          Save your recovery codes now.
+        </h2>
+        <p>
+          These codes are shown once. Each code can recover{" "}
+          <strong>{receipt.username}</strong>, and using one replaces the
+          entire old set. Paretto Support cannot retrieve them.
+        </p>
+        <ol className={styles.recoveryCodes} aria-label="Recovery codes">
+          {receipt.codes.map((code) => (
+            <li key={code}>
+              <code>{code}</code>
+            </li>
+          ))}
+        </ol>
+        <div className={styles.receiptActions}>
+          <button type="button" onClick={() => void copyRecoveryCodes()}>
+            Copy all
+          </button>
+          <button type="button" onClick={downloadRecoveryCodes}>
+            Download codes
+          </button>
+        </div>
+        {receiptStatus && (
+          <p className={styles.receiptStatus} role="status">
+            {receiptStatus}
+          </p>
+        )}
+        <label className={styles.savedCheck}>
+          <input
+            type="checkbox"
+            checked={receiptSaved}
+            onChange={(event) => setReceiptSaved(event.target.checked)}
+          />
+          <span>I saved these recovery codes somewhere private.</span>
+        </label>
+        <button
+          className={styles.submit}
+          type="button"
+          disabled={!receiptSaved}
+          onClick={finishReceipt}
+        >
+          Continue to sign in
+        </button>
+      </section>
+    );
+  }
+
+  const action = challengeAction(mode);
+
   return (
     <div>
-      {accountCreationEnabled ? (
-        <div className={styles.tabs} role="tablist" aria-label="Account action">
+      <div className={styles.tabs} aria-label="Account action">
+        {accountCreationEnabled && (
           <button
             type="button"
-            role="tab"
-            aria-selected={mode === "sign-in"}
-            disabled={!hydrated || submitting}
-            onClick={() => changeMode("sign-in")}
-          >
-            Sign in
-          </button>
-          <button
-            type="button"
-            role="tab"
-            aria-selected={mode === "create"}
+            aria-pressed={mode === "create"}
             disabled={!hydrated || submitting}
             onClick={() => changeMode("create")}
           >
             Create account
           </button>
-        </div>
-      ) : (
-        <p className={styles.notice} role="status">
-          New email account registration is temporarily unavailable. Existing
-          learners can still sign in.
-        </p>
-      )}
+        )}
+        <button
+          type="button"
+          aria-pressed={mode === "sign-in"}
+          disabled={!hydrated || submitting}
+          onClick={() => changeMode("sign-in")}
+        >
+          Sign in
+        </button>
+      </div>
 
       {(googleEnabled || appleEnabled) && mode !== "recover" && (
         <div className={styles.social}>
@@ -204,7 +365,7 @@ export default function AuthForm({
               Continue with Apple
             </button>
           )}
-          <span>or use email</span>
+          <span>or use a Paretto ID</span>
         </div>
       )}
 
@@ -213,53 +374,87 @@ export default function AuthForm({
         className={styles.form}
         onSubmit={submit}
         aria-describedby={error ? errorId : undefined}
+        aria-labelledby={modeHeadingId}
       >
-        {mode === "create" && (
+        <h2 id={modeHeadingId} className={styles.formHeading}>
+          {mode === "create"
+            ? "Choose a Paretto ID"
+            : mode === "recover"
+              ? "Recover your account"
+              : "Welcome back"}
+        </h2>
+        <label>
+          <span>Paretto ID</span>
+          <input
+            ref={usernameRef}
+            name="username"
+            value={username}
+            onChange={(event) => setUsername(event.target.value)}
+            autoComplete="username"
+            autoCapitalize="none"
+            spellCheck={false}
+            minLength={PARETTO_ID_MIN_LENGTH}
+            maxLength={PARETTO_ID_MAX_LENGTH}
+            required
+          />
+          {mode === "create" && (
+            <small>
+              {PARETTO_ID_MIN_LENGTH}–{PARETTO_ID_MAX_LENGTH} letters,
+              numbers, periods, hyphens, or underscores. It is permanent and
+              is saved in lowercase.
+            </small>
+          )}
+        </label>
+        {mode === "recover" && (
           <label>
-            <span>Name</span>
+            <span>Unused recovery code</span>
             <input
-              name="name"
-              value={name}
-              onChange={(event) => setName(event.target.value)}
-              autoComplete="name"
-              minLength={1}
-              maxLength={80}
+              name="recoveryCode"
+              value={recoveryCode}
+              onChange={(event) => setRecoveryCode(event.target.value)}
+              autoComplete="off"
+              autoCapitalize="characters"
+              spellCheck={false}
+              maxLength={64}
+              placeholder="XXXX-XXXX-XXXX-XXXX-XXXX-XXXX"
               required
             />
           </label>
         )}
         <label>
-          <span>Email</span>
+          <span>
+            {mode === "recover" ? "New password" : "Password"}
+          </span>
           <input
-            name="email"
-            type="email"
-            value={email}
-            onChange={(event) => setEmail(event.target.value)}
-            autoComplete="email"
-            maxLength={254}
+            name="password"
+            type="password"
+            value={password}
+            onChange={(event) => setPassword(event.target.value)}
+            autoComplete={
+              mode === "sign-in" ? "current-password" : "new-password"
+            }
+            minLength={mode === "sign-in" ? 1 : 12}
+            maxLength={128}
             required
           />
+          {mode !== "sign-in" && (
+            <small>
+              Use at least 12 characters and a unique password.
+            </small>
+          )}
         </label>
-        {mode !== "recover" && (
-          <label>
-            <span>Password</span>
-            <input
-              name="password"
-              type="password"
-              value={password}
-              onChange={(event) => setPassword(event.target.value)}
-              autoComplete={
-                mode === "create" ? "new-password" : "current-password"
-              }
-              minLength={12}
-              maxLength={128}
-              required
-            />
-            {mode === "create" && (
-              <small>Use at least 12 characters and a unique password.</small>
-            )}
-          </label>
+        {mode === "create" && (
+          <p className={styles.accountPromise}>
+            No email is required. You will receive one-time recovery codes;
+            save them because Support cannot recover them for you.
+          </p>
         )}
+        <TurnstileWidget
+          siteKey={turnstileSiteKey}
+          action={action}
+          resetKey={challengeReset}
+          onTokenChange={setTurnstileToken}
+        />
         {error && (
           <p id={errorId} className={styles.error} role="alert">
             {error}
@@ -273,25 +468,28 @@ export default function AuthForm({
         <button
           className={styles.submit}
           type="submit"
-          disabled={!hydrated || submitting}
+          disabled={!hydrated || submitting || !turnstileToken}
         >
           {submitting
             ? "Please wait…"
             : mode === "create"
-              ? "Create and connect account"
+              ? "Create account"
               : mode === "recover"
-                ? "Send secure reset link"
+                ? "Recover and replace codes"
                 : "Sign in and connect progress"}
         </button>
-        {passwordResetEnabled && (
+        {recoveryEnabled && mode !== "create" && (
           <button
             className={styles.textButton}
             type="button"
+            disabled={submitting}
             onClick={() =>
               changeMode(mode === "recover" ? "sign-in" : "recover")
             }
           >
-            {mode === "recover" ? "Back to sign in" : "Forgot password?"}
+            {mode === "recover"
+              ? "Back to sign in"
+              : "Use a recovery code"}
           </button>
         )}
       </form>
@@ -303,5 +501,87 @@ export default function AuthForm({
     setError("");
     setNotice("");
     setPassword("");
+    setRecoveryCode("");
+    setTurnstileToken("");
+    setChallengeReset((current) => current + 1);
   }
+}
+
+async function accountRequest(
+  path: string,
+  body: Record<string, string>,
+): Promise<AccountResponse> {
+  const response = await fetch(path, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    credentials: "same-origin",
+    body: JSON.stringify(body),
+  });
+  const payload = (await response.json().catch(() => null)) as
+    | AccountResponse
+    | null;
+  if (!response.ok) {
+    throw new Error(
+      payload?.error ??
+        (response.status === 401
+          ? "The Paretto ID or password is incorrect."
+          : "Account access could not be completed. Please retry."),
+    );
+  }
+  if (!payload) throw new Error("The account response was incomplete.");
+  return payload;
+}
+
+function parseRecoveryCodes(value: unknown): string[] | null {
+  if (
+    !Array.isArray(value) ||
+    value.length !== 8 ||
+    !value.every(
+      (code) =>
+        typeof code === "string" &&
+        /^[A-HJ-NP-Z2-9]{4}(?:-[A-HJ-NP-Z2-9]{4}){5}$/.test(code),
+    )
+  ) {
+    return null;
+  }
+  return [...value];
+}
+
+function challengeAction(mode: Mode): TurnstileAction {
+  if (mode === "create") return "account_create";
+  if (mode === "recover") return "account_recover";
+  return "account_sign_in";
+}
+
+async function connectProgress() {
+  const claim = await fetch("/api/account/claim", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    credentials: "same-origin",
+  });
+  if (!claim.ok) {
+    throw new Error(
+      "You are signed in, but browser progress could not be connected yet. Retry from Profile.",
+    );
+  }
+  const cacheTransitioned = await transitionClaimedProgressCache(
+    await claim.json(),
+  );
+  if (!cacheTransitioned) {
+    throw new Error(
+      "You are signed in, but this browser could not safely hand off its local progress. Allow site storage changes, then retry from Profile.",
+    );
+  }
+}
+
+function recoveryReceiptText(receipt: RecoveryReceipt): string {
+  return [
+    "Paretto recovery codes",
+    `Paretto ID: ${receipt.username}`,
+    "",
+    ...receipt.codes,
+    "",
+    "Each code can be used once. Using one replaces this entire set.",
+    "Keep these codes private. Paretto Support cannot retrieve them.",
+  ].join("\n");
 }

@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import ResetPasswordForm from "./ResetPasswordForm";
+import { redirect } from "next/navigation";
 
 export const metadata: Metadata = {
   title: "Reset password — Paretto",
@@ -7,5 +7,5 @@ export const metadata: Metadata = {
 };
 
 export default function ResetPasswordPage() {
-  return <ResetPasswordForm />;
+  redirect("/sign-in");
 }

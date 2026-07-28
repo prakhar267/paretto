@@ -70,12 +70,13 @@ legacy probes alone cannot cross normal iOS sandbox boundaries.
 7. Verify the tracked Staging and Release Worker origins, or override them in
    an uncommitted `Configuration/Local.xcconfig`.
 8. Apply every journaled migration through
-   `0012_private_auth_reset_generation` before enabling
+   `0013_paretto_id_recovery` before enabling
    the native API. `0010_small_switch` adds the one-to-one verified
    native/learner identity bridge; `0011_sour_post` adds durable account
    deletion, support delivery/quota operations, and course-scoped CMS identity.
    `0012_private_auth_reset_generation` adds private authentication throttling
    and durable cross-device progress-reset generations.
+   `0013_paretto_id_recovery` adds Paretto IDs and one-time recovery-code state.
 9. Select the development team, allow Xcode to create development provisioning,
    and repeat the unsigned test suites on the available iPhone and iPad
    simulators before creating a signed build.

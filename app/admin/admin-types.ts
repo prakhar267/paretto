@@ -163,6 +163,9 @@ export type OperationsSummary = {
     learnerAuthRateLimitSecret: boolean;
     learnerAuthentication: boolean;
     learnerAuthOrigin: boolean;
+    learnerParettoIdAccountCreation: boolean;
+    learnerParettoIdSignIn: boolean;
+    learnerRecoveryCodes: boolean;
     learnerEmailAccountCreation: boolean;
     learnerEmailVerification: boolean;
     learnerPasswordReset: boolean;
@@ -170,6 +173,10 @@ export type OperationsSummary = {
     learnerAppleAuth: boolean;
     supportNotifications: boolean;
     adminAllowlist: boolean;
+    adminAuthentication: boolean;
+    turnstileSiteKey: boolean;
+    turnstileSecret: boolean;
+    nativeApiEnabled: boolean;
     appleClientId: boolean;
     appleServerCredentials: boolean;
     appleTokenEncryptionSecret: boolean;

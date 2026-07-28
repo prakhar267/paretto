@@ -7,6 +7,7 @@ const root = process.cwd();
 const options = parseArguments(process.argv.slice(2));
 const environment = options.environment;
 const launchMode = options["launch-mode"];
+const workersPlan = options["workers-plan"];
 const COMMON_REQUIRED_SECRETS = [
   "USER_KEY_SECRET",
   "SUPPORT_RATE_LIMIT_SECRET",
@@ -15,6 +16,13 @@ const COMMON_REQUIRED_SECRETS = [
   "ADMIN_SESSION_SECRET",
   "TURNSTILE_SECRET",
 ];
+const TURNSTILE_TEST_SITE_KEYS = new Set([
+  "1x00000000000000000000AA",
+  "2x00000000000000000000AB",
+  "1x00000000000000000000BB",
+  "2x00000000000000000000BB",
+  "3x00000000000000000000FF",
+]);
 
 invariant(
   environment === "staging" || environment === "production",
@@ -23,6 +31,14 @@ invariant(
 invariant(
   launchMode === "controlled-beta" || launchMode === "public",
   "Use --launch-mode controlled-beta or --launch-mode public.",
+);
+invariant(
+  workersPlan === "free" || workersPlan === "paid",
+  "Use --workers-plan free or --workers-plan paid.",
+);
+invariant(
+  launchMode !== "public" || workersPlan === "paid",
+  "Public Paretto ID launch requires --workers-plan paid; Workers Free is supported only for controlled-beta evaluation.",
 );
 invariant(
   typeof options["account-id"] === "string" &&
@@ -69,30 +85,24 @@ invariant(
   typeof options["turnstile-site-key"] === "string" &&
     options["turnstile-site-key"].length >= 20 &&
     options["turnstile-site-key"].length <= 256 &&
-    !/\s/.test(options["turnstile-site-key"]),
+    !/\s/.test(options["turnstile-site-key"]) &&
+    !TURNSTILE_TEST_SITE_KEYS.has(options["turnstile-site-key"]),
   "Use --turnstile-site-key with the provisioned Cloudflare Turnstile site key.",
 );
 invariant(
   validHttpsOrigin(options["auth-url"]),
   "Use --auth-url with the exact HTTPS origin for this Worker.",
 );
-if (launchMode === "public") {
-  invariant(
-    validSender(options["auth-email-from"]),
-    "Public launch requires --auth-email-from with a verified sender such as Paretto <accounts@example.com>.",
-  );
-  invariant(
-    typeof options["support-notification-email"] === "string" &&
-      normalizeEmail(options["support-notification-email"]) !== null,
-    "Public launch requires --support-notification-email with the working operator mailbox.",
-  );
-} else {
-  invariant(
-    options["auth-email-from"] === undefined &&
-      options["support-notification-email"] === undefined,
-    "Controlled-beta configuration must omit --auth-email-from and --support-notification-email so unavailable delivery cannot look configured.",
-  );
-}
+const emailDeliveryDisabled =
+  options["auth-email-from"] === undefined &&
+  options["support-notification-email"] === undefined;
+const emailDeliveryConfigured =
+  validSender(options["auth-email-from"]) &&
+  normalizeEmail(options["support-notification-email"]) !== null;
+invariant(
+  emailDeliveryDisabled || emailDeliveryConfigured,
+  "Optional email delivery must either omit both --auth-email-from and --support-notification-email, or provide a valid verified sender and working support mailbox together.",
+);
 
 const templatePath = resolve(
   root,
@@ -137,15 +147,16 @@ source = replaceExactlyOnce(
   new URL(options["auth-url"]).origin,
 );
 source = replaceExactlyOnce(source, "__LAUNCH_MODE__", launchMode);
+source = replaceExactlyOnce(source, "__WORKERS_PLAN__", workersPlan);
 source = replaceExactlyOnce(
   source,
   "__AUTH_EMAIL_FROM__",
-  launchMode === "public" ? options["auth-email-from"].trim() : "",
+  emailDeliveryConfigured ? options["auth-email-from"].trim() : "",
 );
 source = replaceExactlyOnce(
   source,
   "__SUPPORT_NOTIFICATION_EMAIL__",
-  launchMode === "public"
+  emailDeliveryConfigured
     ? normalizeEmail(options["support-notification-email"])
     : "",
 );
@@ -164,7 +175,8 @@ await writeFile(outputPath, source, { encoding: "utf8", mode: 0o600 });
 console.log(
   `Prepared ignored ${environment} Wrangler configuration for ` +
     `${options["database-name"]} with ${adminEmails.length} administrator` +
-    `${adminEmails.length === 1 ? "" : "s"}. Run the matching cloudflare:verify:${environment} ` +
+    `${adminEmails.length === 1 ? "" : "s"} and optional email delivery ` +
+    `${emailDeliveryConfigured ? "enabled" : "disabled"}. Run the matching cloudflare:verify:${environment} ` +
     `gate before any ${launchMode} migration or deployment.`,
 );
 

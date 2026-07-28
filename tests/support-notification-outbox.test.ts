@@ -144,7 +144,8 @@ describe("durable support notification outbox", () => {
     database.sqlite.exec(`
       INSERT INTO learner_user VALUES
         ('verified', 'verified@example.test', 1),
-        ('unverified', 'unverified@example.test', 0);
+        ('unverified', 'unverified@example.test', 0),
+        ('synthetic', 'u-private@accounts.paretto.invalid', 1);
     `);
 
     await createSupport(database, {
@@ -175,6 +176,13 @@ describe("durable support notification outbox", () => {
       accountId: null,
       now: now + 3,
     });
+    await createSupport(database, {
+      id: "synthetic-ticket",
+      userKey: "synthetic-user-key",
+      replyEmail: "u-private@accounts.paretto.invalid",
+      accountId: "synthetic",
+      now: now + 4,
+    });
 
     expect(
       database.rows<{
@@ -194,6 +202,11 @@ describe("durable support notification outbox", () => {
       },
       {
         support_request_id: "mismatch-ticket",
+        event_type: "operator_created",
+        recipient_email: null,
+      },
+      {
+        support_request_id: "synthetic-ticket",
         event_type: "operator_created",
         recipient_email: null,
       },

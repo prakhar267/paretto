@@ -18,6 +18,8 @@ describe("learner authentication configuration", () => {
         canonicalOrigin: false,
         rateLimit: false,
         emailPassword: true,
+        parettoIdAccountCreation: false,
+        recoveryCodes: false,
         emailAccountCreation: false,
         emailVerification: false,
         passwordReset: false,
@@ -37,7 +39,9 @@ describe("learner authentication configuration", () => {
         canonicalOrigin: true,
         rateLimit: true,
         emailPassword: true,
-        emailAccountCreation: true,
+        parettoIdAccountCreation: true,
+        recoveryCodes: true,
+        emailAccountCreation: false,
       });
     } finally {
       vi.unstubAllEnvs();
@@ -60,7 +64,9 @@ describe("learner authentication configuration", () => {
       canonicalOrigin: true,
       rateLimit: true,
       emailPassword: true,
-      emailAccountCreation: true,
+      parettoIdAccountCreation: true,
+      recoveryCodes: true,
+      emailAccountCreation: false,
       emailVerification: true,
       passwordReset: true,
       google: true,
@@ -153,6 +159,9 @@ describe("learner authentication configuration", () => {
       await expect(getRuntimeConfigurationReadiness()).resolves.toMatchObject({
         learnerAuthentication: false,
         learnerAuthOrigin: false,
+        learnerParettoIdAccountCreation: false,
+        learnerParettoIdSignIn: false,
+        learnerRecoveryCodes: false,
         learnerEmailAccountCreation: false,
         learnerEmailVerification: false,
         learnerPasswordReset: false,
@@ -184,7 +193,7 @@ describe("learner authentication configuration", () => {
     }
   });
 
-  it("disables only production email sign-up when delivery is unavailable", async () => {
+  it("keeps Paretto ID ready while raw production email sign-up stays disabled", async () => {
     vi.stubEnv("NODE_ENV", "production");
     setCloudflareEnv({
       DB: {} as D1Database,
@@ -199,6 +208,8 @@ describe("learner authentication configuration", () => {
         configured: true,
         canonicalOrigin: true,
         emailPassword: true,
+        parettoIdAccountCreation: true,
+        recoveryCodes: true,
         emailAccountCreation: false,
         emailVerification: false,
         passwordReset: false,
@@ -243,14 +254,35 @@ describe("learner authentication configuration", () => {
         "private, no-store, max-age=0",
       );
       await expect(response.json()).resolves.toMatchObject({
-        code: "EMAIL_ACCOUNT_CREATION_DISABLED",
+        code: "ACCOUNT_ROUTE_DISABLED",
+      });
+
+      const signInResponse = await AUTH_POST(
+        new Request("https://learn.example/api/auth/sign-in/email", {
+          method: "POST",
+          headers: {
+            "content-type": "application/json",
+            origin: "https://learn.example",
+          },
+          body: JSON.stringify({
+            email: "existing@example.test",
+            password: "long-production-password",
+          }),
+        }),
+      );
+      expect(signInResponse.status).toBe(403);
+      expect(signInResponse.headers.get("cache-control")).toBe(
+        "private, no-store, max-age=0",
+      );
+      await expect(signInResponse.json()).resolves.toMatchObject({
+        code: "ACCOUNT_ROUTE_DISABLED",
       });
     } finally {
       vi.unstubAllEnvs();
     }
   });
 
-  it("enables verified account creation and password recovery together", async () => {
+  it("keeps raw email account creation disabled when optional email delivery is configured", async () => {
     vi.stubEnv("NODE_ENV", "production");
     setCloudflareEnv({
       DB: {} as D1Database,
@@ -265,7 +297,9 @@ describe("learner authentication configuration", () => {
     try {
       await expect(learnerAuthReadiness()).resolves.toMatchObject({
         configured: true,
-        emailAccountCreation: true,
+        parettoIdAccountCreation: true,
+        recoveryCodes: true,
+        emailAccountCreation: false,
         emailVerification: true,
         passwordReset: true,
       });
@@ -274,7 +308,7 @@ describe("learner authentication configuration", () => {
       );
       expect(auth.options.emailAndPassword).toMatchObject({
         enabled: true,
-        disableSignUp: false,
+        disableSignUp: true,
         requireEmailVerification: true,
       });
       expect(auth.options.emailVerification).toMatchObject({

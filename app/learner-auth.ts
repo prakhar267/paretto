@@ -1,5 +1,6 @@
 import { betterAuth } from "better-auth";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
+import { customSession, username } from "better-auth/plugins";
 import { drizzle } from "drizzle-orm/d1";
 import {
   learnerAccount,
@@ -23,6 +24,16 @@ import {
   requiredBetterAuthRateLimitSecret,
   validBetterAuthRateLimitSecret,
 } from "@/app/learner-auth-rate-limit";
+import {
+  isValidParettoId,
+  normalizeParettoId,
+  PARETTO_ID_MAX_LENGTH,
+  PARETTO_ID_MIN_LENGTH,
+} from "@/app/account-id";
+import {
+  hashParettoPassword,
+  verifyParettoPassword,
+} from "@/app/password-kdf";
 
 const authSchema = {
   user: learnerUser,
@@ -51,6 +62,8 @@ export type LearnerAuthReadiness = {
   canonicalOrigin: boolean;
   rateLimit: boolean;
   emailPassword: true;
+  parettoIdAccountCreation: boolean;
+  recoveryCodes: boolean;
   emailAccountCreation: boolean;
   emailVerification: boolean;
   passwordReset: boolean;
@@ -59,6 +72,10 @@ export type LearnerAuthReadiness = {
 };
 
 export async function getLearnerAuth(request: Request) {
+  return createLearnerAuth(request);
+}
+
+async function createLearnerAuth(request: Request) {
   const bindings = await learnerAuthBindings();
   const origin = configuredOrigin(bindings, request);
   const secret = requiredSecret(bindings);
@@ -67,7 +84,6 @@ export async function getLearnerAuth(request: Request) {
   const database = await getDatabase();
   const socialProviders = configuredSocialProviders(bindings);
   const passwordReset = configuredPasswordReset(bindings);
-  const emailAccountCreation = configuredEmailAccountCreation(bindings);
 
   return betterAuth({
     appName: "Paretto",
@@ -134,11 +150,47 @@ export async function getLearnerAuth(request: Request) {
       },
     },
     trustedOrigins: [origin],
+    // Paretto ID mutations and sign-in must pass through the app-owned
+    // Turnstile, origin, and dual-quota routes. Server API calls used by those
+    // routes remain available; only the raw public Better Auth paths are
+    // disabled.
+    disabledPaths: [
+      "/sign-in/username",
+      "/sign-in/email",
+      "/sign-up/email",
+      "/is-username-available",
+      "/update-user",
+      "/change-password",
+      "/change-email",
+      "/request-password-reset",
+      "/reset-password",
+      "/send-verification-email",
+      "/verify-email",
+      "/verify-password",
+      "/update-session",
+      "/delete-user/callback",
+      "/list-sessions",
+      "/revoke-session",
+      "/revoke-sessions",
+      "/revoke-other-sessions",
+      "/list-accounts",
+      "/link-social",
+      "/unlink-account",
+      "/get-access-token",
+      "/refresh-token",
+      "/account-info",
+      "/delete-user",
+    ],
     emailAndPassword: {
       enabled: true,
-      disableSignUp: !emailAccountCreation,
+      disableSignUp: true,
       minPasswordLength: 12,
       maxPasswordLength: 128,
+      password: {
+        hash: hashParettoPassword,
+        verify: ({ hash, password }) =>
+          verifyParettoPassword(password, hash),
+      },
       // A delivery outage must never make an unverified production account
       // eligible to sign in. Existing verified learners remain available.
       requireEmailVerification:
@@ -200,6 +252,35 @@ export async function getLearnerAuth(request: Request) {
         }
       : {}),
     socialProviders,
+    plugins: [
+      username({
+        minUsernameLength: PARETTO_ID_MIN_LENGTH,
+        maxUsernameLength: PARETTO_ID_MAX_LENGTH,
+        usernameNormalization: normalizeParettoId,
+        usernameValidator: isValidParettoId,
+        displayUsernameNormalization: normalizeParettoId,
+        displayUsernameValidator: isValidParettoId,
+        validationOrder: {
+          username: "post-normalization",
+          displayUsername: "post-normalization",
+        },
+      }),
+      customSession(async ({ user, session }) => ({
+        session: {
+          id: session.id,
+          expiresAt: session.expiresAt,
+        },
+        user: {
+          id: user.id,
+          name: user.name,
+          image: user.image ?? null,
+          username:
+            "username" in user && typeof user.username === "string"
+              ? user.username
+              : null,
+        },
+      })),
+    ],
     account: {
       // Google and Apple access, refresh, and ID tokens are credentials. Keep
       // them encrypted at rest in D1 and in encrypted backup exports.
@@ -236,6 +317,10 @@ export async function getLearnerAuth(request: Request) {
   });
 }
 
+export type LearnerAuthInstance = Awaited<
+  ReturnType<typeof getLearnerAuth>
+>;
+
 export async function learnerAuthReadiness(): Promise<LearnerAuthReadiness> {
   const bindings = await learnerAuthBindings();
   const socialProviders = configuredSocialProviders(bindings);
@@ -254,7 +339,19 @@ export async function learnerAuthReadiness(): Promise<LearnerAuthReadiness> {
     canonicalOrigin,
     rateLimit,
     emailPassword: true,
-    emailAccountCreation: configuredEmailAccountCreation(bindings),
+    parettoIdAccountCreation:
+      (hasSecret(bindings.BETTER_AUTH_SECRET) ||
+        process.env.NODE_ENV === "development" ||
+        process.env.NODE_ENV === "test") &&
+      canonicalOrigin &&
+      rateLimit,
+    recoveryCodes:
+      (hasSecret(bindings.BETTER_AUTH_SECRET) ||
+        process.env.NODE_ENV === "development" ||
+        process.env.NODE_ENV === "test") &&
+      canonicalOrigin &&
+      rateLimit,
+    emailAccountCreation: false,
     emailVerification: passwordReset,
     passwordReset,
     google: Boolean(socialProviders.google),
@@ -308,15 +405,6 @@ function configuredSocialProviders(bindings: LearnerAuthBindings) {
 
 function configuredPasswordReset(bindings: LearnerAuthBindings): boolean {
   return transactionalEmailConfigured(bindings);
-}
-
-function configuredEmailAccountCreation(
-  bindings: LearnerAuthBindings,
-): boolean {
-  return (
-    process.env.NODE_ENV !== "production" ||
-    transactionalEmailConfigured(bindings)
-  );
 }
 
 function configuredCanonicalOriginReady(

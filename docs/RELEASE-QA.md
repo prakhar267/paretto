@@ -24,21 +24,23 @@ Do not mark an unexecuted manual check as passed.
   HTTPS runtime survives a deliberate plaintext probe, and retains per-run
   Miniflare lifecycle evidence.
 - All current Worker-backed Chromium journeys run on a Windows Server 2022
-  hosted runner, including secure-origin and seeded account
-  sign-in/claim/deletion coverage. This catches Windows path, command-shell,
+  hosted runner, including secure-origin, fresh Paretto ID creation,
+  recovery-code rotation/recovery, sign-in/claim, and deletion coverage. This
+  catches Windows path, command-shell,
   process-lifecycle, and Chromium compatibility regressions. The Windows job
   retains HTTPS and uploads its Miniflare lifecycle evidence. Playwright
   force-terminates the disposable Windows process tree, so a successful Windows
   log may end at `runtime-ready` rather than the POSIX shutdown events. This is
   automation infrastructure evidence only; it does not certify Windows 11,
   Microsoft Edge, high contrast, Narrator, or a physical Windows device.
-- A disposable local-D1 account journey uses Better Auth's production password
-  hash and a preverified test-only identity to test anonymous progress claim,
-  sign-out, a second isolated browser-context sign-in and sync, and permanent
-  account deletion. The setup script is hardcoded to Wrangler `--local`, is not
-  an application route, and cannot send email or access a remote database. The
-  public signup endpoint remains disabled in this test environment because no
-  verified transactional-email sender is configured.
+- A disposable local-D1 account journey creates a fresh public Paretto ID
+  through the production account route, claims anonymous progress, saves and
+  rotates one-time recovery codes, signs out, signs in from a second isolated
+  browser context, recovers the account, verifies session revocation, and
+  permanently deletes it. The local Worker uses an exact-action Turnstile test
+  harness and an isolated database; it cannot send support email or access a
+  remote database. Paretto ID creation and recovery do not require a learner
+  email address.
 - Chromium additionally installs the checked-in production service worker with
   `serviceWorkers: "allow"`, closes its disposable origin, and proves a cold
   navigation returns only the cached identity-free offline shell. Normal
