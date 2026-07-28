@@ -51,6 +51,13 @@ const ORIGIN = "https://learn.example";
 const AUTH_BINDINGS = {
   BETTER_AUTH_SECRET:
     "test-paretto-account-auth-secret-with-at-least-32-characters",
+  PARETTO_PASSWORD_PEPPERS: JSON.stringify({
+    current: "test-v1",
+    keys: {
+      "test-v1":
+        "test-paretto-account-password-pepper-with-at-least-32-characters",
+    },
+  }),
   BETTER_AUTH_RATE_LIMIT_SECRET:
     "test-paretto-account-rate-limit-secret-with-at-least-32-characters",
   BETTER_AUTH_URL: ORIGIN,
@@ -713,6 +720,48 @@ describe("Paretto ID account API", () => {
     expect(setCookie).toContain("HttpOnly");
     expect(setCookie).toContain("Secure");
     expect(database.scalar("SELECT count(*) FROM learner_session")).toBe(1);
+  });
+
+  it("atomically rehashes a retained password-pepper verifier after successful sign-in", async () => {
+    const database = useDatabase();
+    installTurnstile();
+    const retainedSecret =
+      "test-retained-account-password-pepper-with-at-least-32-characters";
+    setCloudflareEnv({
+      DB: database as unknown as D1Database,
+      ...AUTH_BINDINGS,
+      PARETTO_PASSWORD_PEPPERS: JSON.stringify({
+        current: "old",
+        keys: { old: retainedSecret },
+      }),
+    });
+    await register("pepper-rotation-learner");
+    const retainedVerifier = database.row<{ password: string }>(
+      "SELECT password FROM learner_account",
+    )!.password;
+    expect(retainedVerifier).toContain("$old$");
+
+    setCloudflareEnv({
+      DB: database as unknown as D1Database,
+      ...AUTH_BINDINGS,
+      PARETTO_PASSWORD_PEPPERS: JSON.stringify({
+        current: "new",
+        keys: {
+          new: "test-current-account-password-pepper-with-at-least-32-characters",
+          old: retainedSecret,
+        },
+      }),
+    });
+    const response = await signIn("pepper-rotation-learner");
+    expect(response.status).toBe(200);
+    const currentVerifier = database.row<{ password: string }>(
+      "SELECT password FROM learner_account",
+    )!.password;
+    expect(currentVerifier).toContain("$new$");
+    expect(currentVerifier).not.toBe(retainedVerifier);
+    await expect(
+      verifyParettoPassword(INITIAL_PASSWORD, currentVerifier),
+    ).resolves.toBe(true);
   });
 
   it("does not reveal whether a Paretto ID exists when sign-in fails", async () => {

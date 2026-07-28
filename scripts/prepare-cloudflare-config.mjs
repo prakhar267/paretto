@@ -13,6 +13,7 @@ const COMMON_REQUIRED_SECRETS = [
   "SUPPORT_RATE_LIMIT_SECRET",
   "BETTER_AUTH_RATE_LIMIT_SECRET",
   "BETTER_AUTH_SECRET",
+  "PARETTO_PASSWORD_PEPPERS",
   "ADMIN_SESSION_SECRET",
   "TURNSTILE_SECRET",
 ];
@@ -77,9 +78,9 @@ const adminPasswordSecretName =
     ? "ADMIN_PASSWORD_VERIFIER"
     : "ADMIN_PASSWORD_VERIFIERS";
 const requiredSecrets = [
-  ...COMMON_REQUIRED_SECRETS.slice(0, 4),
+  ...COMMON_REQUIRED_SECRETS.slice(0, 5),
   adminPasswordSecretName,
-  ...COMMON_REQUIRED_SECRETS.slice(4),
+  ...COMMON_REQUIRED_SECRETS.slice(5),
 ];
 invariant(
   typeof options["turnstile-site-key"] === "string" &&

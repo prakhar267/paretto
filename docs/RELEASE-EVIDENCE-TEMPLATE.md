@@ -87,6 +87,9 @@ addresses in release evidence.
       and limiter rows contained no raw IP, path, or email.
 - [ ] `BETTER_AUTH_SECRET` is independent and managed securely, and
       `BETTER_AUTH_URL` is the exact deployed HTTPS origin.
+- [ ] `PARETTO_PASSWORD_PEPPERS` is valid compact keyring JSON, its current
+      random key is independent from every other secret, and any retained key
+      has a documented bounded migration window.
 - [ ] Fresh Paretto ID creation, password sign-in, one-time recovery,
       recovery-code rotation, session revocation, and cross-browser progress
       synchronization passed without a learner email address.

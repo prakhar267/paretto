@@ -22,6 +22,13 @@ const localRuntimeVars = {
     "local-only-paretto-support-rate-limit-secret-never-deploy",
   BETTER_AUTH_RATE_LIMIT_SECRET:
     "local-only-paretto-better-auth-rate-limit-secret-never-deploy",
+  PARETTO_PASSWORD_PEPPERS: JSON.stringify({
+    current: "local-v1",
+    keys: {
+      "local-v1":
+        "local-only-paretto-password-pepper-key-never-deploy",
+    },
+  }),
   LAUNCH_MODE: "controlled-beta",
   WORKERS_PLAN: "free",
   NATIVE_API_ENABLED: "false",

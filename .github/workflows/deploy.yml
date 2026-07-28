@@ -211,6 +211,7 @@ jobs:
           SUPPORT_RATE_LIMIT_SECRET: ${{ secrets.SUPPORT_RATE_LIMIT_SECRET }}
           BETTER_AUTH_RATE_LIMIT_SECRET: ${{ secrets.BETTER_AUTH_RATE_LIMIT_SECRET }}
           BETTER_AUTH_SECRET: ${{ secrets.BETTER_AUTH_SECRET }}
+          PARETTO_PASSWORD_PEPPERS: ${{ secrets.PARETTO_PASSWORD_PEPPERS }}
           ADMIN_PASSWORD_VERIFIER: ${{ secrets.ADMIN_PASSWORD_VERIFIER }}
           ADMIN_PASSWORD_VERIFIERS: ${{ secrets.ADMIN_PASSWORD_VERIFIERS }}
           ADMIN_SESSION_SECRET: ${{ secrets.ADMIN_SESSION_SECRET }}
@@ -231,6 +232,7 @@ jobs:
             SUPPORT_RATE_LIMIT_SECRET
             BETTER_AUTH_RATE_LIMIT_SECRET
             BETTER_AUTH_SECRET
+            PARETTO_PASSWORD_PEPPERS
             ADMIN_SESSION_SECRET
             TURNSTILE_SECRET
           )
@@ -392,6 +394,7 @@ jobs:
           SUPPORT_RATE_LIMIT_SECRET: ${{ secrets.SUPPORT_RATE_LIMIT_SECRET }}
           BETTER_AUTH_RATE_LIMIT_SECRET: ${{ secrets.BETTER_AUTH_RATE_LIMIT_SECRET }}
           BETTER_AUTH_SECRET: ${{ secrets.BETTER_AUTH_SECRET }}
+          PARETTO_PASSWORD_PEPPERS: ${{ secrets.PARETTO_PASSWORD_PEPPERS }}
           ADMIN_PASSWORD_VERIFIER: ${{ secrets.ADMIN_PASSWORD_VERIFIER }}
           ADMIN_PASSWORD_VERIFIERS: ${{ secrets.ADMIN_PASSWORD_VERIFIERS }}
           ADMIN_SESSION_SECRET: ${{ secrets.ADMIN_SESSION_SECRET }}
@@ -406,6 +409,7 @@ jobs:
             printf 'SUPPORT_RATE_LIMIT_SECRET=%s\n' "$SUPPORT_RATE_LIMIT_SECRET"
             printf 'BETTER_AUTH_RATE_LIMIT_SECRET=%s\n' "$BETTER_AUTH_RATE_LIMIT_SECRET"
             printf 'BETTER_AUTH_SECRET=%s\n' "$BETTER_AUTH_SECRET"
+            printf 'PARETTO_PASSWORD_PEPPERS=%s\n' "$PARETTO_PASSWORD_PEPPERS"
             if [[ "$ADMIN_PASSWORD_SECRET_NAME" == "ADMIN_PASSWORD_VERIFIER" ]]; then
               printf 'ADMIN_PASSWORD_VERIFIER=%s\n' "$ADMIN_PASSWORD_VERIFIER"
             else
@@ -475,7 +479,7 @@ jobs:
             ' "$migration_json"
           )"
           if [[ "$migration_applied" == "1" ]]; then
-            sql="SELECT COUNT(*) AS incompatible FROM learner_user AS users JOIN learner_account AS accounts ON accounts.user_id = users.id AND accounts.provider_id = 'credential' AND accounts.password IS NOT NULL WHERE users.username IS NULL"
+            sql="SELECT COUNT(*) AS incompatible FROM learner_user AS users JOIN learner_account AS accounts ON accounts.user_id = users.id AND accounts.provider_id = 'credential' AND accounts.password IS NOT NULL WHERE users.username IS NULL OR accounts.password NOT LIKE 'pbkdf2-sha256-peppered-v3%'"
           else
             sql="SELECT COUNT(*) AS incompatible FROM learner_user AS users JOIN learner_account AS accounts ON accounts.user_id = users.id AND accounts.provider_id = 'credential' AND accounts.password IS NOT NULL"
           fi
@@ -502,10 +506,10 @@ jobs:
             }
             if (incompatible !== 0) {
               throw new Error(
-                `${incompatible} legacy credential account(s) would lose sign-in access; backfill them before migration.`,
+                `${incompatible} credential account(s) have no Paretto ID or a legacy password verifier; recover or migrate them before deployment.`,
               );
             }
-            console.log("Paretto ID migration preflight passed: zero incompatible credential accounts.");
+            console.log("Paretto ID and password-verifier preflight passed: zero incompatible credential accounts.");
           ' "$credential_json"
 
       - name: Capture and encrypt production D1 recovery evidence

@@ -165,6 +165,13 @@ jobs:
       - name: Prepare native XCTest evidence directory
         run: mkdir -p "$RUNNER_TEMP/paretto-native-results"
 
+      - name: Ensure iPhone and iPad Simulator destinations
+        shell: bash
+        run: |
+          set -euo pipefail
+          bash scripts/prepare-ios-simulators.sh 2>&1 |
+            tee "$RUNNER_TEMP/paretto-native-results/simulator-provisioning.log"
+
       - name: Test the shared learning core
         shell: bash
         run: |
@@ -187,7 +194,7 @@ jobs:
             -project ios/Paretto/Paretto.xcodeproj \
             -scheme Paretto-Staging \
             -configuration Staging \
-            -destination 'platform=iOS Simulator,name=iPhone 16 Pro,OS=latest' \
+            -destination "$PARETTO_IPHONE_DESTINATION" \
             -only-testing:ParettoTests \
             -only-testing:ParettoUITests/ParettoUITests/testSignedOutTaglineDoesNotTruncateAtSupportedDynamicTypeSizes \
             -resultBundlePath "$RUNNER_TEMP/paretto-native-results/staging.xcresult" \
@@ -201,7 +208,7 @@ jobs:
           xcodebuild \
             -project ios/Paretto/Paretto.xcodeproj \
             -scheme Paretto \
-            -destination 'platform=iOS Simulator,name=iPhone 16 Pro,OS=latest' \
+            -destination "$PARETTO_IPHONE_DESTINATION" \
             -resultBundlePath "$RUNNER_TEMP/paretto-native-results/iphone.xcresult" \
             CODE_SIGNING_ALLOWED=NO \
             test 2>&1 | tee "$RUNNER_TEMP/paretto-native-results/iphone.log"
@@ -213,7 +220,7 @@ jobs:
           xcodebuild \
             -project ios/Paretto/Paretto.xcodeproj \
             -scheme Paretto \
-            -destination 'platform=iOS Simulator,name=iPad Pro 13-inch (M4),OS=latest' \
+            -destination "$PARETTO_IPAD_DESTINATION" \
             -resultBundlePath "$RUNNER_TEMP/paretto-native-results/ipad.xcresult" \
             CODE_SIGNING_ALLOWED=NO \
             test 2>&1 | tee "$RUNNER_TEMP/paretto-native-results/ipad.log"

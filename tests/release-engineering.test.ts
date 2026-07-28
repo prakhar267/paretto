@@ -20,6 +20,7 @@ describe("release engineering contracts", () => {
       nativeProject,
       releaseQa,
       productAcceptance,
+      simulatorProvisioning,
     ] = await Promise.all([
       readFile(resolve(ROOT, "package.json"), "utf8"),
       readFile(resolve(ROOT, "playwright.config.ts"), "utf8"),
@@ -33,6 +34,7 @@ describe("release engineering contracts", () => {
         resolve(ROOT, `docs/PRODUCT-ACCEPTANCE-V${releaseSeries}.md`),
         "utf8",
       ),
+      readFile(resolve(ROOT, "scripts/prepare-ios-simulators.sh"), "utf8"),
     ]);
 
     expect(productAcceptance).toContain(
@@ -53,6 +55,12 @@ describe("release engineering contracts", () => {
     expect(configuration).toContain("wrangler d1 migrations apply DB --local");
     expect(configuration).toContain("node e2e/start-local-worker.mjs");
     expect(configuration).toContain("--local-protocol https");
+    expect(configuration).toContain(
+      "PARETTO_E2E_PASSWORD_PEPPERS: localPasswordPepperKeyring",
+    );
+    expect(configuration).not.toMatch(
+      /--var [^\n"]*PARETTO_PASSWORD_PEPPERS/,
+    );
     expect(configuration).toContain("timeout: 120_000");
     expect(configuration).toContain("actionTimeout: 10_000");
     expect(configuration).toContain("navigationTimeout: 30_000");
@@ -97,6 +105,12 @@ describe("release engineering contracts", () => {
     expect(localWorker).toContain('protocol !== "https"');
     expect(localWorker).toContain("unstable_getMiniflareWorkerOptions");
     expect(localWorker).toContain("new Miniflare({");
+    expect(localWorker).toContain(
+      "process.env.PARETTO_E2E_PASSWORD_PEPPERS",
+    );
+    expect(localWorker).toContain(
+      "PARETTO_PASSWORD_PEPPERS:",
+    );
     expect(localWorker).toContain(
       "outboundService: createAcceptanceOutboundService()",
     );
@@ -146,6 +160,31 @@ describe("release engineering contracts", () => {
       "`test-results${sep}playwright-runtime`",
     );
     expect(workflow).toContain("Compile and test the Staging configuration");
+    expect(workflow).toContain("Ensure iPhone and iPad Simulator destinations");
+    expect(workflow).toContain("bash scripts/prepare-ios-simulators.sh");
+    expect(workflow).toContain('-destination "$PARETTO_IPHONE_DESTINATION"');
+    expect(workflow).toContain('-destination "$PARETTO_IPAD_DESTINATION"');
+    expect(workflow).not.toContain(
+      "-destination 'platform=iOS Simulator,name=iPhone",
+    );
+    expect(workflow).not.toContain(
+      "-destination 'platform=iOS Simulator,name=iPad",
+    );
+    expect(simulatorProvisioning).toContain("xcodebuild -downloadPlatform iOS");
+    expect(simulatorProvisioning).toContain(
+      "xcrun simctl list runtimes --json",
+    );
+    expect(simulatorProvisioning).toContain("xcrun simctl list devices --json");
+    expect(simulatorProvisioning).toContain(
+      "xcrun simctl list devicetypes --json",
+    );
+    expect(simulatorProvisioning).toContain("xcrun simctl create");
+    expect(simulatorProvisioning).toContain(
+      "PARETTO_IPHONE_DESTINATION=platform=iOS Simulator,id=",
+    );
+    expect(simulatorProvisioning).toContain(
+      "PARETTO_IPAD_DESTINATION=platform=iOS Simulator,id=",
+    );
     expect(workflow).toContain("-scheme Paretto-Staging");
     expect(workflow).toContain("-configuration Staging");
     expect(workflow).toContain("-only-testing:ParettoTests");
@@ -204,7 +243,7 @@ describe("release engineering contracts", () => {
         `tee "$RUNNER_TEMP/paretto-native-results/${logName}.log"`,
       );
     }
-    expect(nativeJob.match(/set -euo pipefail/g)).toHaveLength(6);
+    expect(nativeJob.match(/set -euo pipefail/g)).toHaveLength(7);
     expect(nativeJob).not.toMatch(/-retry-tests-on-failure|-test-iterations/);
     expect(nativeJob).toContain("Preserve native XCTest evidence");
     expect(nativeJob).toContain("if: ${{ !cancelled() }}");
@@ -212,6 +251,9 @@ describe("release engineering contracts", () => {
       "name: native-xcode-results-${{ github.run_attempt }}",
     );
     expect(nativeJob).toContain("${{ runner.temp }}/paretto-native-results/");
+    expect(nativeJob).toContain(
+      'tee "$RUNNER_TEMP/paretto-native-results/simulator-provisioning.log"',
+    );
     expect(nativeJob).toContain("retention-days: 14");
     expect(
       workflow.match(/github\.event\.pull_request\.head\.sha/g),

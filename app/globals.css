@@ -3500,6 +3500,11 @@ button.sync-pill {
   border-color: var(--blue);
 }
 .support-form .primary-button { justify-self: start; }
+.turnstile-widget,
+.turnstile-container {
+  min-width: 0;
+  max-width: 100%;
+}
 .turnstile-container {
   width: min(100%, 420px);
   min-height: 65px;

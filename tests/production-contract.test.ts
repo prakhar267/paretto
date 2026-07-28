@@ -223,6 +223,7 @@ describe("mobile, PWA, security, and launch contracts", () => {
         "SUPPORT_RATE_LIMIT_SECRET",
         "BETTER_AUTH_RATE_LIMIT_SECRET",
         "BETTER_AUTH_SECRET",
+        "PARETTO_PASSWORD_PEPPERS",
         "__ADMIN_PASSWORD_SECRET_NAME__",
         "ADMIN_SESSION_SECRET",
         "TURNSTILE_SECRET",
@@ -278,6 +279,7 @@ describe("mobile, PWA, security, and launch contracts", () => {
     expect(secretVerifier).toContain(
       '"BETTER_AUTH_RATE_LIMIT_SECRET"',
     );
+    expect(secretVerifier).toContain('"PARETTO_PASSWORD_PEPPERS"');
     expect(secretVerifier).toContain("metadata.mode & 0o077");
     expect(secretMaterializer).toContain(
       "Paretto Staging Support Rate Limit Secret",
@@ -292,6 +294,12 @@ describe("mobile, PWA, security, and launch contracts", () => {
       "Paretto Production Better Auth Rate Limit Secret",
     );
     expect(secretMaterializer).toContain(
+      "Paretto Staging Password Pepper Keyring",
+    );
+    expect(secretMaterializer).toContain(
+      "Paretto Production Password Pepper Keyring",
+    );
+    expect(secretMaterializer).toContain(
       "Paretto Staging Admin Password Verifiers",
     );
     expect(secretMaterializer).toContain(
@@ -302,6 +310,9 @@ describe("mobile, PWA, security, and launch contracts", () => {
     );
     expect(deployWorkflow).toContain(
       "BETTER_AUTH_RATE_LIMIT_SECRET: ${{ secrets.BETTER_AUTH_RATE_LIMIT_SECRET }}",
+    );
+    expect(deployWorkflow).toContain(
+      "PARETTO_PASSWORD_PEPPERS: ${{ secrets.PARETTO_PASSWORD_PEPPERS }}",
     );
     expect(deployWorkflow).toContain(
       "ADMIN_PASSWORD_VERIFIERS: ${{ secrets.ADMIN_PASSWORD_VERIFIERS }}",

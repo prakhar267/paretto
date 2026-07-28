@@ -98,19 +98,41 @@ async function waitForSecurityCheck(page: Page) {
   );
 }
 
-async function installAccountTurnstileHarness(context: BrowserContext) {
-  await context.addInitScript((tokenPrefix) => {
-    window.turnstile = {
-      render: (_container, options) => {
-        queueMicrotask(() =>
-          options.callback(`${tokenPrefix}${options.action}`),
-        );
-        return `e2e-${options.action}`;
-      },
-      reset: () => undefined,
-      remove: () => undefined,
-    };
-  }, E2E_TURNSTILE_TOKEN_PREFIX);
+async function installAccountTurnstileHarness(
+  context: BrowserContext,
+  simulateWidgetLayout = false,
+) {
+  await context.addInitScript(
+    ({ tokenPrefix, simulateWidgetLayout }) => {
+      let widgetSequence = 0;
+      const widgetSurfaces = new Map<string, HTMLElement>();
+      window.turnstile = {
+        render: (container, options) => {
+          const widgetId = `e2e-${options.action}-${widgetSequence++}`;
+          if (simulateWidgetLayout) {
+            const surface = document.createElement("div");
+            surface.dataset.e2eTurnstileSize = options.size;
+            surface.style.width =
+              options.size === "compact" ? "150px" : "300px";
+            surface.style.height =
+              options.size === "compact" ? "140px" : "65px";
+            container.replaceChildren(surface);
+            widgetSurfaces.set(widgetId, surface);
+          }
+          queueMicrotask(() =>
+            options.callback(`${tokenPrefix}${options.action}`),
+          );
+          return widgetId;
+        },
+        reset: () => undefined,
+        remove: (widgetId) => {
+          widgetSurfaces.get(widgetId)?.remove();
+          widgetSurfaces.delete(widgetId);
+        },
+      };
+    },
+    { tokenPrefix: E2E_TURNSTILE_TOKEN_PREFIX, simulateWidgetLayout },
+  );
   await context.route(
     "https://challenges.cloudflare.com/**",
     (route) =>
@@ -1139,6 +1161,7 @@ test("the learner and account surfaces fit a current phone viewport", async ({
   page,
 }) => {
   await page.setViewportSize({ width: 320, height: 740 });
+  await installAccountTurnstileHarness(page.context(), true);
   await beginAsNewLearner(page);
   await expect(page.getByRole("navigation", { name: "Main navigation" }).last()).toBeVisible();
   await expectNoHorizontalOverflow(page);
@@ -1156,6 +1179,9 @@ test("the learner and account surfaces fit a current phone viewport", async ({
     .click();
   await expect(
     page.getByRole("heading", { name: "Recover your account" }),
+  ).toBeVisible();
+  await expect(
+    page.locator('[data-e2e-turnstile-size="compact"]'),
   ).toBeVisible();
   await expectNoHorizontalOverflow(page);
 });

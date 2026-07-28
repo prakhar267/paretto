@@ -27,6 +27,10 @@ const keychain = {
       account,
     ],
     auth: ["Paretto Staging Better Auth Secret", account],
+    passwordPeppers: [
+      "Paretto Staging Password Pepper Keyring",
+      account,
+    ],
     adminSession: ["Paretto Staging Admin Session Secret", account],
     turnstile: ["Paretto Staging Turnstile Secret", "prakhar"],
   },
@@ -46,6 +50,10 @@ const keychain = {
       account,
     ],
     auth: ["Paretto Production Better Auth Secret", account],
+    passwordPeppers: [
+      "Paretto Production Password Pepper Keyring",
+      account,
+    ],
     adminSession: ["Paretto Production Admin Session Secret", account],
     turnstile: ["Paretto Production Turnstile Secret", account],
   },
@@ -75,6 +83,7 @@ const [
   supportRateLimit,
   authRateLimit,
   authSecret,
+  passwordPeppers,
   adminSession,
   turnstile,
 ] =
@@ -83,6 +92,7 @@ const [
     readKeychainSecret(...labels.supportRateLimit, 32),
     readKeychainSecret(...labels.authRateLimit, 32),
     readKeychainSecret(...labels.auth, 32),
+    readKeychainSecret(...labels.passwordPeppers, 32, 256),
     readKeychainSecret(...labels.adminSession, 32),
     readKeychainSecret(...labels.turnstile),
   ]);
@@ -113,6 +123,7 @@ const contents = [
   `SUPPORT_RATE_LIMIT_SECRET=${supportRateLimit}`,
   `BETTER_AUTH_RATE_LIMIT_SECRET=${authRateLimit}`,
   `BETTER_AUTH_SECRET=${authSecret}`,
+  `PARETTO_PASSWORD_PEPPERS=${passwordPeppers}`,
   `${adminPasswordSecretName}=${adminPasswordSecret}`,
   `ADMIN_SESSION_SECRET=${adminSession}`,
   `TURNSTILE_SECRET=${turnstile}`,

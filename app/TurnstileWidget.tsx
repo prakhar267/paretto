@@ -7,6 +7,7 @@ const TURNSTILE_SCRIPT_ID = "cloudflare-turnstile-script";
 const TURNSTILE_SCRIPT_URL =
   "https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit";
 const TURNSTILE_LOAD_TIMEOUT_MS = 12_000;
+const TURNSTILE_FLEXIBLE_MIN_WIDTH_PX = 300;
 
 type ChallengeStatus =
   | "loading"
@@ -23,7 +24,7 @@ type TurnstileClientApi = {
       sitekey: string;
       action: string;
       theme: "auto";
-      size: "flexible";
+      size: "compact" | "flexible";
       callback: (token: string) => void;
       "expired-callback": () => void;
       "error-callback": () => void;
@@ -104,7 +105,11 @@ export default function TurnstileWidget({
             sitekey: siteKey,
             action,
             theme: "auto",
-            size: "flexible",
+            size:
+              containerRef.current.clientWidth <
+              TURNSTILE_FLEXIBLE_MIN_WIDTH_PX
+                ? "compact"
+                : "flexible",
             callback: (token) => {
               if (!active) return;
               callbackRef.current(token);

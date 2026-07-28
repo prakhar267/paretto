@@ -310,6 +310,8 @@ async function createDirectWorkerRuntime(
         bindings: {
           ...(workerOptions.bindings ?? {}),
           ...variableArguments(arguments_),
+          PARETTO_PASSWORD_PEPPERS:
+            requiredLocalPasswordPepperKeyring(),
         },
         modules: workerModules,
         modulesRoot,
@@ -419,6 +421,23 @@ function variableArguments(arguments_) {
     index += 1;
   }
   return variables;
+}
+
+function requiredLocalPasswordPepperKeyring() {
+  const value = process.env.PARETTO_E2E_PASSWORD_PEPPERS;
+  if (!value || value !== value.trim()) {
+    throw new Error(
+      "PARETTO_E2E_PASSWORD_PEPPERS must provide the local acceptance keyring.",
+    );
+  }
+  try {
+    JSON.parse(value);
+  } catch {
+    throw new Error(
+      "PARETTO_E2E_PASSWORD_PEPPERS must contain valid JSON.",
+    );
+  }
+  return value;
 }
 
 function resolveInside(base, value, label) {

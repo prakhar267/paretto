@@ -1,4 +1,5 @@
 import { consumeAccountActionQuota } from "@/app/account-action-rate-limit";
+import { getDatabase } from "@/db";
 import { validateAccountSignIn } from "@/app/account-request";
 import {
   apiError,
@@ -6,6 +7,10 @@ import {
   readJsonBody,
 } from "@/app/api/_lib/api-utils";
 import { getLearnerAuth } from "@/app/learner-auth";
+import {
+  hashParettoPassword,
+  parettoPasswordVerifierNeedsRehash,
+} from "@/app/password-kdf";
 import { verifyTurnstile } from "@/app/turnstile";
 import { rejectUnsafeCrossOriginWebApiRequest } from "@/app/web-session";
 
@@ -57,6 +62,15 @@ export async function POST(request: Request) {
           );
     }
 
+    try {
+      await rehashRetainedPasswordPepper(
+        input.value.username,
+        input.value.password,
+      );
+    } catch (error) {
+      logApiError("learner_password_rehash_failed", error);
+    }
+
     const headers = new Headers(upstream.headers);
     headers.delete("content-length");
     headers.delete("location");
@@ -77,6 +91,41 @@ export async function POST(request: Request) {
       "Account sign-in is temporarily unavailable. Please retry.",
     );
   }
+}
+
+async function rehashRetainedPasswordPepper(
+  username: string,
+  password: string,
+): Promise<void> {
+  const database = await getDatabase();
+  const credential = await database
+    .prepare(
+      `SELECT account.id, account.password
+       FROM learner_account AS account
+       JOIN learner_user AS learner
+         ON learner.id = account.user_id
+       WHERE learner.username = ?
+         AND account.provider_id = 'credential'
+         AND account.password IS NOT NULL
+       LIMIT 1`,
+    )
+    .bind(username)
+    .first<{ id: string; password: string }>();
+  if (
+    !credential ||
+    !(await parettoPasswordVerifierNeedsRehash(credential.password))
+  ) {
+    return;
+  }
+  const replacement = await hashParettoPassword(password);
+  await database
+    .prepare(
+      `UPDATE learner_account
+       SET password = ?, updated_at = ?
+       WHERE id = ? AND password = ?`,
+    )
+    .bind(replacement, Date.now(), credential.id, credential.password)
+    .run();
 }
 
 function internalAuthHeaders(source: Headers): Headers {

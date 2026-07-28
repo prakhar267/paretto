@@ -32,6 +32,7 @@ import {
 } from "@/app/account-id";
 import {
   hashParettoPassword,
+  validParettoPasswordPepperConfiguration,
   verifyParettoPassword,
 } from "@/app/password-kdf";
 
@@ -46,6 +47,7 @@ type LearnerAuthBindings = {
   USER_KEY_SECRET?: unknown;
   SUPPORT_RATE_LIMIT_SECRET?: unknown;
   BETTER_AUTH_SECRET?: unknown;
+  PARETTO_PASSWORD_PEPPERS?: unknown;
   BETTER_AUTH_RATE_LIMIT_SECRET?: unknown;
   BETTER_AUTH_URL?: unknown;
   ADMIN_SESSION_SECRET?: unknown;
@@ -330,27 +332,23 @@ export async function learnerAuthReadiness(): Promise<LearnerAuthReadiness> {
     validBetterAuthRateLimitSecret(bindings) ||
     process.env.NODE_ENV === "development" ||
     process.env.NODE_ENV === "test";
+  const passwordPeppers =
+    validParettoPasswordPepperConfiguration(
+      bindings.PARETTO_PASSWORD_PEPPERS,
+    );
+  const authSecret =
+    hasSecret(bindings.BETTER_AUTH_SECRET) ||
+    process.env.NODE_ENV === "development" ||
+    process.env.NODE_ENV === "test";
   return {
-    configured:
-      (hasSecret(bindings.BETTER_AUTH_SECRET) ||
-        process.env.NODE_ENV === "development") &&
-      canonicalOrigin &&
-      rateLimit,
+    configured: authSecret && passwordPeppers && canonicalOrigin && rateLimit,
     canonicalOrigin,
     rateLimit,
     emailPassword: true,
     parettoIdAccountCreation:
-      (hasSecret(bindings.BETTER_AUTH_SECRET) ||
-        process.env.NODE_ENV === "development" ||
-        process.env.NODE_ENV === "test") &&
-      canonicalOrigin &&
-      rateLimit,
+      authSecret && passwordPeppers && canonicalOrigin && rateLimit,
     recoveryCodes:
-      (hasSecret(bindings.BETTER_AUTH_SECRET) ||
-        process.env.NODE_ENV === "development" ||
-        process.env.NODE_ENV === "test") &&
-      canonicalOrigin &&
-      rateLimit,
+      authSecret && passwordPeppers && canonicalOrigin && rateLimit,
     emailAccountCreation: false,
     emailVerification: passwordReset,
     passwordReset,

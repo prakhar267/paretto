@@ -25,6 +25,7 @@ deployment and monitoring history exist.
 | `SUPPORT_RATE_LIMIT_SECRET` | HMACs Cloudflare-provided client IPs into opaque support-abuse buckets | Independent 256-bit random secret; never reuse `USER_KEY_SECRET` or store it in Git |
 | `BETTER_AUTH_RATE_LIMIT_SECRET` | HMACs Better Auth&apos;s ephemeral IP-and-route key into opaque authentication-abuse buckets | Independent 256-bit random secret; never reuse any learner, support, auth-signing, or administrator secret |
 | `BETTER_AUTH_SECRET` | Signs and encrypts learner-account authentication state | Independent random secret of at least 32 characters; never reuse `USER_KEY_SECRET` |
+| `PARETTO_PASSWORD_PEPPERS` | Protects password verifiers if D1 alone is exposed and supports bounded pepper rotation | Managed compact JSON keyring with one current key and at most two retained keys; every secret is unique, random, and 32–128 characters |
 | `BETTER_AUTH_URL` | Pins authentication callbacks and trusted origin | Exact HTTPS origin for the matching staging or production Worker |
 | `LAUNCH_MODE` | Selects the enforced readiness contract | Exactly `controlled-beta` or `public`; never infer readiness from missing delivery settings |
 | `WORKERS_PLAN` | Declares the CPU contract used by password authentication | `free` is controlled-beta-only; `public` requires `paid`, with the real Cloudflare subscription verified separately |
@@ -60,12 +61,29 @@ authentication quota buckets. A missing, short, or reused value makes
 production health non-ready and account endpoints fail closed.
 
 Learner passwords are stored only as salted
-`pbkdf2-sha256-v1` verifiers derived with 600,000 Web Crypto iterations.
-Do not replace this with Better Auth&apos;s default scrypt in a Worker: its
-per-request memory profile is unsafe under concurrent authentication. Workers
-Free is an evaluation-only `controlled-beta` runtime because its 10 ms CPU
-limit cannot guarantee this password workload. Set `WORKERS_PLAN=paid` before
-selecting `LAUNCH_MODE=public`.
+`pbkdf2-sha256-peppered-v3` verifiers. The verifier records a non-secret pepper
+key ID. The Worker first applies an HMAC-SHA256 pepper from the independently
+stored `PARETTO_PASSWORD_PEPPERS` keyring, then uses
+Cloudflare's maximum supported 100,000 PBKDF2-SHA256 iterations. The pepper
+never enters D1, so a database-only breach cannot test password guesses
+offline. Workers Free remains an evaluation-only `controlled-beta` runtime
+because its 10 ms CPU limit cannot guarantee broad authentication load. Set
+`WORKERS_PLAN=paid` before selecting `LAUNCH_MODE=public`.
+
+To rotate password peppers, add a new unique key ID and secret, make that ID
+`current`, and retain the prior entry. A successful sign-in atomically re-hashes
+the credential under the current key; recovery always writes the current
+format. Monitor the database for the prior key ID and remove it only after the
+migration window is complete or every remaining learner has been directed
+through recovery. Never replace a secret under an existing key ID, retain more
+than three keys, or retain a compromised key longer than the documented incident
+window.
+
+`BETTER_AUTH_SECRET` is separate from password hashing. Rotating it still
+invalidates existing authentication sessions and can require linked providers
+whose tokens were encrypted under the old value to relink, but it no longer
+invalidates Paretto ID password verifiers. Perform that rotation only with a
+backup, session-revocation communication, and provider relink plan.
 
 Apple and native-session values are intentionally absent while
 `NATIVE_API_ENABLED=false`. When native cloud sync is scheduled, use the separate

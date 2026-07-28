@@ -8,6 +8,7 @@ const COMMON_REQUIRED_SECRETS = [
   "SUPPORT_RATE_LIMIT_SECRET",
   "BETTER_AUTH_RATE_LIMIT_SECRET",
   "BETTER_AUTH_SECRET",
+  "PARETTO_PASSWORD_PEPPERS",
   "ADMIN_SESSION_SECRET",
   "TURNSTILE_SECRET",
 ];
@@ -55,9 +56,9 @@ const adminPasswordSecretName =
     ? "ADMIN_PASSWORD_VERIFIER"
     : "ADMIN_PASSWORD_VERIFIERS";
 const requiredSecrets = [
-  ...COMMON_REQUIRED_SECRETS.slice(0, 4),
+  ...COMMON_REQUIRED_SECRETS.slice(0, 5),
   adminPasswordSecretName,
-  ...COMMON_REQUIRED_SECRETS.slice(4),
+  ...COMMON_REQUIRED_SECRETS.slice(5),
 ];
 invariant(
   Array.isArray(configuration.secrets?.required) &&
@@ -117,6 +118,7 @@ const betterAuthRateLimitSecret = values.get(
   "BETTER_AUTH_RATE_LIMIT_SECRET",
 );
 const betterAuthSecret = values.get("BETTER_AUTH_SECRET");
+const passwordPeppers = values.get("PARETTO_PASSWORD_PEPPERS");
 const adminPasswordVerifier = values.get(adminPasswordSecretName);
 const adminSessionSecret = values.get("ADMIN_SESSION_SECRET");
 const turnstileSecret = values.get("TURNSTILE_SECRET");
@@ -137,6 +139,11 @@ invariant(
 invariant(
   isBoundedSecret(betterAuthSecret, 32),
   "BETTER_AUTH_SECRET must be an unquoted random value of at least 32 characters.",
+);
+const parsedPasswordPeppers = parsePasswordPepperKeyring(passwordPeppers);
+invariant(
+  parsedPasswordPeppers !== null,
+  "PARETTO_PASSWORD_PEPPERS must be compact JSON with current and 1–3 independent 32–128 character keys.",
 );
 if (adminPasswordSecretName === "ADMIN_PASSWORD_VERIFIER") {
   invariant(
@@ -167,9 +174,10 @@ invariant(
     supportRateLimitSecret,
     betterAuthRateLimitSecret,
     betterAuthSecret,
+    ...Object.values(parsedPasswordPeppers.keys),
     adminSessionSecret,
-  ]).size === 5,
-  "USER_KEY_SECRET, SUPPORT_RATE_LIMIT_SECRET, BETTER_AUTH_RATE_LIMIT_SECRET, BETTER_AUTH_SECRET, and ADMIN_SESSION_SECRET must be independent values.",
+  ]).size === 5 + Object.keys(parsedPasswordPeppers.keys).length,
+  "USER_KEY_SECRET, SUPPORT_RATE_LIMIT_SECRET, BETTER_AUTH_RATE_LIMIT_SECRET, BETTER_AUTH_SECRET, every PARETTO_PASSWORD_PEPPERS key, and ADMIN_SESSION_SECRET must be independent values.",
 );
 for (const [name, value] of values) {
   invariant(
@@ -211,13 +219,56 @@ function parseDotEnv(source) {
   return values;
 }
 
-function isBoundedSecret(value, minimumLength) {
+function isBoundedSecret(value, minimumLength, maximumLength = 256) {
   return (
     typeof value === "string" &&
     value.length >= minimumLength &&
-    value.length <= 256 &&
+    value.length <= maximumLength &&
     !/\s/.test(value)
   );
+}
+
+function parsePasswordPepperKeyring(value) {
+  if (
+    typeof value !== "string" ||
+    value.length < 1 ||
+    value.length > 256 ||
+    /\s/.test(value)
+  ) {
+    return null;
+  }
+  try {
+    const parsed = JSON.parse(value);
+    if (
+      !parsed ||
+      typeof parsed !== "object" ||
+      Array.isArray(parsed) ||
+      Object.keys(parsed).sort().join(",") !== "current,keys" ||
+      typeof parsed.current !== "string" ||
+      !/^[A-Za-z0-9_-]{1,16}$/.test(parsed.current) ||
+      !parsed.keys ||
+      typeof parsed.keys !== "object" ||
+      Array.isArray(parsed.keys)
+    ) {
+      return null;
+    }
+    const entries = Object.entries(parsed.keys);
+    if (
+      entries.length < 1 ||
+      entries.length > 3 ||
+      !Object.hasOwn(parsed.keys, parsed.current) ||
+      entries.some(
+        ([keyId, secret]) =>
+          !/^[A-Za-z0-9_-]{1,16}$/.test(keyId) ||
+          !isBoundedSecret(secret, 32, 128),
+      )
+    ) {
+      return null;
+    }
+    return parsed;
+  } catch {
+    return null;
+  }
 }
 
 function validEmail(value) {

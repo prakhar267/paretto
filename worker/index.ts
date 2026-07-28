@@ -17,6 +17,7 @@ interface Env {
   SUPPORT_RATE_LIMIT_SECRET?: string;
   BETTER_AUTH_RATE_LIMIT_SECRET?: string;
   BETTER_AUTH_SECRET?: string;
+  PARETTO_PASSWORD_PEPPERS?: string;
   BETTER_AUTH_URL?: string;
   ADMIN_EMAILS?: string;
   ADMIN_PASSWORD_VERIFIER?: string;
