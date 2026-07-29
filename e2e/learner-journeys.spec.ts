@@ -491,16 +491,22 @@ test("the packaged French female voice is delivered and Chromium plays the v2 re
   page,
 }) => {
   await beginAsNewLearner(page, "Audio");
-  const audioResponse = page.waitForResponse((response) =>
-    response.url().endsWith("/audio/fr/v2/idf-metro.wav"),
-  );
+  const packagedAudio = await page.evaluate(async () => {
+    const response = await fetch("/audio/fr/v2/idf-metro.wav");
+    const bytes = await response.arrayBuffer();
+    return {
+      byteLength: bytes.byteLength,
+      contentType: response.headers.get("content-type") ?? "",
+      status: response.status,
+    };
+  });
+  expect([200, 206]).toContain(packagedAudio.status);
+  expect(packagedAudio.contentType).toMatch(/audio\/(?:wav|x-wav)/i);
+  expect(packagedAudio.byteLength).toBeGreaterThan(1_000);
+
   await page.getByRole("button", { name: /Start lesson 1/i }).first().click();
   const lesson = page.getByRole("dialog");
   await expect(lesson).toBeVisible();
-
-  const response = await audioResponse;
-  expect([200, 206]).toContain(response.status());
-  expect(response.headers()["content-type"]).toMatch(/audio\/(?:wav|x-wav)/i);
 
   const audioButton = lesson.getByRole("button", {
     name: /Hear pronunciation of le métro/i,
