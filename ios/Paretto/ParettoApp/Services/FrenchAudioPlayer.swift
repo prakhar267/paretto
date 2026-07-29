@@ -123,6 +123,7 @@ final class FrenchAudioPlayer: NSObject, ObservableObject, AVAudioPlayerDelegate
     }
 
     private func configureAudioSession() {
+        #if os(iOS)
         let session = AVAudioSession.sharedInstance()
         do {
             try session.setCategory(
@@ -134,6 +135,7 @@ final class FrenchAudioPlayer: NSObject, ObservableObject, AVAudioPlayerDelegate
         } catch {
             // A bundled clip can still play with the system's existing session.
         }
+        #endif
     }
 
     nonisolated static func preferredFemaleVoice(
