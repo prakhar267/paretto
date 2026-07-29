@@ -251,9 +251,9 @@ jobs:
           app="$derived_data/Build/Products/Release-iphonesimulator/Paretto.app"
           test -s "$app/Paretto"
           test -s "$app/PrivacyInfo.xcprivacy"
-          test -s "$app/fr/v1/idf-metro.wav"
+          test -s "$app/fr/v2/idf-metro.wav"
           audio_count="$(
-            find "$app/fr/v1" -type f -name '*.wav' -print |
+            find "$app/fr/v2" -type f -name '*.wav' -print |
               wc -l |
               tr -d '[:space:]'
           )"

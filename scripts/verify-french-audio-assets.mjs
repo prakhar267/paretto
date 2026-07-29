@@ -58,7 +58,7 @@ async function sha256(filePath) {
   return createHash("sha256").update(contents).digest("hex");
 }
 
-export function inspectWav(bytes, assetPath) {
+export function inspectWav(bytes, assetPath, expectedSampleRateHz = 24_000) {
   invariant(bytes.length >= 44, `${assetPath} is too small to be a WAVE file`);
   invariant(
     bytes.subarray(0, 4).toString("ascii") === "RIFF" &&
@@ -101,8 +101,8 @@ export function inspectWav(bytes, assetPath) {
   invariant(format.encoding === 1, `${assetPath} must use PCM encoding`);
   invariant(format.channels === 1, `${assetPath} must be mono`);
   invariant(
-    format.sampleRateHz === 22_050,
-    `${assetPath} must use a 22,050 Hz sample rate`,
+    format.sampleRateHz === expectedSampleRateHz,
+    `${assetPath} must use a ${expectedSampleRateHz.toLocaleString("en-US")} Hz sample rate`,
   );
   invariant(
     format.bitsPerSample === 16,
@@ -134,12 +134,12 @@ export function inspectWav(bytes, assetPath) {
   };
 }
 
-async function verifyAsset(assetPath, expected) {
+async function verifyAsset(assetPath, expected, expectedSampleRateHz) {
   const details = await stat(assetPath);
   invariant(details.isFile(), `${assetPath} is not a regular file`);
   invariant(details.size >= 1_024, `${assetPath} is unexpectedly small`);
   const contents = await readFile(assetPath);
-  const signal = inspectWav(contents, assetPath);
+  const signal = inspectWav(contents, assetPath, expectedSampleRateHz);
   invariant(
     signal.durationSeconds >= 0.25 && signal.durationSeconds <= 6,
     `${assetPath} has an implausible duration`,
@@ -199,7 +199,7 @@ async function main() {
     manifest.mediaType === "audio/wav" && manifest.fileExtension === "wav",
     "Only validated WAV release assets are accepted",
   );
-  invariant(manifest.sampleRateHz === 22_050, "Sample rate must be 22,050 Hz");
+  invariant(manifest.sampleRateHz === 24_000, "Sample rate must be 24,000 Hz");
   invariant(manifest.channels === 1, "Release assets must be mono");
   invariant(
     Array.isArray(manifest.availableWordIds),
@@ -265,6 +265,14 @@ async function main() {
     typeof manifest.generation.voice === "string" &&
       manifest.generation.voice.length > 0,
     "Voice/model attribution is required",
+  );
+  invariant(
+    manifest.generation.generator === "Kokoro ONNX" &&
+      manifest.generation.voice === "ff_siwis" &&
+      manifest.generation.voiceGender === "female" &&
+      manifest.generation.quality === "high" &&
+      manifest.generation.speakers === 1,
+    "The release must use the approved single-speaker French female neural voice",
   );
   invariant(
     /^[a-f0-9]{64}$/.test(manifest.generation.modelSha256) &&
@@ -335,7 +343,11 @@ async function main() {
       );
     }
     verifiedSignals.push(
-      await verifyAsset(path.join(releaseDirectory, `${wordId}.wav`), expected),
+      await verifyAsset(
+        path.join(releaseDirectory, `${wordId}.wav`),
+        expected,
+        manifest.sampleRateHz,
+      ),
     );
   }
   invariant(

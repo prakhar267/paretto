@@ -78,6 +78,8 @@ struct LessonFlowView: View {
                 }
                 .buttonStyle(.bordered)
                 .disabled(!model.state.settings.sound)
+                .accessibilityIdentifier("lesson-french-audio")
+                .accessibilityValue(model.audio.lastPlaybackSourceDescription)
 
                 if revealed {
                     BrandCard {

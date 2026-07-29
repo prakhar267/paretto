@@ -11,6 +11,7 @@ struct BundledAudioResource: Equatable {
 @MainActor
 final class FrenchAudioPlayer: NSObject, ObservableObject, AVAudioPlayerDelegate, AVSpeechSynthesizerDelegate {
     @Published private(set) var playingWordID: String?
+    @Published private(set) var lastPlaybackSourceDescription = "Ready"
     private var player: AVAudioPlayer?
     private let synthesizer = AVSpeechSynthesizer()
 
@@ -22,20 +23,30 @@ final class FrenchAudioPlayer: NSObject, ObservableObject, AVAudioPlayerDelegate
     func play(_ word: FrenchWord, course: CourseMetadata, enabled: Bool) {
         guard enabled else { return }
         stop()
+        configureAudioSession()
         if let url = bundledURL(for: word, course: course),
            let player = try? AVAudioPlayer(contentsOf: url) {
             self.player = player
             player.delegate = self
             playingWordID = word.id
             player.prepareToPlay()
-            if player.play() { return }
+            if player.play() {
+                lastPlaybackSourceDescription = "High-quality French female recording"
+                return
+            }
             self.player = nil
         }
         let utterance = AVSpeechUtterance(string: word.french)
-        utterance.voice = AVSpeechSynthesisVoice(language: course.audioLocale)
+        utterance.voice = Self.preferredFemaleVoice(locale: course.audioLocale)
+            ?? AVSpeechSynthesisVoice(language: course.audioLocale)
         utterance.rate = 0.42
+        utterance.pitchMultiplier = 1
+        utterance.volume = 1
+        utterance.preUtteranceDelay = 0.024
+        utterance.postUtteranceDelay = 0.080
         synthesizer.speak(utterance)
         playingWordID = word.id
+        lastPlaybackSourceDescription = "Device French female voice"
     }
 
     func stop() {
@@ -88,13 +99,7 @@ final class FrenchAudioPlayer: NSObject, ObservableObject, AVAudioPlayerDelegate
             return nil
         }
 
-        guard let path = word.audioPath else {
-            return BundledAudioResource(
-                name: word.id,
-                fileExtension: "wav",
-                subdirectory: "\(bundleDirectory)/v1"
-            )
-        }
+        guard let path = word.audioPath else { return nil }
         let expectedPrefix = "/\(assetPrefix)/"
         guard path.hasPrefix(expectedPrefix), path.hasSuffix(".wav") else {
             return nil
@@ -115,5 +120,49 @@ final class FrenchAudioPlayer: NSObject, ObservableObject, AVAudioPlayerDelegate
             fileExtension: "wav",
             subdirectory: "\(bundleDirectory)/\(nestedDirectory)"
         )
+    }
+
+    private func configureAudioSession() {
+        #if os(iOS)
+        let session = AVAudioSession.sharedInstance()
+        do {
+            try session.setCategory(
+                .playback,
+                mode: .spokenAudio,
+                options: [.duckOthers]
+            )
+            try session.setActive(true)
+        } catch {
+            // A bundled clip can still play with the system's existing session.
+        }
+        #endif
+    }
+
+    nonisolated static func preferredFemaleVoice(
+        locale: String,
+        voices: [AVSpeechSynthesisVoice] = AVSpeechSynthesisVoice.speechVoices()
+    ) -> AVSpeechSynthesisVoice? {
+        let normalizedLocale = locale.lowercased()
+        let language = normalizedLocale.split(separator: "-").first.map(String.init)
+        let candidates = voices.filter { voice in
+            let voiceLocale = voice.language.lowercased()
+            return voiceLocale == normalizedLocale ||
+                (language.map { voiceLocale.hasPrefix($0) } ?? false)
+        }
+        let femaleCandidates = candidates.filter { $0.gender == .female }
+        let rankedCandidates = femaleCandidates.isEmpty ? candidates : femaleCandidates
+        return rankedCandidates.max { left, right in
+            voiceScore(left, locale: normalizedLocale) <
+                voiceScore(right, locale: normalizedLocale)
+        }
+    }
+
+    nonisolated private static func voiceScore(
+        _ voice: AVSpeechSynthesisVoice,
+        locale: String
+    ) -> Int {
+        let exactLocale = voice.language.lowercased() == locale ? 1_000 : 500
+        let female = voice.gender == .female ? 200 : 0
+        return exactLocale + female + voice.quality.rawValue
     }
 }

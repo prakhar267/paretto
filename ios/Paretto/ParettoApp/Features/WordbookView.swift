@@ -74,6 +74,7 @@ private struct WordDetailView: View {
                         Label("Hear the French", systemImage: "speaker.wave.2.fill")
                     }
                     .buttonStyle(.borderedProminent)
+                    .accessibilityValue(model.audio.lastPlaybackSourceDescription)
                 }
                 .padding(22)
             }

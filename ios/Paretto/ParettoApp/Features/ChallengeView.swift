@@ -88,6 +88,7 @@ struct ChallengeView: View {
                 }
                 .buttonStyle(.bordered)
                 .disabled(!model.state.settings.sound)
+                .accessibilityValue(model.audio.lastPlaybackSourceDescription)
 
                 VStack(spacing: 10) {
                     ForEach(options(for: word)) { option in

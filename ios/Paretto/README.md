@@ -11,7 +11,7 @@ Travel Dice, the collectible carnet, reminders, data export, and in-app account
 deletion. Layouts adapt between compact iPhone tabs and an iPad split view, and
 large accessibility text switches dense horizontal controls to vertical layouts.
 The Release gate also inspects the built application bundle and requires all
-270 pronunciation WAV files under `fr/v1`, matching the lookup derived from the
+270 pronunciation WAV files under `fr/v2`, matching the lookup derived from the
 course audio prefix; a missing asset fails CI instead of silently shipping only
 speech synthesis.
 

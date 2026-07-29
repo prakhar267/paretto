@@ -1,7 +1,7 @@
-const STATIC_CACHE = "paretto-static-v6";
-// Keep the legacy audio cache identity so existing installs do not redownload
-// the complete French pronunciation library during the brand transition.
-const AUDIO_CACHE = "pas-a-pas-audio-v1";
+const STATIC_CACHE = "paretto-static-v7";
+// The v2 cache intentionally retires the robotic Piper clips. Immutable v2
+// paths prevent stale audio from being mistaken for the current voice release.
+const AUDIO_CACHE = "paretto-audio-v2";
 const OFFLINE_SHELL_PATH = "/offline.html";
 const PUBLIC_AUDIO_PATH =
   /^\/audio\/fr\/[a-z0-9]+(?:-[a-z0-9]+)*\/[a-z0-9]+(?:-[a-z0-9]+)*\.wav$/;

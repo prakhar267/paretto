@@ -126,7 +126,7 @@ describe("read-only deployment smoke", () => {
         response.end(Buffer.alloc(1_024, 1));
         return;
       }
-      if (path === "/audio/fr/v1/idf-metro.wav") {
+      if (path === "/audio/fr/v2/idf-metro.wav") {
         response.writeHead(200, { "content-type": "audio/wav" });
         response.end(Buffer.alloc(1_024, 2));
         return;
@@ -215,7 +215,7 @@ describe("read-only deployment smoke", () => {
           "/",
           "/accessibility",
           "/attributions",
-          "/audio/fr/v1/idf-metro.wav",
+          "/audio/fr/v2/idf-metro.wav",
           "/cookies",
           "/icon-192.png",
           "/manifest.webmanifest",

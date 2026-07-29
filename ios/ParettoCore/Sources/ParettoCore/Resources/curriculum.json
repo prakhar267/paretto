@@ -19,7 +19,7 @@
       "wordCollectionLabel": "Wordbook"
     }
   },
-  "audioAssetVersion": "v1",
+  "audioAssetVersion": "v2",
   "audioAttributionPath": "/audio/fr/ATTRIBUTION.md",
   "regions": [
     {
@@ -599,7 +599,7 @@
       "lesson": 1,
       "cefr": "A1",
       "topic": "city landmarks",
-      "audioPath": "/audio/fr/v1/idf-metro.wav"
+      "audioPath": "/audio/fr/v2/idf-metro.wav"
     },
     {
       "id": "idf-musee",
@@ -616,7 +616,7 @@
       "lesson": 1,
       "cefr": "A1",
       "topic": "city landmarks",
-      "audioPath": "/audio/fr/v1/idf-musee.wav"
+      "audioPath": "/audio/fr/v2/idf-musee.wav"
     },
     {
       "id": "idf-banlieue",
@@ -633,7 +633,7 @@
       "lesson": 1,
       "cefr": "A1",
       "topic": "city landmarks",
-      "audioPath": "/audio/fr/v1/idf-banlieue.wav"
+      "audioPath": "/audio/fr/v2/idf-banlieue.wav"
     },
     {
       "id": "idf-se-depecher",
@@ -650,7 +650,7 @@
       "lesson": 1,
       "cefr": "A1",
       "topic": "city landmarks",
-      "audioPath": "/audio/fr/v1/idf-se-depecher.wav"
+      "audioPath": "/audio/fr/v2/idf-se-depecher.wav"
     },
     {
       "id": "idf-anime",
@@ -667,7 +667,7 @@
       "lesson": 1,
       "cefr": "A1",
       "topic": "city landmarks",
-      "audioPath": "/audio/fr/v1/idf-anime.wav"
+      "audioPath": "/audio/fr/v2/idf-anime.wav"
     },
     {
       "id": "hdf-braderie",
@@ -684,7 +684,7 @@
       "lesson": 1,
       "cefr": "A1",
       "topic": "local welcome",
-      "audioPath": "/audio/fr/v1/hdf-braderie.wav"
+      "audioPath": "/audio/fr/v2/hdf-braderie.wav"
     },
     {
       "id": "hdf-beffroi",
@@ -701,7 +701,7 @@
       "lesson": 1,
       "cefr": "A1",
       "topic": "local welcome",
-      "audioPath": "/audio/fr/v1/hdf-beffroi.wav"
+      "audioPath": "/audio/fr/v2/hdf-beffroi.wav"
     },
     {
       "id": "hdf-gaufre",
@@ -718,7 +718,7 @@
       "lesson": 1,
       "cefr": "A1",
       "topic": "local welcome",
-      "audioPath": "/audio/fr/v1/hdf-gaufre.wav"
+      "audioPath": "/audio/fr/v2/hdf-gaufre.wav"
     },
     {
       "id": "hdf-chaleureux",
@@ -735,7 +735,7 @@
       "lesson": 1,
       "cefr": "A1",
       "topic": "local welcome",
-      "audioPath": "/audio/fr/v1/hdf-chaleureux.wav"
+      "audioPath": "/audio/fr/v2/hdf-chaleureux.wav"
     },
     {
       "id": "hdf-accueillir",
@@ -752,7 +752,7 @@
       "lesson": 1,
       "cefr": "A1",
       "topic": "local welcome",
-      "audioPath": "/audio/fr/v1/hdf-accueillir.wav"
+      "audioPath": "/audio/fr/v2/hdf-accueillir.wav"
     },
     {
       "id": "nor-falaise",
@@ -769,7 +769,7 @@
       "lesson": 1,
       "cefr": "A1",
       "topic": "coastal landscape",
-      "audioPath": "/audio/fr/v1/nor-falaise.wav"
+      "audioPath": "/audio/fr/v2/nor-falaise.wav"
     },
     {
       "id": "nor-cidre",
@@ -786,7 +786,7 @@
       "lesson": 1,
       "cefr": "A1",
       "topic": "coastal landscape",
-      "audioPath": "/audio/fr/v1/nor-cidre.wav"
+      "audioPath": "/audio/fr/v2/nor-cidre.wav"
     },
     {
       "id": "nor-maree",
@@ -803,7 +803,7 @@
       "lesson": 1,
       "cefr": "A1",
       "topic": "coastal landscape",
-      "audioPath": "/audio/fr/v1/nor-maree.wav"
+      "audioPath": "/audio/fr/v2/nor-maree.wav"
     },
     {
       "id": "nor-brumeux",
@@ -820,7 +820,7 @@
       "lesson": 1,
       "cefr": "A1",
       "topic": "coastal landscape",
-      "audioPath": "/audio/fr/v1/nor-brumeux.wav"
+      "audioPath": "/audio/fr/v2/nor-brumeux.wav"
     },
     {
       "id": "nor-ferme",
@@ -837,7 +837,7 @@
       "lesson": 1,
       "cefr": "A1",
       "topic": "coastal landscape",
-      "audioPath": "/audio/fr/v1/nor-ferme.wav"
+      "audioPath": "/audio/fr/v2/nor-ferme.wav"
     },
     {
       "id": "bre-phare",
@@ -854,7 +854,7 @@
       "lesson": 1,
       "cefr": "A1",
       "topic": "maritime life",
-      "audioPath": "/audio/fr/v1/bre-phare.wav"
+      "audioPath": "/audio/fr/v2/bre-phare.wav"
     },
     {
       "id": "bre-crepe",
@@ -871,7 +871,7 @@
       "lesson": 1,
       "cefr": "A1",
       "topic": "maritime life",
-      "audioPath": "/audio/fr/v1/bre-crepe.wav"
+      "audioPath": "/audio/fr/v2/bre-crepe.wav"
     },
     {
       "id": "bre-sentier-cotier",
@@ -888,7 +888,7 @@
       "lesson": 1,
       "cefr": "A1",
       "topic": "maritime life",
-      "audioPath": "/audio/fr/v1/bre-sentier-cotier.wav"
+      "audioPath": "/audio/fr/v2/bre-sentier-cotier.wav"
     },
     {
       "id": "bre-naviguer",
@@ -905,7 +905,7 @@
       "lesson": 1,
       "cefr": "A1",
       "topic": "maritime life",
-      "audioPath": "/audio/fr/v1/bre-naviguer.wav"
+      "audioPath": "/audio/fr/v2/bre-naviguer.wav"
     },
     {
       "id": "bre-sale",
@@ -922,7 +922,7 @@
       "lesson": 1,
       "cefr": "A1",
       "topic": "maritime life",
-      "audioPath": "/audio/fr/v1/bre-sale.wav"
+      "audioPath": "/audio/fr/v2/bre-sale.wav"
     },
     {
       "id": "pdl-estuaire",
@@ -939,7 +939,7 @@
       "lesson": 1,
       "cefr": "A1",
       "topic": "waterways",
-      "audioPath": "/audio/fr/v1/pdl-estuaire.wav"
+      "audioPath": "/audio/fr/v2/pdl-estuaire.wav"
     },
     {
       "id": "pdl-marais",
@@ -956,7 +956,7 @@
       "lesson": 1,
       "cefr": "A1",
       "topic": "waterways",
-      "audioPath": "/audio/fr/v1/pdl-marais.wav"
+      "audioPath": "/audio/fr/v2/pdl-marais.wav"
     },
     {
       "id": "pdl-voile",
@@ -973,7 +973,7 @@
       "lesson": 1,
       "cefr": "A1",
       "topic": "waterways",
-      "audioPath": "/audio/fr/v1/pdl-voile.wav"
+      "audioPath": "/audio/fr/v2/pdl-voile.wav"
     },
     {
       "id": "pdl-pecher",
@@ -990,7 +990,7 @@
       "lesson": 1,
       "cefr": "A1",
       "topic": "waterways",
-      "audioPath": "/audio/fr/v1/pdl-pecher.wav"
+      "audioPath": "/audio/fr/v2/pdl-pecher.wav"
     },
     {
       "id": "pdl-paisible",
@@ -1007,7 +1007,7 @@
       "lesson": 1,
       "cefr": "A1",
       "topic": "waterways",
-      "audioPath": "/audio/fr/v1/pdl-paisible.wav"
+      "audioPath": "/audio/fr/v2/pdl-paisible.wav"
     },
     {
       "id": "cvl-chateau",
@@ -1024,7 +1024,7 @@
       "lesson": 1,
       "cefr": "A1",
       "topic": "heritage",
-      "audioPath": "/audio/fr/v1/cvl-chateau.wav"
+      "audioPath": "/audio/fr/v2/cvl-chateau.wav"
     },
     {
       "id": "cvl-jardin",
@@ -1041,7 +1041,7 @@
       "lesson": 1,
       "cefr": "A1",
       "topic": "heritage",
-      "audioPath": "/audio/fr/v1/cvl-jardin.wav"
+      "audioPath": "/audio/fr/v2/cvl-jardin.wav"
     },
     {
       "id": "cvl-vallee",
@@ -1058,7 +1058,7 @@
       "lesson": 1,
       "cefr": "A1",
       "topic": "heritage",
-      "audioPath": "/audio/fr/v1/cvl-vallee.wav"
+      "audioPath": "/audio/fr/v2/cvl-vallee.wav"
     },
     {
       "id": "cvl-royal",
@@ -1075,7 +1075,7 @@
       "lesson": 1,
       "cefr": "A1",
       "topic": "heritage",
-      "audioPath": "/audio/fr/v1/cvl-royal.wav"
+      "audioPath": "/audio/fr/v2/cvl-royal.wav"
     },
     {
       "id": "cvl-admirer",
@@ -1092,7 +1092,7 @@
       "lesson": 1,
       "cefr": "A1",
       "topic": "heritage",
-      "audioPath": "/audio/fr/v1/cvl-admirer.wav"
+      "audioPath": "/audio/fr/v2/cvl-admirer.wav"
     },
     {
       "id": "ges-marche-noel",
@@ -1109,7 +1109,7 @@
       "lesson": 1,
       "cefr": "A1",
       "topic": "seasonal traditions",
-      "audioPath": "/audio/fr/v1/ges-marche-noel.wav"
+      "audioPath": "/audio/fr/v2/ges-marche-noel.wav"
     },
     {
       "id": "ges-cathedrale",
@@ -1126,7 +1126,7 @@
       "lesson": 1,
       "cefr": "A1",
       "topic": "seasonal traditions",
-      "audioPath": "/audio/fr/v1/ges-cathedrale.wav"
+      "audioPath": "/audio/fr/v2/ges-cathedrale.wav"
     },
     {
       "id": "ges-cigogne",
@@ -1143,7 +1143,7 @@
       "lesson": 1,
       "cefr": "A1",
       "topic": "seasonal traditions",
-      "audioPath": "/audio/fr/v1/ges-cigogne.wav"
+      "audioPath": "/audio/fr/v2/ges-cigogne.wav"
     },
     {
       "id": "ges-petillant",
@@ -1160,7 +1160,7 @@
       "lesson": 1,
       "cefr": "A1",
       "topic": "seasonal traditions",
-      "audioPath": "/audio/fr/v1/ges-petillant.wav"
+      "audioPath": "/audio/fr/v2/ges-petillant.wav"
     },
     {
       "id": "ges-celebrer",
@@ -1177,7 +1177,7 @@
       "lesson": 1,
       "cefr": "A1",
       "topic": "seasonal traditions",
-      "audioPath": "/audio/fr/v1/ges-celebrer.wav"
+      "audioPath": "/audio/fr/v2/ges-celebrer.wav"
     },
     {
       "id": "bfc-vignoble",
@@ -1194,7 +1194,7 @@
       "lesson": 1,
       "cefr": "A1",
       "topic": "vineyard landscape",
-      "audioPath": "/audio/fr/v1/bfc-vignoble.wav"
+      "audioPath": "/audio/fr/v2/bfc-vignoble.wav"
     },
     {
       "id": "bfc-fromage",
@@ -1211,7 +1211,7 @@
       "lesson": 1,
       "cefr": "A1",
       "topic": "vineyard landscape",
-      "audioPath": "/audio/fr/v1/bfc-fromage.wav"
+      "audioPath": "/audio/fr/v2/bfc-fromage.wav"
     },
     {
       "id": "bfc-tonneau",
@@ -1228,7 +1228,7 @@
       "lesson": 1,
       "cefr": "A1",
       "topic": "vineyard landscape",
-      "audioPath": "/audio/fr/v1/bfc-tonneau.wav"
+      "audioPath": "/audio/fr/v2/bfc-tonneau.wav"
     },
     {
       "id": "bfc-deguster",
@@ -1245,7 +1245,7 @@
       "lesson": 1,
       "cefr": "A1",
       "topic": "vineyard landscape",
-      "audioPath": "/audio/fr/v1/bfc-deguster.wav"
+      "audioPath": "/audio/fr/v2/bfc-deguster.wav"
     },
     {
       "id": "bfc-boise",
@@ -1262,7 +1262,7 @@
       "lesson": 1,
       "cefr": "A1",
       "topic": "vineyard landscape",
-      "audioPath": "/audio/fr/v1/bfc-boise.wav"
+      "audioPath": "/audio/fr/v2/bfc-boise.wav"
     },
     {
       "id": "naq-dune",
@@ -1279,7 +1279,7 @@
       "lesson": 1,
       "cefr": "A1",
       "topic": "Atlantic coast",
-      "audioPath": "/audio/fr/v1/naq-dune.wav"
+      "audioPath": "/audio/fr/v2/naq-dune.wav"
     },
     {
       "id": "naq-surf",
@@ -1296,7 +1296,7 @@
       "lesson": 1,
       "cefr": "A1",
       "topic": "Atlantic coast",
-      "audioPath": "/audio/fr/v1/naq-surf.wav"
+      "audioPath": "/audio/fr/v2/naq-surf.wav"
     },
     {
       "id": "naq-huitre",
@@ -1313,7 +1313,7 @@
       "lesson": 1,
       "cefr": "A1",
       "topic": "Atlantic coast",
-      "audioPath": "/audio/fr/v1/naq-huitre.wav"
+      "audioPath": "/audio/fr/v2/naq-huitre.wav"
     },
     {
       "id": "naq-vaste",
@@ -1330,7 +1330,7 @@
       "lesson": 1,
       "cefr": "A1",
       "topic": "Atlantic coast",
-      "audioPath": "/audio/fr/v1/naq-vaste.wav"
+      "audioPath": "/audio/fr/v2/naq-vaste.wav"
     },
     {
       "id": "naq-recolter",
@@ -1347,7 +1347,7 @@
       "lesson": 1,
       "cefr": "A1",
       "topic": "Atlantic coast",
-      "audioPath": "/audio/fr/v1/naq-recolter.wav"
+      "audioPath": "/audio/fr/v2/naq-recolter.wav"
     },
     {
       "id": "ara-volcan",
@@ -1364,7 +1364,7 @@
       "lesson": 1,
       "cefr": "A1",
       "topic": "mountain nature",
-      "audioPath": "/audio/fr/v1/ara-volcan.wav"
+      "audioPath": "/audio/fr/v2/ara-volcan.wav"
     },
     {
       "id": "ara-sommet",
@@ -1381,7 +1381,7 @@
       "lesson": 1,
       "cefr": "A1",
       "topic": "mountain nature",
-      "audioPath": "/audio/fr/v1/ara-sommet.wav"
+      "audioPath": "/audio/fr/v2/ara-sommet.wav"
     },
     {
       "id": "ara-neige",
@@ -1398,7 +1398,7 @@
       "lesson": 1,
       "cefr": "A1",
       "topic": "mountain nature",
-      "audioPath": "/audio/fr/v1/ara-neige.wav"
+      "audioPath": "/audio/fr/v2/ara-neige.wav"
     },
     {
       "id": "ara-randonner",
@@ -1415,7 +1415,7 @@
       "lesson": 1,
       "cefr": "A1",
       "topic": "mountain nature",
-      "audioPath": "/audio/fr/v1/ara-randonner.wav"
+      "audioPath": "/audio/fr/v2/ara-randonner.wav"
     },
     {
       "id": "ara-escarpe",
@@ -1432,7 +1432,7 @@
       "lesson": 1,
       "cefr": "A1",
       "topic": "mountain nature",
-      "audioPath": "/audio/fr/v1/ara-escarpe.wav"
+      "audioPath": "/audio/fr/v2/ara-escarpe.wav"
     },
     {
       "id": "occ-place",
@@ -1449,7 +1449,7 @@
       "lesson": 1,
       "cefr": "A1",
       "topic": "city squares",
-      "audioPath": "/audio/fr/v1/occ-place.wav"
+      "audioPath": "/audio/fr/v2/occ-place.wav"
     },
     {
       "id": "occ-canal",
@@ -1466,7 +1466,7 @@
       "lesson": 1,
       "cefr": "A1",
       "topic": "city squares",
-      "audioPath": "/audio/fr/v1/occ-canal.wav"
+      "audioPath": "/audio/fr/v2/occ-canal.wav"
     },
     {
       "id": "occ-brique",
@@ -1483,7 +1483,7 @@
       "lesson": 1,
       "cefr": "A1",
       "topic": "city squares",
-      "audioPath": "/audio/fr/v1/occ-brique.wav"
+      "audioPath": "/audio/fr/v2/occ-brique.wav"
     },
     {
       "id": "occ-ensoleille",
@@ -1500,7 +1500,7 @@
       "lesson": 1,
       "cefr": "A1",
       "topic": "city squares",
-      "audioPath": "/audio/fr/v1/occ-ensoleille.wav"
+      "audioPath": "/audio/fr/v2/occ-ensoleille.wav"
     },
     {
       "id": "occ-flaner",
@@ -1517,7 +1517,7 @@
       "lesson": 1,
       "cefr": "A1",
       "topic": "city squares",
-      "audioPath": "/audio/fr/v1/occ-flaner.wav"
+      "audioPath": "/audio/fr/v2/occ-flaner.wav"
     },
     {
       "id": "paca-calanque",
@@ -1534,7 +1534,7 @@
       "lesson": 1,
       "cefr": "A1",
       "topic": "Mediterranean nature",
-      "audioPath": "/audio/fr/v1/paca-calanque.wav"
+      "audioPath": "/audio/fr/v2/paca-calanque.wav"
     },
     {
       "id": "paca-lavande",
@@ -1551,7 +1551,7 @@
       "lesson": 1,
       "cefr": "A1",
       "topic": "Mediterranean nature",
-      "audioPath": "/audio/fr/v1/paca-lavande.wav"
+      "audioPath": "/audio/fr/v2/paca-lavande.wav"
     },
     {
       "id": "paca-petanque",
@@ -1568,7 +1568,7 @@
       "lesson": 1,
       "cefr": "A1",
       "topic": "Mediterranean nature",
-      "audioPath": "/audio/fr/v1/paca-petanque.wav"
+      "audioPath": "/audio/fr/v2/paca-petanque.wav"
     },
     {
       "id": "paca-provencal",
@@ -1585,7 +1585,7 @@
       "lesson": 1,
       "cefr": "A1",
       "topic": "Mediterranean nature",
-      "audioPath": "/audio/fr/v1/paca-provencal.wav"
+      "audioPath": "/audio/fr/v2/paca-provencal.wav"
     },
     {
       "id": "paca-se-baigner",
@@ -1602,7 +1602,7 @@
       "lesson": 1,
       "cefr": "A1",
       "topic": "Mediterranean nature",
-      "audioPath": "/audio/fr/v1/paca-se-baigner.wav"
+      "audioPath": "/audio/fr/v2/paca-se-baigner.wav"
     },
     {
       "id": "cor-ile",
@@ -1619,7 +1619,7 @@
       "lesson": 1,
       "cefr": "A1",
       "topic": "island nature",
-      "audioPath": "/audio/fr/v1/cor-ile.wav"
+      "audioPath": "/audio/fr/v2/cor-ile.wav"
     },
     {
       "id": "cor-maquis",
@@ -1636,7 +1636,7 @@
       "lesson": 1,
       "cefr": "A1",
       "topic": "island nature",
-      "audioPath": "/audio/fr/v1/cor-maquis.wav"
+      "audioPath": "/audio/fr/v2/cor-maquis.wav"
     },
     {
       "id": "cor-village-perche",
@@ -1653,7 +1653,7 @@
       "lesson": 1,
       "cefr": "A1",
       "topic": "island nature",
-      "audioPath": "/audio/fr/v1/cor-village-perche.wav"
+      "audioPath": "/audio/fr/v2/cor-village-perche.wav"
     },
     {
       "id": "cor-sauvage",
@@ -1670,7 +1670,7 @@
       "lesson": 1,
       "cefr": "A1",
       "topic": "island nature",
-      "audioPath": "/audio/fr/v1/cor-sauvage.wav"
+      "audioPath": "/audio/fr/v2/cor-sauvage.wav"
     },
     {
       "id": "cor-traverser",
@@ -1687,7 +1687,7 @@
       "lesson": 1,
       "cefr": "A1",
       "topic": "island nature",
-      "audioPath": "/audio/fr/v1/cor-traverser.wav"
+      "audioPath": "/audio/fr/v2/cor-traverser.wav"
     },
     {
       "id": "gua-archipel",
@@ -1704,7 +1704,7 @@
       "lesson": 1,
       "cefr": "A1",
       "topic": "island ecology",
-      "audioPath": "/audio/fr/v1/gua-archipel.wav"
+      "audioPath": "/audio/fr/v2/gua-archipel.wav"
     },
     {
       "id": "gua-mangrove",
@@ -1721,7 +1721,7 @@
       "lesson": 1,
       "cefr": "A1",
       "topic": "island ecology",
-      "audioPath": "/audio/fr/v1/gua-mangrove.wav"
+      "audioPath": "/audio/fr/v2/gua-mangrove.wav"
     },
     {
       "id": "gua-colibri",
@@ -1738,7 +1738,7 @@
       "lesson": 1,
       "cefr": "A1",
       "topic": "island ecology",
-      "audioPath": "/audio/fr/v1/gua-colibri.wav"
+      "audioPath": "/audio/fr/v2/gua-colibri.wav"
     },
     {
       "id": "gua-creole",
@@ -1755,7 +1755,7 @@
       "lesson": 1,
       "cefr": "A1",
       "topic": "island ecology",
-      "audioPath": "/audio/fr/v1/gua-creole.wav"
+      "audioPath": "/audio/fr/v2/gua-creole.wav"
     },
     {
       "id": "gua-epice",
@@ -1772,7 +1772,7 @@
       "lesson": 1,
       "cefr": "A1",
       "topic": "island ecology",
-      "audioPath": "/audio/fr/v1/gua-epice.wav"
+      "audioPath": "/audio/fr/v2/gua-epice.wav"
     },
     {
       "id": "mar-yole",
@@ -1789,7 +1789,7 @@
       "lesson": 1,
       "cefr": "A1",
       "topic": "island traditions",
-      "audioPath": "/audio/fr/v1/mar-yole.wav"
+      "audioPath": "/audio/fr/v2/mar-yole.wav"
     },
     {
       "id": "mar-canne-sucre",
@@ -1806,7 +1806,7 @@
       "lesson": 1,
       "cefr": "A1",
       "topic": "island traditions",
-      "audioPath": "/audio/fr/v1/mar-canne-sucre.wav"
+      "audioPath": "/audio/fr/v2/mar-canne-sucre.wav"
     },
     {
       "id": "mar-jardin-tropical",
@@ -1823,7 +1823,7 @@
       "lesson": 1,
       "cefr": "A1",
       "topic": "island traditions",
-      "audioPath": "/audio/fr/v1/mar-jardin-tropical.wav"
+      "audioPath": "/audio/fr/v2/mar-jardin-tropical.wav"
     },
     {
       "id": "mar-ramer",
@@ -1840,7 +1840,7 @@
       "lesson": 1,
       "cefr": "A1",
       "topic": "island traditions",
-      "audioPath": "/audio/fr/v1/mar-ramer.wav"
+      "audioPath": "/audio/fr/v2/mar-ramer.wav"
     },
     {
       "id": "mar-fleuri",
@@ -1857,7 +1857,7 @@
       "lesson": 1,
       "cefr": "A1",
       "topic": "island traditions",
-      "audioPath": "/audio/fr/v1/mar-fleuri.wav"
+      "audioPath": "/audio/fr/v2/mar-fleuri.wav"
     },
     {
       "id": "guy-foret-tropicale",
@@ -1874,7 +1874,7 @@
       "lesson": 1,
       "cefr": "A1",
       "topic": "forest and space",
-      "audioPath": "/audio/fr/v1/guy-foret-tropicale.wav"
+      "audioPath": "/audio/fr/v2/guy-foret-tropicale.wav"
     },
     {
       "id": "guy-fleuve",
@@ -1891,7 +1891,7 @@
       "lesson": 1,
       "cefr": "A1",
       "topic": "forest and space",
-      "audioPath": "/audio/fr/v1/guy-fleuve.wav"
+      "audioPath": "/audio/fr/v2/guy-fleuve.wav"
     },
     {
       "id": "guy-centre-spatial",
@@ -1908,7 +1908,7 @@
       "lesson": 1,
       "cefr": "A1",
       "topic": "forest and space",
-      "audioPath": "/audio/fr/v1/guy-centre-spatial.wav"
+      "audioPath": "/audio/fr/v2/guy-centre-spatial.wav"
     },
     {
       "id": "guy-decoller",
@@ -1925,7 +1925,7 @@
       "lesson": 1,
       "cefr": "A1",
       "topic": "forest and space",
-      "audioPath": "/audio/fr/v1/guy-decoller.wav"
+      "audioPath": "/audio/fr/v2/guy-decoller.wav"
     },
     {
       "id": "guy-immense",
@@ -1942,7 +1942,7 @@
       "lesson": 1,
       "cefr": "A1",
       "topic": "forest and space",
-      "audioPath": "/audio/fr/v1/guy-immense.wav"
+      "audioPath": "/audio/fr/v2/guy-immense.wav"
     },
     {
       "id": "reu-cirque",
@@ -1959,7 +1959,7 @@
       "lesson": 1,
       "cefr": "A1",
       "topic": "volcanic landscape",
-      "audioPath": "/audio/fr/v1/reu-cirque.wav"
+      "audioPath": "/audio/fr/v2/reu-cirque.wav"
     },
     {
       "id": "reu-piton",
@@ -1976,7 +1976,7 @@
       "lesson": 1,
       "cefr": "A1",
       "topic": "volcanic landscape",
-      "audioPath": "/audio/fr/v1/reu-piton.wav"
+      "audioPath": "/audio/fr/v2/reu-piton.wav"
     },
     {
       "id": "reu-cascade",
@@ -1993,7 +1993,7 @@
       "lesson": 1,
       "cefr": "A1",
       "topic": "volcanic landscape",
-      "audioPath": "/audio/fr/v1/reu-cascade.wav"
+      "audioPath": "/audio/fr/v2/reu-cascade.wav"
     },
     {
       "id": "reu-gravir",
@@ -2010,7 +2010,7 @@
       "lesson": 1,
       "cefr": "A1",
       "topic": "volcanic landscape",
-      "audioPath": "/audio/fr/v1/reu-gravir.wav"
+      "audioPath": "/audio/fr/v2/reu-gravir.wav"
     },
     {
       "id": "reu-volcanique",
@@ -2027,7 +2027,7 @@
       "lesson": 1,
       "cefr": "A1",
       "topic": "volcanic landscape",
-      "audioPath": "/audio/fr/v1/reu-volcanique.wav"
+      "audioPath": "/audio/fr/v2/reu-volcanique.wav"
     },
     {
       "id": "may-lagon",
@@ -2044,7 +2044,7 @@
       "lesson": 1,
       "cefr": "A1",
       "topic": "lagoon ecology",
-      "audioPath": "/audio/fr/v1/may-lagon.wav"
+      "audioPath": "/audio/fr/v2/may-lagon.wav"
     },
     {
       "id": "may-tortue-marine",
@@ -2061,7 +2061,7 @@
       "lesson": 1,
       "cefr": "A1",
       "topic": "lagoon ecology",
-      "audioPath": "/audio/fr/v1/may-tortue-marine.wav"
+      "audioPath": "/audio/fr/v2/may-tortue-marine.wav"
     },
     {
       "id": "may-barriere-corail",
@@ -2078,7 +2078,7 @@
       "lesson": 1,
       "cefr": "A1",
       "topic": "lagoon ecology",
-      "audioPath": "/audio/fr/v1/may-barriere-corail.wav"
+      "audioPath": "/audio/fr/v2/may-barriere-corail.wav"
     },
     {
       "id": "may-pagayer",
@@ -2095,7 +2095,7 @@
       "lesson": 1,
       "cefr": "A1",
       "topic": "lagoon ecology",
-      "audioPath": "/audio/fr/v1/may-pagayer.wav"
+      "audioPath": "/audio/fr/v2/may-pagayer.wav"
     },
     {
       "id": "may-preserve",
@@ -2112,7 +2112,7 @@
       "lesson": 1,
       "cefr": "A1",
       "topic": "lagoon ecology",
-      "audioPath": "/audio/fr/v1/may-preserve.wav"
+      "audioPath": "/audio/fr/v2/may-preserve.wav"
     },
     {
       "id": "idf-station",
@@ -2129,7 +2129,7 @@
       "exampleEn": "This station has two exits.",
       "cefr": "A1",
       "topic": "public transport",
-      "audioPath": "/audio/fr/v1/idf-station.wav"
+      "audioPath": "/audio/fr/v2/idf-station.wav"
     },
     {
       "id": "idf-billet",
@@ -2146,7 +2146,7 @@
       "exampleEn": "I am buying a ticket at the ticket window.",
       "cefr": "A1",
       "topic": "public transport",
-      "audioPath": "/audio/fr/v1/idf-billet.wav"
+      "audioPath": "/audio/fr/v2/idf-billet.wav"
     },
     {
       "id": "idf-correspondance",
@@ -2163,7 +2163,7 @@
       "exampleEn": "We have a transfer at Châtelet.",
       "cefr": "A1",
       "topic": "public transport",
-      "audioPath": "/audio/fr/v1/idf-correspondance.wav"
+      "audioPath": "/audio/fr/v2/idf-correspondance.wav"
     },
     {
       "id": "idf-valider",
@@ -2180,7 +2180,7 @@
       "exampleEn": "Validate your ticket before boarding.",
       "cefr": "A1",
       "topic": "public transport",
-      "audioPath": "/audio/fr/v1/idf-valider.wav"
+      "audioPath": "/audio/fr/v2/idf-valider.wav"
     },
     {
       "id": "idf-prochain",
@@ -2197,7 +2197,7 @@
       "exampleEn": "The next train arrives in five minutes.",
       "cefr": "A1",
       "topic": "public transport",
-      "audioPath": "/audio/fr/v1/idf-prochain.wav"
+      "audioPath": "/audio/fr/v2/idf-prochain.wav"
     },
     {
       "id": "idf-quartier",
@@ -2214,7 +2214,7 @@
       "exampleEn": "This neighbourhood is quiet in the morning.",
       "cefr": "A2",
       "topic": "neighbourhood life",
-      "audioPath": "/audio/fr/v1/idf-quartier.wav"
+      "audioPath": "/audio/fr/v2/idf-quartier.wav"
     },
     {
       "id": "idf-boulangerie",
@@ -2231,7 +2231,7 @@
       "exampleEn": "The bakery opens at seven o'clock.",
       "cefr": "A2",
       "topic": "neighbourhood life",
-      "audioPath": "/audio/fr/v1/idf-boulangerie.wav"
+      "audioPath": "/audio/fr/v2/idf-boulangerie.wav"
     },
     {
       "id": "idf-terrasse",
@@ -2248,7 +2248,7 @@
       "exampleEn": "We have a coffee outside on the terrace.",
       "cefr": "A2",
       "topic": "neighbourhood life",
-      "audioPath": "/audio/fr/v1/idf-terrasse.wav"
+      "audioPath": "/audio/fr/v2/idf-terrasse.wav"
     },
     {
       "id": "idf-louer",
@@ -2265,7 +2265,7 @@
       "exampleEn": "They want to rent a small apartment.",
       "cefr": "A2",
       "topic": "neighbourhood life",
-      "audioPath": "/audio/fr/v1/idf-louer.wav"
+      "audioPath": "/audio/fr/v2/idf-louer.wav"
     },
     {
       "id": "idf-bonde",
@@ -2282,7 +2282,7 @@
       "exampleEn": "The bus is crowded during rush hour.",
       "cefr": "A2",
       "topic": "neighbourhood life",
-      "audioPath": "/audio/fr/v1/idf-bonde.wav"
+      "audioPath": "/audio/fr/v2/idf-bonde.wav"
     },
     {
       "id": "hdf-etal",
@@ -2299,7 +2299,7 @@
       "exampleEn": "The vendor arranges his vegetables on the stall.",
       "cefr": "A1",
       "topic": "market food",
-      "audioPath": "/audio/fr/v1/hdf-etal.wav"
+      "audioPath": "/audio/fr/v2/hdf-etal.wav"
     },
     {
       "id": "hdf-moules",
@@ -2316,7 +2316,7 @@
       "exampleEn": "We share mussels at lunch.",
       "cefr": "A1",
       "topic": "market food",
-      "audioPath": "/audio/fr/v1/hdf-moules.wav"
+      "audioPath": "/audio/fr/v2/hdf-moules.wav"
     },
     {
       "id": "hdf-frites",
@@ -2333,7 +2333,7 @@
       "exampleEn": "The fries are golden and crisp.",
       "cefr": "A1",
       "topic": "market food",
-      "audioPath": "/audio/fr/v1/hdf-frites.wav"
+      "audioPath": "/audio/fr/v2/hdf-frites.wav"
     },
     {
       "id": "hdf-gouter",
@@ -2350,7 +2350,7 @@
       "exampleEn": "Would you like to try this speciality?",
       "cefr": "A1",
       "topic": "market food",
-      "audioPath": "/audio/fr/v1/hdf-gouter.wav"
+      "audioPath": "/audio/fr/v2/hdf-gouter.wav"
     },
     {
       "id": "hdf-bon-marche",
@@ -2367,7 +2367,7 @@
       "exampleEn": "This bag is pretty and inexpensive.",
       "cefr": "A1",
       "topic": "market food",
-      "audioPath": "/audio/fr/v1/hdf-bon-marche.wav"
+      "audioPath": "/audio/fr/v2/hdf-bon-marche.wav"
     },
     {
       "id": "hdf-mairie",
@@ -2384,7 +2384,7 @@
       "exampleEn": "The town hall is near the park.",
       "cefr": "A2",
       "topic": "town weather",
-      "audioPath": "/audio/fr/v1/hdf-mairie.wav"
+      "audioPath": "/audio/fr/v2/hdf-mairie.wav"
     },
     {
       "id": "hdf-grand-place",
@@ -2401,7 +2401,7 @@
       "exampleEn": "The main square is full of people.",
       "cefr": "A2",
       "topic": "town weather",
-      "audioPath": "/audio/fr/v1/hdf-grand-place.wav"
+      "audioPath": "/audio/fr/v2/hdf-grand-place.wav"
     },
     {
       "id": "hdf-pluie",
@@ -2418,7 +2418,7 @@
       "exampleEn": "The rain starts in the afternoon.",
       "cefr": "A2",
       "topic": "town weather",
-      "audioPath": "/audio/fr/v1/hdf-pluie.wav"
+      "audioPath": "/audio/fr/v2/hdf-pluie.wav"
     },
     {
       "id": "hdf-se-promener",
@@ -2435,7 +2435,7 @@
       "exampleEn": "We like taking a walk through the old streets.",
       "cefr": "A2",
       "topic": "town weather",
-      "audioPath": "/audio/fr/v1/hdf-se-promener.wav"
+      "audioPath": "/audio/fr/v2/hdf-se-promener.wav"
     },
     {
       "id": "hdf-venteux",
@@ -2452,7 +2452,7 @@
       "exampleEn": "The seafront is windy today.",
       "cefr": "A2",
       "topic": "town weather",
-      "audioPath": "/audio/fr/v1/hdf-venteux.wav"
+      "audioPath": "/audio/fr/v2/hdf-venteux.wav"
     },
     {
       "id": "nor-verger",
@@ -2469,7 +2469,7 @@
       "exampleEn": "The orchard produces many apples.",
       "cefr": "A1",
       "topic": "farm food",
-      "audioPath": "/audio/fr/v1/nor-verger.wav"
+      "audioPath": "/audio/fr/v2/nor-verger.wav"
     },
     {
       "id": "nor-pomme",
@@ -2486,7 +2486,7 @@
       "exampleEn": "This apple is sweet and crisp.",
       "cefr": "A1",
       "topic": "farm food",
-      "audioPath": "/audio/fr/v1/nor-pomme.wav"
+      "audioPath": "/audio/fr/v2/nor-pomme.wav"
     },
     {
       "id": "nor-beurre",
@@ -2503,7 +2503,7 @@
       "exampleEn": "She puts butter on her bread.",
       "cefr": "A1",
       "topic": "farm food",
-      "audioPath": "/audio/fr/v1/nor-beurre.wav"
+      "audioPath": "/audio/fr/v2/nor-beurre.wav"
     },
     {
       "id": "nor-camembert",
@@ -2520,7 +2520,7 @@
       "exampleEn": "Camembert is served at room temperature.",
       "cefr": "A1",
       "topic": "farm food",
-      "audioPath": "/audio/fr/v1/nor-camembert.wav"
+      "audioPath": "/audio/fr/v2/nor-camembert.wav"
     },
     {
       "id": "nor-fabriquer",
@@ -2537,7 +2537,7 @@
       "exampleEn": "This farm makes cheese.",
       "cefr": "A1",
       "topic": "farm food",
-      "audioPath": "/audio/fr/v1/nor-fabriquer.wav"
+      "audioPath": "/audio/fr/v2/nor-fabriquer.wav"
     },
     {
       "id": "nor-port",
@@ -2554,7 +2554,7 @@
       "exampleEn": "The boats return to the harbour before nightfall.",
       "cefr": "A2",
       "topic": "seaside weather",
-      "audioPath": "/audio/fr/v1/nor-port.wav"
+      "audioPath": "/audio/fr/v2/nor-port.wav"
     },
     {
       "id": "nor-plage",
@@ -2571,7 +2571,7 @@
       "exampleEn": "We walk on the beach at low tide.",
       "cefr": "A2",
       "topic": "seaside weather",
-      "audioPath": "/audio/fr/v1/nor-plage.wav"
+      "audioPath": "/audio/fr/v2/nor-plage.wav"
     },
     {
       "id": "nor-parapluie",
@@ -2588,7 +2588,7 @@
       "exampleEn": "Do not forget your umbrella this morning.",
       "cefr": "A2",
       "topic": "seaside weather",
-      "audioPath": "/audio/fr/v1/nor-parapluie.wav"
+      "audioPath": "/audio/fr/v2/nor-parapluie.wav"
     },
     {
       "id": "nor-pleuvoir",
@@ -2605,7 +2605,7 @@
       "exampleEn": "It is going to rain near the coast.",
       "cefr": "A2",
       "topic": "seaside weather",
-      "audioPath": "/audio/fr/v1/nor-pleuvoir.wav"
+      "audioPath": "/audio/fr/v2/nor-pleuvoir.wav"
     },
     {
       "id": "nor-humide",
@@ -2622,7 +2622,7 @@
       "exampleEn": "The air is cool and damp.",
       "cefr": "A2",
       "topic": "seaside weather",
-      "audioPath": "/audio/fr/v1/nor-humide.wav"
+      "audioPath": "/audio/fr/v2/nor-humide.wav"
     },
     {
       "id": "bre-port-de-peche",
@@ -2639,7 +2639,7 @@
       "exampleEn": "The fishing harbour comes alive early in the morning.",
       "cefr": "A1",
       "topic": "harbour travel",
-      "audioPath": "/audio/fr/v1/bre-port-de-peche.wav"
+      "audioPath": "/audio/fr/v2/bre-port-de-peche.wav"
     },
     {
       "id": "bre-bateau",
@@ -2656,7 +2656,7 @@
       "exampleEn": "This boat leaves the quay at nine o'clock.",
       "cefr": "A1",
       "topic": "harbour travel",
-      "audioPath": "/audio/fr/v1/bre-bateau.wav"
+      "audioPath": "/audio/fr/v2/bre-bateau.wav"
     },
     {
       "id": "bre-vague",
@@ -2673,7 +2673,7 @@
       "exampleEn": "A large wave hits the rocks.",
       "cefr": "A1",
       "topic": "harbour travel",
-      "audioPath": "/audio/fr/v1/bre-vague.wav"
+      "audioPath": "/audio/fr/v2/bre-vague.wav"
     },
     {
       "id": "bre-embarquer",
@@ -2690,7 +2690,7 @@
       "exampleEn": "The passengers are going to board in a few minutes.",
       "cefr": "A1",
       "topic": "harbour travel",
-      "audioPath": "/audio/fr/v1/bre-embarquer.wav"
+      "audioPath": "/audio/fr/v2/bre-embarquer.wav"
     },
     {
       "id": "bre-marin",
@@ -2707,7 +2707,7 @@
       "exampleEn": "The sea air makes you hungry.",
       "cefr": "A1",
       "topic": "harbour travel",
-      "audioPath": "/audio/fr/v1/bre-marin.wav"
+      "audioPath": "/audio/fr/v2/bre-marin.wav"
     },
     {
       "id": "bre-galette",
@@ -2724,7 +2724,7 @@
       "exampleEn": "I choose a buckwheat pancake with cheese.",
       "cefr": "A2",
       "topic": "regional food",
-      "audioPath": "/audio/fr/v1/bre-galette.wav"
+      "audioPath": "/audio/fr/v2/bre-galette.wav"
     },
     {
       "id": "bre-beurre-sale",
@@ -2741,7 +2741,7 @@
       "exampleEn": "The salted butter melts on the warm crêpe.",
       "cefr": "A2",
       "topic": "regional food",
-      "audioPath": "/audio/fr/v1/bre-beurre-sale.wav"
+      "audioPath": "/audio/fr/v2/bre-beurre-sale.wav"
     },
     {
       "id": "bre-bolee-cidre",
@@ -2758,7 +2758,7 @@
       "exampleEn": "He orders a small bowl of cider.",
       "cefr": "A2",
       "topic": "regional food",
-      "audioPath": "/audio/fr/v1/bre-bolee-cidre.wav"
+      "audioPath": "/audio/fr/v2/bre-bolee-cidre.wav"
     },
     {
       "id": "bre-commander",
@@ -2775,7 +2775,7 @@
       "exampleEn": "We are going to order the dish of the day.",
       "cefr": "A2",
       "topic": "regional food",
-      "audioPath": "/audio/fr/v1/bre-commander.wav"
+      "audioPath": "/audio/fr/v2/bre-commander.wav"
     },
     {
       "id": "bre-delicieux",
@@ -2792,7 +2792,7 @@
       "exampleEn": "This caramel is truly delicious.",
       "cefr": "A2",
       "topic": "regional food",
-      "audioPath": "/audio/fr/v1/bre-delicieux.wav"
+      "audioPath": "/audio/fr/v2/bre-delicieux.wav"
     },
     {
       "id": "pdl-quai",
@@ -2809,7 +2809,7 @@
       "exampleEn": "We wait for the boat on the quay.",
       "cefr": "A1",
       "topic": "local transport",
-      "audioPath": "/audio/fr/v1/pdl-quai.wav"
+      "audioPath": "/audio/fr/v2/pdl-quai.wav"
     },
     {
       "id": "pdl-tramway",
@@ -2826,7 +2826,7 @@
       "exampleEn": "The tram crosses the centre of Nantes.",
       "cefr": "A1",
       "topic": "local transport",
-      "audioPath": "/audio/fr/v1/pdl-tramway.wav"
+      "audioPath": "/audio/fr/v2/pdl-tramway.wav"
     },
     {
       "id": "pdl-plage-sable",
@@ -2843,7 +2843,7 @@
       "exampleEn": "The children play on the sandy beach.",
       "cefr": "A1",
       "topic": "local transport",
-      "audioPath": "/audio/fr/v1/pdl-plage-sable.wav"
+      "audioPath": "/audio/fr/v2/pdl-plage-sable.wav"
     },
     {
       "id": "pdl-prendre",
@@ -2860,7 +2860,7 @@
       "exampleEn": "We take the tram to go downtown.",
       "cefr": "A1",
       "topic": "local transport",
-      "audioPath": "/audio/fr/v1/pdl-prendre.wav"
+      "audioPath": "/audio/fr/v2/pdl-prendre.wav"
     },
     {
       "id": "pdl-dynamique",
@@ -2877,7 +2877,7 @@
       "exampleEn": "Nantes is a young and dynamic city.",
       "cefr": "A1",
       "topic": "local transport",
-      "audioPath": "/audio/fr/v1/pdl-dynamique.wav"
+      "audioPath": "/audio/fr/v2/pdl-dynamique.wav"
     },
     {
       "id": "pdl-velo",
@@ -2894,7 +2894,7 @@
       "exampleEn": "I rent a bicycle for the day.",
       "cefr": "A2",
       "topic": "outdoor leisure",
-      "audioPath": "/audio/fr/v1/pdl-velo.wav"
+      "audioPath": "/audio/fr/v2/pdl-velo.wav"
     },
     {
       "id": "pdl-pique-nique",
@@ -2911,7 +2911,7 @@
       "exampleEn": "We prepare a picnic by the water.",
       "cefr": "A2",
       "topic": "outdoor leisure",
-      "audioPath": "/audio/fr/v1/pdl-pique-nique.wav"
+      "audioPath": "/audio/fr/v2/pdl-pique-nique.wav"
     },
     {
       "id": "pdl-oiseau",
@@ -2928,7 +2928,7 @@
       "exampleEn": "A bird lands among the reeds.",
       "cefr": "A2",
       "topic": "outdoor leisure",
-      "audioPath": "/audio/fr/v1/pdl-oiseau.wav"
+      "audioPath": "/audio/fr/v2/pdl-oiseau.wav"
     },
     {
       "id": "pdl-observer",
@@ -2945,7 +2945,7 @@
       "exampleEn": "You can watch the birds in the marsh.",
       "cefr": "A2",
       "topic": "outdoor leisure",
-      "audioPath": "/audio/fr/v1/pdl-observer.wav"
+      "audioPath": "/audio/fr/v2/pdl-observer.wav"
     },
     {
       "id": "pdl-local",
@@ -2962,7 +2962,7 @@
       "exampleEn": "We buy local products.",
       "cefr": "A2",
       "topic": "outdoor leisure",
-      "audioPath": "/audio/fr/v1/pdl-local.wav"
+      "audioPath": "/audio/fr/v2/pdl-local.wav"
     },
     {
       "id": "cvl-entree",
@@ -2979,7 +2979,7 @@
       "exampleEn": "The castle entrance closes at five p.m.",
       "cefr": "A1",
       "topic": "visitor essentials",
-      "audioPath": "/audio/fr/v1/cvl-entree.wav"
+      "audioPath": "/audio/fr/v2/cvl-entree.wav"
     },
     {
       "id": "cvl-visite-guidee",
@@ -2996,7 +2996,7 @@
       "exampleEn": "The guided tour lasts one hour.",
       "cefr": "A1",
       "topic": "visitor essentials",
-      "audioPath": "/audio/fr/v1/cvl-visite-guidee.wav"
+      "audioPath": "/audio/fr/v2/cvl-visite-guidee.wav"
     },
     {
       "id": "cvl-escalier",
@@ -3013,7 +3013,7 @@
       "exampleEn": "This staircase leads to the great hall.",
       "cefr": "A1",
       "topic": "visitor essentials",
-      "audioPath": "/audio/fr/v1/cvl-escalier.wav"
+      "audioPath": "/audio/fr/v2/cvl-escalier.wav"
     },
     {
       "id": "cvl-reserver",
@@ -3030,7 +3030,7 @@
       "exampleEn": "It is better to book the tickets online.",
       "cefr": "A1",
       "topic": "visitor essentials",
-      "audioPath": "/audio/fr/v1/cvl-reserver.wav"
+      "audioPath": "/audio/fr/v2/cvl-reserver.wav"
     },
     {
       "id": "cvl-ancien",
@@ -3047,7 +3047,7 @@
       "exampleEn": "We are visiting an old royal residence.",
       "cefr": "A1",
       "topic": "visitor essentials",
-      "audioPath": "/audio/fr/v1/cvl-ancien.wav"
+      "audioPath": "/audio/fr/v2/cvl-ancien.wav"
     },
     {
       "id": "cvl-riviere",
@@ -3064,7 +3064,7 @@
       "exampleEn": "A small river runs through the village.",
       "cefr": "A2",
       "topic": "river countryside",
-      "audioPath": "/audio/fr/v1/cvl-riviere.wav"
+      "audioPath": "/audio/fr/v2/cvl-riviere.wav"
     },
     {
       "id": "cvl-pont",
@@ -3081,7 +3081,7 @@
       "exampleEn": "The bridge offers a beautiful view of the Loire.",
       "cefr": "A2",
       "topic": "river countryside",
-      "audioPath": "/audio/fr/v1/cvl-pont.wav"
+      "audioPath": "/audio/fr/v2/cvl-pont.wav"
     },
     {
       "id": "cvl-foret",
@@ -3098,7 +3098,7 @@
       "exampleEn": "We cross an oak forest.",
       "cefr": "A2",
       "topic": "river countryside",
-      "audioPath": "/audio/fr/v1/cvl-foret.wav"
+      "audioPath": "/audio/fr/v2/cvl-foret.wav"
     },
     {
       "id": "cvl-longer",
@@ -3115,7 +3115,7 @@
       "exampleEn": "The path follows the river.",
       "cefr": "A2",
       "topic": "river countryside",
-      "audioPath": "/audio/fr/v1/cvl-longer.wav"
+      "audioPath": "/audio/fr/v2/cvl-longer.wav"
     },
     {
       "id": "cvl-tranquille",
@@ -3132,7 +3132,7 @@
       "exampleEn": "The countryside is peaceful in spring.",
       "cefr": "A2",
       "topic": "river countryside",
-      "audioPath": "/audio/fr/v1/cvl-tranquille.wav"
+      "audioPath": "/audio/fr/v2/cvl-tranquille.wav"
     },
     {
       "id": "ges-frontiere",
@@ -3149,7 +3149,7 @@
       "exampleEn": "The border is a few kilometres away.",
       "cefr": "A1",
       "topic": "border city travel",
-      "audioPath": "/audio/fr/v1/ges-frontiere.wav"
+      "audioPath": "/audio/fr/v2/ges-frontiere.wav"
     },
     {
       "id": "ges-gare",
@@ -3166,7 +3166,7 @@
       "exampleEn": "The train station is behind the cathedral.",
       "cefr": "A1",
       "topic": "border city travel",
-      "audioPath": "/audio/fr/v1/ges-gare.wav"
+      "audioPath": "/audio/fr/v2/ges-gare.wav"
     },
     {
       "id": "ges-tram",
@@ -3183,7 +3183,7 @@
       "exampleEn": "The tram arrives every ten minutes.",
       "cefr": "A1",
       "topic": "border city travel",
-      "audioPath": "/audio/fr/v1/ges-tram.wav"
+      "audioPath": "/audio/fr/v2/ges-tram.wav"
     },
     {
       "id": "ges-changer",
@@ -3200,7 +3200,7 @@
       "exampleEn": "You must change trains in Strasbourg.",
       "cefr": "A1",
       "topic": "border city travel",
-      "audioPath": "/audio/fr/v1/ges-changer.wav"
+      "audioPath": "/audio/fr/v2/ges-changer.wav"
     },
     {
       "id": "ges-voisin",
@@ -3217,7 +3217,7 @@
       "exampleEn": "We are visiting a neighbouring town tomorrow.",
       "cefr": "A1",
       "topic": "border city travel",
-      "audioPath": "/audio/fr/v1/ges-voisin.wav"
+      "audioPath": "/audio/fr/v2/ges-voisin.wav"
     },
     {
       "id": "ges-pain-epices",
@@ -3234,7 +3234,7 @@
       "exampleEn": "The gingerbread smells of cinnamon.",
       "cefr": "A2",
       "topic": "regional craft",
-      "audioPath": "/audio/fr/v1/ges-pain-epices.wav"
+      "audioPath": "/audio/fr/v2/ges-pain-epices.wav"
     },
     {
       "id": "ges-choucroute",
@@ -3251,7 +3251,7 @@
       "exampleEn": "Choucroute is a hearty dish.",
       "cefr": "A2",
       "topic": "regional craft",
-      "audioPath": "/audio/fr/v1/ges-choucroute.wav"
+      "audioPath": "/audio/fr/v2/ges-choucroute.wav"
     },
     {
       "id": "ges-poterie",
@@ -3268,7 +3268,7 @@
       "exampleEn": "This piece of pottery is painted by hand.",
       "cefr": "A2",
       "topic": "regional craft",
-      "audioPath": "/audio/fr/v1/ges-poterie.wav"
+      "audioPath": "/audio/fr/v2/ges-poterie.wav"
     },
     {
       "id": "ges-decorer",
@@ -3285,7 +3285,7 @@
       "exampleEn": "The residents decorate the windows for Christmas.",
       "cefr": "A2",
       "topic": "regional craft",
-      "audioPath": "/audio/fr/v1/ges-decorer.wav"
+      "audioPath": "/audio/fr/v2/ges-decorer.wav"
     },
     {
       "id": "ges-traditionnel",
@@ -3302,7 +3302,7 @@
       "exampleEn": "We discover a traditional craft.",
       "cefr": "A2",
       "topic": "regional craft",
-      "audioPath": "/audio/fr/v1/ges-traditionnel.wav"
+      "audioPath": "/audio/fr/v2/ges-traditionnel.wav"
     },
     {
       "id": "bfc-cave",
@@ -3319,7 +3319,7 @@
       "exampleEn": "The cellar stays cool all year.",
       "cefr": "A1",
       "topic": "food and drink",
-      "audioPath": "/audio/fr/v1/bfc-cave.wav"
+      "audioPath": "/audio/fr/v2/bfc-cave.wav"
     },
     {
       "id": "bfc-bouteille",
@@ -3336,7 +3336,7 @@
       "exampleEn": "This bottle comes from a nearby estate.",
       "cefr": "A1",
       "topic": "food and drink",
-      "audioPath": "/audio/fr/v1/bfc-bouteille.wav"
+      "audioPath": "/audio/fr/v2/bfc-bouteille.wav"
     },
     {
       "id": "bfc-recette",
@@ -3353,7 +3353,7 @@
       "exampleEn": "My grandmother keeps her recipe in a notebook.",
       "cefr": "A1",
       "topic": "food and drink",
-      "audioPath": "/audio/fr/v1/bfc-recette.wav"
+      "audioPath": "/audio/fr/v2/bfc-recette.wav"
     },
     {
       "id": "bfc-servir",
@@ -3370,7 +3370,7 @@
       "exampleEn": "Cheese is served after the main course.",
       "cefr": "A1",
       "topic": "food and drink",
-      "audioPath": "/audio/fr/v1/bfc-servir.wav"
+      "audioPath": "/audio/fr/v2/bfc-servir.wav"
     },
     {
       "id": "bfc-savoureux",
@@ -3387,7 +3387,7 @@
       "exampleEn": "This simple dish is very flavourful.",
       "cefr": "A1",
       "topic": "food and drink",
-      "audioPath": "/audio/fr/v1/bfc-savoureux.wav"
+      "audioPath": "/audio/fr/v2/bfc-savoureux.wav"
     },
     {
       "id": "bfc-clocher",
@@ -3404,7 +3404,7 @@
       "exampleEn": "The church tower is visible from the vineyards.",
       "cefr": "A2",
       "topic": "village craft",
-      "audioPath": "/audio/fr/v1/bfc-clocher.wav"
+      "audioPath": "/audio/fr/v2/bfc-clocher.wav"
     },
     {
       "id": "bfc-foret-sapins",
@@ -3421,7 +3421,7 @@
       "exampleEn": "The path enters a fir forest.",
       "cefr": "A2",
       "topic": "village craft",
-      "audioPath": "/audio/fr/v1/bfc-foret-sapins.wav"
+      "audioPath": "/audio/fr/v2/bfc-foret-sapins.wav"
     },
     {
       "id": "bfc-atelier",
@@ -3438,7 +3438,7 @@
       "exampleEn": "The craftsperson welcomes us into the workshop.",
       "cefr": "A2",
       "topic": "village craft",
-      "audioPath": "/audio/fr/v1/bfc-atelier.wav"
+      "audioPath": "/audio/fr/v2/bfc-atelier.wav"
     },
     {
       "id": "bfc-faconner",
@@ -3455,7 +3455,7 @@
       "exampleEn": "She shapes a bowl from clay.",
       "cefr": "A2",
       "topic": "village craft",
-      "audioPath": "/audio/fr/v1/bfc-faconner.wav"
+      "audioPath": "/audio/fr/v2/bfc-faconner.wav"
     },
     {
       "id": "bfc-medieval",
@@ -3472,7 +3472,7 @@
       "exampleEn": "The village has preserved a medieval bridge.",
       "cefr": "A2",
       "topic": "village craft",
-      "audioPath": "/audio/fr/v1/bfc-medieval.wav"
+      "audioPath": "/audio/fr/v2/bfc-medieval.wav"
     },
     {
       "id": "naq-marche-couvert",
@@ -3489,7 +3489,7 @@
       "exampleEn": "The indoor market opens early on Saturday.",
       "cefr": "A1",
       "topic": "market produce",
-      "audioPath": "/audio/fr/v1/naq-marche-couvert.wav"
+      "audioPath": "/audio/fr/v2/naq-marche-couvert.wav"
     },
     {
       "id": "naq-raisin",
@@ -3506,7 +3506,7 @@
       "exampleEn": "The grapes are ready for harvest.",
       "cefr": "A1",
       "topic": "market produce",
-      "audioPath": "/audio/fr/v1/naq-raisin.wav"
+      "audioPath": "/audio/fr/v2/naq-raisin.wav"
     },
     {
       "id": "naq-panier",
@@ -3523,7 +3523,7 @@
       "exampleEn": "She fills her basket with fresh fruit.",
       "cefr": "A1",
       "topic": "market produce",
-      "audioPath": "/audio/fr/v1/naq-panier.wav"
+      "audioPath": "/audio/fr/v2/naq-panier.wav"
     },
     {
       "id": "naq-acheter",
@@ -3540,7 +3540,7 @@
       "exampleEn": "I am going to buy tomatoes at the market.",
       "cefr": "A1",
       "topic": "market produce",
-      "audioPath": "/audio/fr/v1/naq-acheter.wav"
+      "audioPath": "/audio/fr/v2/naq-acheter.wav"
     },
     {
       "id": "naq-mur",
@@ -3557,7 +3557,7 @@
       "exampleEn": "This melon is finally ripe.",
       "cefr": "A1",
       "topic": "market produce",
-      "audioPath": "/audio/fr/v1/naq-mur.wav"
+      "audioPath": "/audio/fr/v2/naq-mur.wav"
     },
     {
       "id": "naq-piste-cyclable",
@@ -3574,7 +3574,7 @@
       "exampleEn": "The cycle path runs along the ocean.",
       "cefr": "A2",
       "topic": "cycling and nature",
-      "audioPath": "/audio/fr/v1/naq-piste-cyclable.wav"
+      "audioPath": "/audio/fr/v2/naq-piste-cyclable.wav"
     },
     {
       "id": "naq-pinede",
@@ -3591,7 +3591,7 @@
       "exampleEn": "We take a break in the pine grove.",
       "cefr": "A2",
       "topic": "cycling and nature",
-      "audioPath": "/audio/fr/v1/naq-pinede.wav"
+      "audioPath": "/audio/fr/v2/naq-pinede.wav"
     },
     {
       "id": "naq-lac",
@@ -3608,7 +3608,7 @@
       "exampleEn": "The lake is calm before sunset.",
       "cefr": "A2",
       "topic": "cycling and nature",
-      "audioPath": "/audio/fr/v1/naq-lac.wav"
+      "audioPath": "/audio/fr/v2/naq-lac.wav"
     },
     {
       "id": "naq-pedaler",
@@ -3625,7 +3625,7 @@
       "exampleEn": "We cycle beneath the pine trees.",
       "cefr": "A2",
       "topic": "cycling and nature",
-      "audioPath": "/audio/fr/v1/naq-pedaler.wav"
+      "audioPath": "/audio/fr/v2/naq-pedaler.wav"
     },
     {
       "id": "naq-ombrage",
@@ -3642,7 +3642,7 @@
       "exampleEn": "The path is shaded and pleasant.",
       "cefr": "A2",
       "topic": "cycling and nature",
-      "audioPath": "/audio/fr/v1/naq-ombrage.wav"
+      "audioPath": "/audio/fr/v2/naq-ombrage.wav"
     },
     {
       "id": "ara-chalet",
@@ -3659,7 +3659,7 @@
       "exampleEn": "Our chalet overlooks the mountain.",
       "cefr": "A1",
       "topic": "winter clothing",
-      "audioPath": "/audio/fr/v1/ara-chalet.wav"
+      "audioPath": "/audio/fr/v2/ara-chalet.wav"
     },
     {
       "id": "ara-echarpe",
@@ -3676,7 +3676,7 @@
       "exampleEn": "Put on a scarf before going outside.",
       "cefr": "A1",
       "topic": "winter clothing",
-      "audioPath": "/audio/fr/v1/ara-echarpe.wav"
+      "audioPath": "/audio/fr/v2/ara-echarpe.wav"
     },
     {
       "id": "ara-chaussures-randonnee",
@@ -3693,7 +3693,7 @@
       "exampleEn": "My hiking boots are waterproof.",
       "cefr": "A1",
       "topic": "winter clothing",
-      "audioPath": "/audio/fr/v1/ara-chaussures-randonnee.wav"
+      "audioPath": "/audio/fr/v2/ara-chaussures-randonnee.wav"
     },
     {
       "id": "ara-neiger",
@@ -3710,7 +3710,7 @@
       "exampleEn": "It is starting to snow above the village.",
       "cefr": "A1",
       "topic": "winter clothing",
-      "audioPath": "/audio/fr/v1/ara-neiger.wav"
+      "audioPath": "/audio/fr/v2/ara-neiger.wav"
     },
     {
       "id": "ara-chaud",
@@ -3727,7 +3727,7 @@
       "exampleEn": "Have a warm drink after the walk.",
       "cefr": "A1",
       "topic": "winter clothing",
-      "audioPath": "/audio/fr/v1/ara-chaud.wav"
+      "audioPath": "/audio/fr/v2/ara-chaud.wav"
     },
     {
       "id": "ara-telepherique",
@@ -3744,7 +3744,7 @@
       "exampleEn": "The cable car goes up to the summit.",
       "cefr": "A2",
       "topic": "mountain activities",
-      "audioPath": "/audio/fr/v1/ara-telepherique.wav"
+      "audioPath": "/audio/fr/v2/ara-telepherique.wav"
     },
     {
       "id": "ara-lac-montagne",
@@ -3761,7 +3761,7 @@
       "exampleEn": "A mountain lake appears beyond the pass.",
       "cefr": "A2",
       "topic": "mountain activities",
-      "audioPath": "/audio/fr/v1/ara-lac-montagne.wav"
+      "audioPath": "/audio/fr/v2/ara-lac-montagne.wav"
     },
     {
       "id": "ara-refuge",
@@ -3778,7 +3778,7 @@
       "exampleEn": "The mountain hut serves a hot meal in the evening.",
       "cefr": "A2",
       "topic": "mountain activities",
-      "audioPath": "/audio/fr/v1/ara-refuge.wav"
+      "audioPath": "/audio/fr/v2/ara-refuge.wav"
     },
     {
       "id": "ara-skier",
@@ -3795,7 +3795,7 @@
       "exampleEn": "She is learning to ski on an easy slope.",
       "cefr": "A2",
       "topic": "mountain activities",
-      "audioPath": "/audio/fr/v1/ara-skier.wav"
+      "audioPath": "/audio/fr/v2/ara-skier.wav"
     },
     {
       "id": "ara-prudent",
@@ -3812,7 +3812,7 @@
       "exampleEn": "Be careful when the path is icy.",
       "cefr": "A2",
       "topic": "mountain activities",
-      "audioPath": "/audio/fr/v1/ara-prudent.wav"
+      "audioPath": "/audio/fr/v2/ara-prudent.wav"
     },
     {
       "id": "occ-peniche",
@@ -3829,7 +3829,7 @@
       "exampleEn": "A canal boat moves slowly along the canal.",
       "cefr": "A1",
       "topic": "canal travel",
-      "audioPath": "/audio/fr/v1/occ-peniche.wav"
+      "audioPath": "/audio/fr/v2/occ-peniche.wav"
     },
     {
       "id": "occ-ecluse",
@@ -3846,7 +3846,7 @@
       "exampleEn": "The canal boat enters the lock.",
       "cefr": "A1",
       "topic": "canal travel",
-      "audioPath": "/audio/fr/v1/occ-ecluse.wav"
+      "audioPath": "/audio/fr/v2/occ-ecluse.wav"
     },
     {
       "id": "occ-chemin-halage",
@@ -3863,7 +3863,7 @@
       "exampleEn": "The towpath follows the canal.",
       "cefr": "A1",
       "topic": "canal travel",
-      "audioPath": "/audio/fr/v1/occ-chemin-halage.wav"
+      "audioPath": "/audio/fr/v2/occ-chemin-halage.wav"
     },
     {
       "id": "occ-suivre",
@@ -3880,7 +3880,7 @@
       "exampleEn": "Follow the canal to the next bridge.",
       "cefr": "A1",
       "topic": "canal travel",
-      "audioPath": "/audio/fr/v1/occ-suivre.wav"
+      "audioPath": "/audio/fr/v2/occ-suivre.wav"
     },
     {
       "id": "occ-lent",
@@ -3897,7 +3897,7 @@
       "exampleEn": "The pace is slow and relaxing.",
       "cefr": "A1",
       "topic": "canal travel",
-      "audioPath": "/audio/fr/v1/occ-lent.wav"
+      "audioPath": "/audio/fr/v2/occ-lent.wav"
     },
     {
       "id": "occ-marche-plein-air",
@@ -3914,7 +3914,7 @@
       "exampleEn": "The open-air market fills the whole square.",
       "cefr": "A2",
       "topic": "southern produce",
-      "audioPath": "/audio/fr/v1/occ-marche-plein-air.wav"
+      "audioPath": "/audio/fr/v2/occ-marche-plein-air.wav"
     },
     {
       "id": "occ-abricot",
@@ -3931,7 +3931,7 @@
       "exampleEn": "This apricot is sweet and juicy.",
       "cefr": "A2",
       "topic": "southern produce",
-      "audioPath": "/audio/fr/v1/occ-abricot.wav"
+      "audioPath": "/audio/fr/v2/occ-abricot.wav"
     },
     {
       "id": "occ-olive",
@@ -3948,7 +3948,7 @@
       "exampleEn": "We taste a green olive.",
       "cefr": "A2",
       "topic": "southern produce",
-      "audioPath": "/audio/fr/v1/occ-olive.wav"
+      "audioPath": "/audio/fr/v2/occ-olive.wav"
     },
     {
       "id": "occ-partager",
@@ -3965,7 +3965,7 @@
       "exampleEn": "They like sharing a meal on the terrace.",
       "cefr": "A2",
       "topic": "southern produce",
-      "audioPath": "/audio/fr/v1/occ-partager.wav"
+      "audioPath": "/audio/fr/v2/occ-partager.wav"
     },
     {
       "id": "occ-convivial",
@@ -3982,7 +3982,7 @@
       "exampleEn": "The café atmosphere is friendly.",
       "cefr": "A2",
       "topic": "southern produce",
-      "audioPath": "/audio/fr/v1/occ-convivial.wav"
+      "audioPath": "/audio/fr/v2/occ-convivial.wav"
     },
     {
       "id": "paca-marche-provencal",
@@ -3999,7 +3999,7 @@
       "exampleEn": "The Provençal market opens on the square.",
       "cefr": "A1",
       "topic": "market flavours",
-      "audioPath": "/audio/fr/v1/paca-marche-provencal.wav"
+      "audioPath": "/audio/fr/v2/paca-marche-provencal.wav"
     },
     {
       "id": "paca-huile-olive",
@@ -4016,7 +4016,7 @@
       "exampleEn": "This olive oil has a fruity taste.",
       "cefr": "A1",
       "topic": "market flavours",
-      "audioPath": "/audio/fr/v1/paca-huile-olive.wav"
+      "audioPath": "/audio/fr/v2/paca-huile-olive.wav"
     },
     {
       "id": "paca-tomate",
@@ -4033,7 +4033,7 @@
       "exampleEn": "I choose a nicely ripe tomato.",
       "cefr": "A1",
       "topic": "market flavours",
-      "audioPath": "/audio/fr/v1/paca-tomate.wav"
+      "audioPath": "/audio/fr/v2/paca-tomate.wav"
     },
     {
       "id": "paca-sentir",
@@ -4050,7 +4050,7 @@
       "exampleEn": "You can smell lavender in the air.",
       "cefr": "A1",
       "topic": "market flavours",
-      "audioPath": "/audio/fr/v1/paca-sentir.wav"
+      "audioPath": "/audio/fr/v2/paca-sentir.wav"
     },
     {
       "id": "paca-parfume",
@@ -4067,7 +4067,7 @@
       "exampleEn": "The honey is fragrant with Provençal herbs.",
       "cefr": "A1",
       "topic": "market flavours",
-      "audioPath": "/audio/fr/v1/paca-parfume.wav"
+      "audioPath": "/audio/fr/v2/paca-parfume.wav"
     },
     {
       "id": "paca-port-plaisance",
@@ -4084,7 +4084,7 @@
       "exampleEn": "The marina welcomes small sailing boats.",
       "cefr": "A2",
       "topic": "coastal leisure",
-      "audioPath": "/audio/fr/v1/paca-port-plaisance.wav"
+      "audioPath": "/audio/fr/v2/paca-port-plaisance.wav"
     },
     {
       "id": "paca-parasol",
@@ -4101,7 +4101,7 @@
       "exampleEn": "We put up the sun umbrella near the water.",
       "cefr": "A2",
       "topic": "coastal leisure",
-      "audioPath": "/audio/fr/v1/paca-parasol.wav"
+      "audioPath": "/audio/fr/v2/paca-parasol.wav"
     },
     {
       "id": "paca-rocher",
@@ -4118,7 +4118,7 @@
       "exampleEn": "A path descends between the rocks.",
       "cefr": "A2",
       "topic": "coastal leisure",
-      "audioPath": "/audio/fr/v1/paca-rocher.wav"
+      "audioPath": "/audio/fr/v2/paca-rocher.wav"
     },
     {
       "id": "paca-plonger",
@@ -4135,7 +4135,7 @@
       "exampleEn": "They are going to dive into clear water.",
       "cefr": "A2",
       "topic": "coastal leisure",
-      "audioPath": "/audio/fr/v1/paca-plonger.wav"
+      "audioPath": "/audio/fr/v2/paca-plonger.wav"
     },
     {
       "id": "paca-turquoise",
@@ -4152,7 +4152,7 @@
       "exampleEn": "The sea is turquoise at the end of the cove.",
       "cefr": "A2",
       "topic": "coastal leisure",
-      "audioPath": "/audio/fr/v1/paca-turquoise.wav"
+      "audioPath": "/audio/fr/v2/paca-turquoise.wav"
     },
     {
       "id": "cor-charcuterie",
@@ -4169,7 +4169,7 @@
       "exampleEn": "The cured meats are served with bread.",
       "cefr": "A1",
       "topic": "village food",
-      "audioPath": "/audio/fr/v1/cor-charcuterie.wav"
+      "audioPath": "/audio/fr/v2/cor-charcuterie.wav"
     },
     {
       "id": "cor-chataigne",
@@ -4186,7 +4186,7 @@
       "exampleEn": "Chestnuts fall at the beginning of autumn.",
       "cefr": "A1",
       "topic": "village food",
-      "audioPath": "/audio/fr/v1/cor-chataigne.wav"
+      "audioPath": "/audio/fr/v2/cor-chataigne.wav"
     },
     {
       "id": "cor-fontaine",
@@ -4203,7 +4203,7 @@
       "exampleEn": "A fountain flows in the centre of the village.",
       "cefr": "A1",
       "topic": "village food",
-      "audioPath": "/audio/fr/v1/cor-fontaine.wav"
+      "audioPath": "/audio/fr/v2/cor-fontaine.wav"
     },
     {
       "id": "cor-preparer",
@@ -4220,7 +4220,7 @@
       "exampleEn": "We prepare a meal with Corsican products.",
       "cefr": "A1",
       "topic": "village food",
-      "audioPath": "/audio/fr/v1/cor-preparer.wav"
+      "audioPath": "/audio/fr/v2/cor-preparer.wav"
     },
     {
       "id": "cor-typique",
@@ -4237,7 +4237,7 @@
       "exampleEn": "This stone house is typical of the village.",
       "cefr": "A1",
       "topic": "village food",
-      "audioPath": "/audio/fr/v1/cor-typique.wav"
+      "audioPath": "/audio/fr/v2/cor-typique.wav"
     },
     {
       "id": "cor-crique",
@@ -4254,7 +4254,7 @@
       "exampleEn": "The path descends towards a quiet cove.",
       "cefr": "A2",
       "topic": "island hiking",
-      "audioPath": "/audio/fr/v1/cor-crique.wav"
+      "audioPath": "/audio/fr/v2/cor-crique.wav"
     },
     {
       "id": "cor-col",
@@ -4271,7 +4271,7 @@
       "exampleEn": "The mountain pass offers a view of both coasts.",
       "cefr": "A2",
       "topic": "island hiking",
-      "audioPath": "/audio/fr/v1/cor-col.wav"
+      "audioPath": "/audio/fr/v2/cor-col.wav"
     },
     {
       "id": "cor-sac-dos",
@@ -4288,7 +4288,7 @@
       "exampleEn": "My backpack contains water and a map.",
       "cefr": "A2",
       "topic": "island hiking",
-      "audioPath": "/audio/fr/v1/cor-sac-dos.wav"
+      "audioPath": "/audio/fr/v2/cor-sac-dos.wav"
     },
     {
       "id": "cor-monter",
@@ -4305,7 +4305,7 @@
       "exampleEn": "We walk up to the village.",
       "cefr": "A2",
       "topic": "island hiking",
-      "audioPath": "/audio/fr/v1/cor-monter.wav"
+      "audioPath": "/audio/fr/v2/cor-monter.wav"
     },
     {
       "id": "cor-isole",
@@ -4322,7 +4322,7 @@
       "exampleEn": "The beach is beautiful but remote.",
       "cefr": "A2",
       "topic": "island hiking",
-      "audioPath": "/audio/fr/v1/cor-isole.wav"
+      "audioPath": "/audio/fr/v2/cor-isole.wav"
     },
     {
       "id": "gua-marche-epices",
@@ -4339,7 +4339,7 @@
       "exampleEn": "The spice market is full of colours.",
       "cefr": "A1",
       "topic": "tropical food",
-      "audioPath": "/audio/fr/v1/gua-marche-epices.wav"
+      "audioPath": "/audio/fr/v2/gua-marche-epices.wav"
     },
     {
       "id": "gua-banane",
@@ -4356,7 +4356,7 @@
       "exampleEn": "She slices a banana for dessert.",
       "cefr": "A1",
       "topic": "tropical food",
-      "audioPath": "/audio/fr/v1/gua-banane.wav"
+      "audioPath": "/audio/fr/v2/gua-banane.wav"
     },
     {
       "id": "gua-plage-sable-noir",
@@ -4373,7 +4373,7 @@
       "exampleEn": "We discover a black-sand beach.",
       "cefr": "A1",
       "topic": "tropical food",
-      "audioPath": "/audio/fr/v1/gua-plage-sable-noir.wav"
+      "audioPath": "/audio/fr/v2/gua-plage-sable-noir.wav"
     },
     {
       "id": "gua-nager",
@@ -4390,7 +4390,7 @@
       "exampleEn": "The children like swimming in the calm water.",
       "cefr": "A1",
       "topic": "tropical food",
-      "audioPath": "/audio/fr/v1/gua-nager.wav"
+      "audioPath": "/audio/fr/v2/gua-nager.wav"
     },
     {
       "id": "gua-sucre",
@@ -4407,7 +4407,7 @@
       "exampleEn": "This fruit is fragrant and sweet.",
       "cefr": "A1",
       "topic": "tropical food",
-      "audioPath": "/audio/fr/v1/gua-sucre.wav"
+      "audioPath": "/audio/fr/v2/gua-sucre.wav"
     },
     {
       "id": "gua-averse-tropicale",
@@ -4424,7 +4424,7 @@
       "exampleEn": "A tropical shower passes quickly.",
       "cefr": "A2",
       "topic": "rainforest weather",
-      "audioPath": "/audio/fr/v1/gua-averse-tropicale.wav"
+      "audioPath": "/audio/fr/v2/gua-averse-tropicale.wav"
     },
     {
       "id": "gua-foret-humide",
@@ -4441,7 +4441,7 @@
       "exampleEn": "The rainforest is home to many plants.",
       "cefr": "A2",
       "topic": "rainforest weather",
-      "audioPath": "/audio/fr/v1/gua-foret-humide.wav"
+      "audioPath": "/audio/fr/v2/gua-foret-humide.wav"
     },
     {
       "id": "gua-source",
@@ -4458,7 +4458,7 @@
       "exampleEn": "A clear spring runs through the rocks.",
       "cefr": "A2",
       "topic": "rainforest weather",
-      "audioPath": "/audio/fr/v1/gua-source.wav"
+      "audioPath": "/audio/fr/v2/gua-source.wav"
     },
     {
       "id": "gua-se-proteger",
@@ -4475,7 +4475,7 @@
       "exampleEn": "You must protect yourself from the midday sun.",
       "cefr": "A2",
       "topic": "rainforest weather",
-      "audioPath": "/audio/fr/v1/gua-se-proteger.wav"
+      "audioPath": "/audio/fr/v2/gua-se-proteger.wav"
     },
     {
       "id": "gua-rafraichissant",
@@ -4492,7 +4492,7 @@
       "exampleEn": "The waterfall water is refreshing.",
       "cefr": "A2",
       "topic": "rainforest weather",
-      "audioPath": "/audio/fr/v1/gua-rafraichissant.wav"
+      "audioPath": "/audio/fr/v2/gua-rafraichissant.wav"
     },
     {
       "id": "mar-ananas",
@@ -4509,7 +4509,7 @@
       "exampleEn": "This pineapple comes from the local market.",
       "cefr": "A1",
       "topic": "tropical cooking",
-      "audioPath": "/audio/fr/v1/mar-ananas.wav"
+      "audioPath": "/audio/fr/v2/mar-ananas.wav"
     },
     {
       "id": "mar-epice",
@@ -4526,7 +4526,7 @@
       "exampleEn": "This spice adds flavour to the dish.",
       "cefr": "A1",
       "topic": "tropical cooking",
-      "audioPath": "/audio/fr/v1/mar-epice.wav"
+      "audioPath": "/audio/fr/v2/mar-epice.wav"
     },
     {
       "id": "mar-marche-local",
@@ -4543,7 +4543,7 @@
       "exampleEn": "We buy fruit at the local market.",
       "cefr": "A1",
       "topic": "tropical cooking",
-      "audioPath": "/audio/fr/v1/mar-marche-local.wav"
+      "audioPath": "/audio/fr/v2/mar-marche-local.wav"
     },
     {
       "id": "mar-cuisiner",
@@ -4560,7 +4560,7 @@
       "exampleEn": "She likes cooking with fresh herbs.",
       "cefr": "A1",
       "topic": "tropical cooking",
-      "audioPath": "/audio/fr/v1/mar-cuisiner.wav"
+      "audioPath": "/audio/fr/v2/mar-cuisiner.wav"
     },
     {
       "id": "mar-doux",
@@ -4577,7 +4577,7 @@
       "exampleEn": "The flesh of this fruit is sweet.",
       "cefr": "A1",
       "topic": "tropical cooking",
-      "audioPath": "/audio/fr/v1/mar-doux.wav"
+      "audioPath": "/audio/fr/v2/mar-doux.wav"
     },
     {
       "id": "mar-montagne-pelee",
@@ -4594,7 +4594,7 @@
       "exampleEn": "Mount Pelée overlooks the north of the island.",
       "cefr": "A2",
       "topic": "volcanic coast",
-      "audioPath": "/audio/fr/v1/mar-montagne-pelee.wav"
+      "audioPath": "/audio/fr/v2/mar-montagne-pelee.wav"
     },
     {
       "id": "mar-baie",
@@ -4611,7 +4611,7 @@
       "exampleEn": "The yole crosses the bay at sunrise.",
       "cefr": "A2",
       "topic": "volcanic coast",
-      "audioPath": "/audio/fr/v1/mar-baie.wav"
+      "audioPath": "/audio/fr/v2/mar-baie.wav"
     },
     {
       "id": "mar-sable-noir",
@@ -4628,7 +4628,7 @@
       "exampleEn": "The black sand heats up quickly in the sun.",
       "cefr": "A2",
       "topic": "volcanic coast",
-      "audioPath": "/audio/fr/v1/mar-sable-noir.wav"
+      "audioPath": "/audio/fr/v2/mar-sable-noir.wav"
     },
     {
       "id": "mar-explorer",
@@ -4645,7 +4645,7 @@
       "exampleEn": "We are setting out to explore the north coast.",
       "cefr": "A2",
       "topic": "volcanic coast",
-      "audioPath": "/audio/fr/v1/mar-explorer.wav"
+      "audioPath": "/audio/fr/v2/mar-explorer.wav"
     },
     {
       "id": "mar-calme",
@@ -4662,7 +4662,7 @@
       "exampleEn": "The sea is calm in the bay.",
       "cefr": "A2",
       "topic": "volcanic coast",
-      "audioPath": "/audio/fr/v1/mar-calme.wav"
+      "audioPath": "/audio/fr/v2/mar-calme.wav"
     },
     {
       "id": "guy-pirogue",
@@ -4679,7 +4679,7 @@
       "exampleEn": "The dugout canoe moves along the middle of the river.",
       "cefr": "A1",
       "topic": "river travel",
-      "audioPath": "/audio/fr/v1/guy-pirogue.wav"
+      "audioPath": "/audio/fr/v2/guy-pirogue.wav"
     },
     {
       "id": "guy-rive",
@@ -4696,7 +4696,7 @@
       "exampleEn": "Tall trees grow on each riverbank.",
       "cefr": "A1",
       "topic": "river travel",
-      "audioPath": "/audio/fr/v1/guy-rive.wav"
+      "audioPath": "/audio/fr/v2/guy-rive.wav"
     },
     {
       "id": "guy-village-riverain",
@@ -4713,7 +4713,7 @@
       "exampleEn": "We stop in a riverside village.",
       "cefr": "A1",
       "topic": "river travel",
-      "audioPath": "/audio/fr/v1/guy-village-riverain.wav"
+      "audioPath": "/audio/fr/v2/guy-village-riverain.wav"
     },
     {
       "id": "guy-remonter",
@@ -4730,7 +4730,7 @@
       "exampleEn": "They are going to travel upstream by canoe.",
       "cefr": "A1",
       "topic": "river travel",
-      "audioPath": "/audio/fr/v1/guy-remonter.wav"
+      "audioPath": "/audio/fr/v2/guy-remonter.wav"
     },
     {
       "id": "guy-lointain",
@@ -4747,7 +4747,7 @@
       "exampleEn": "The village still seems far away.",
       "cefr": "A1",
       "topic": "river travel",
-      "audioPath": "/audio/fr/v1/guy-lointain.wav"
+      "audioPath": "/audio/fr/v2/guy-lointain.wav"
     },
     {
       "id": "guy-paresseux",
@@ -4764,7 +4764,7 @@
       "exampleEn": "A sloth sleeps in the branches.",
       "cefr": "A2",
       "topic": "rainforest wildlife",
-      "audioPath": "/audio/fr/v1/guy-paresseux.wav"
+      "audioPath": "/audio/fr/v2/guy-paresseux.wav"
     },
     {
       "id": "guy-toucan",
@@ -4781,7 +4781,7 @@
       "exampleEn": "We spot a toucan above the path.",
       "cefr": "A2",
       "topic": "rainforest wildlife",
-      "audioPath": "/audio/fr/v1/guy-toucan.wav"
+      "audioPath": "/audio/fr/v2/guy-toucan.wav"
     },
     {
       "id": "guy-saison-pluies",
@@ -4798,7 +4798,7 @@
       "exampleEn": "The rainy season begins soon.",
       "cefr": "A2",
       "topic": "rainforest wildlife",
-      "audioPath": "/audio/fr/v1/guy-saison-pluies.wav"
+      "audioPath": "/audio/fr/v2/guy-saison-pluies.wav"
     },
     {
       "id": "guy-apercevoir",
@@ -4815,7 +4815,7 @@
       "exampleEn": "You can catch sight of monkeys in the morning.",
       "cefr": "A2",
       "topic": "rainforest wildlife",
-      "audioPath": "/audio/fr/v1/guy-apercevoir.wav"
+      "audioPath": "/audio/fr/v2/guy-apercevoir.wav"
     },
     {
       "id": "guy-tropical",
@@ -4832,7 +4832,7 @@
       "exampleEn": "The tropical climate is hot and humid.",
       "cefr": "A2",
       "topic": "rainforest wildlife",
-      "audioPath": "/audio/fr/v1/guy-tropical.wav"
+      "audioPath": "/audio/fr/v2/guy-tropical.wav"
     },
     {
       "id": "reu-belvedere",
@@ -4849,7 +4849,7 @@
       "exampleEn": "The viewpoint overlooks the entire cirque.",
       "cefr": "A1",
       "topic": "mountain trails",
-      "audioPath": "/audio/fr/v1/reu-belvedere.wav"
+      "audioPath": "/audio/fr/v2/reu-belvedere.wav"
     },
     {
       "id": "reu-ravine",
@@ -4866,7 +4866,7 @@
       "exampleEn": "A footbridge crosses the ravine.",
       "cefr": "A1",
       "topic": "mountain trails",
-      "audioPath": "/audio/fr/v1/reu-ravine.wav"
+      "audioPath": "/audio/fr/v2/reu-ravine.wav"
     },
     {
       "id": "reu-sentier",
@@ -4883,7 +4883,7 @@
       "exampleEn": "The trail climbs between the ferns.",
       "cefr": "A1",
       "topic": "mountain trails",
-      "audioPath": "/audio/fr/v1/reu-sentier.wav"
+      "audioPath": "/audio/fr/v2/reu-sentier.wav"
     },
     {
       "id": "reu-descendre",
@@ -4900,7 +4900,7 @@
       "exampleEn": "We go down towards the village before the rain.",
       "cefr": "A1",
       "topic": "mountain trails",
-      "audioPath": "/audio/fr/v1/reu-descendre.wav"
+      "audioPath": "/audio/fr/v2/reu-descendre.wav"
     },
     {
       "id": "reu-vertigineux",
@@ -4917,7 +4917,7 @@
       "exampleEn": "The view from the ridge is dizzying.",
       "cefr": "A1",
       "topic": "mountain trails",
-      "audioPath": "/audio/fr/v1/reu-vertigineux.wav"
+      "audioPath": "/audio/fr/v2/reu-vertigineux.wav"
     },
     {
       "id": "reu-cari",
@@ -4934,7 +4934,7 @@
       "exampleEn": "The cari simmers gently in the cooking pot.",
       "cefr": "A2",
       "topic": "island food and weather",
-      "audioPath": "/audio/fr/v1/reu-cari.wav"
+      "audioPath": "/audio/fr/v2/reu-cari.wav"
     },
     {
       "id": "reu-vanille",
@@ -4951,7 +4951,7 @@
       "exampleEn": "The vanilla flavours the dessert.",
       "cefr": "A2",
       "topic": "island food and weather",
-      "audioPath": "/audio/fr/v1/reu-vanille.wav"
+      "audioPath": "/audio/fr/v2/reu-vanille.wav"
     },
     {
       "id": "reu-alize",
@@ -4968,7 +4968,7 @@
       "exampleEn": "A trade wind cools the east coast.",
       "cefr": "A2",
       "topic": "island food and weather",
-      "audioPath": "/audio/fr/v1/reu-alize.wav"
+      "audioPath": "/audio/fr/v2/reu-alize.wav"
     },
     {
       "id": "reu-mijoter",
@@ -4985,7 +4985,7 @@
       "exampleEn": "You need to let the sauce simmer.",
       "cefr": "A2",
       "topic": "island food and weather",
-      "audioPath": "/audio/fr/v1/reu-mijoter.wav"
+      "audioPath": "/audio/fr/v2/reu-mijoter.wav"
     },
     {
       "id": "reu-intense",
@@ -5002,7 +5002,7 @@
       "exampleEn": "The heat near the volcano is intense.",
       "cefr": "A2",
       "topic": "island food and weather",
-      "audioPath": "/audio/fr/v1/reu-intense.wav"
+      "audioPath": "/audio/fr/v2/reu-intense.wav"
     },
     {
       "id": "may-village-cotier",
@@ -5019,7 +5019,7 @@
       "exampleEn": "The coastal village wakes early in the morning.",
       "cefr": "A1",
       "topic": "community life",
-      "audioPath": "/audio/fr/v1/may-village-cotier.wav"
+      "audioPath": "/audio/fr/v2/may-village-cotier.wav"
     },
     {
       "id": "may-pirogue-balancier",
@@ -5036,7 +5036,7 @@
       "exampleEn": "The outrigger canoe glides across the lagoon.",
       "cefr": "A1",
       "topic": "community life",
-      "audioPath": "/audio/fr/v1/may-pirogue-balancier.wav"
+      "audioPath": "/audio/fr/v2/may-pirogue-balancier.wav"
     },
     {
       "id": "may-fruit-tropical",
@@ -5053,7 +5053,7 @@
       "exampleEn": "The vendor slices a ripe tropical fruit.",
       "cefr": "A1",
       "topic": "community life",
-      "audioPath": "/audio/fr/v1/may-fruit-tropical.wav"
+      "audioPath": "/audio/fr/v2/may-fruit-tropical.wav"
     },
     {
       "id": "may-discuter",
@@ -5070,7 +5070,7 @@
       "exampleEn": "The neighbours chat in front of the house.",
       "cefr": "A1",
       "topic": "community life",
-      "audioPath": "/audio/fr/v1/may-discuter.wav"
+      "audioPath": "/audio/fr/v2/may-discuter.wav"
     },
     {
       "id": "may-multilingue",
@@ -5087,7 +5087,7 @@
       "exampleEn": "Daily life is deeply multilingual.",
       "cefr": "A1",
       "topic": "community life",
-      "audioPath": "/audio/fr/v1/may-multilingue.wav"
+      "audioPath": "/audio/fr/v2/may-multilingue.wav"
     },
     {
       "id": "may-recif",
@@ -5104,7 +5104,7 @@
       "exampleEn": "The reef shelters small colourful fish.",
       "cefr": "A2",
       "topic": "coastal conservation",
-      "audioPath": "/audio/fr/v1/may-recif.wav"
+      "audioPath": "/audio/fr/v2/may-recif.wav"
     },
     {
       "id": "may-maree-basse",
@@ -5121,7 +5121,7 @@
       "exampleEn": "At low tide, the reef becomes visible.",
       "cefr": "A2",
       "topic": "coastal conservation",
-      "audioPath": "/audio/fr/v1/may-maree-basse.wav"
+      "audioPath": "/audio/fr/v2/may-maree-basse.wav"
     },
     {
       "id": "may-dechets",
@@ -5138,7 +5138,7 @@
       "exampleEn": "We pick up litter on the beach.",
       "cefr": "A2",
       "topic": "coastal conservation",
-      "audioPath": "/audio/fr/v1/may-dechets.wav"
+      "audioPath": "/audio/fr/v2/may-dechets.wav"
     },
     {
       "id": "may-proteger",
@@ -5155,7 +5155,7 @@
       "exampleEn": "We must protect the turtles and their nests.",
       "cefr": "A2",
       "topic": "coastal conservation",
-      "audioPath": "/audio/fr/v1/may-proteger.wav"
+      "audioPath": "/audio/fr/v2/may-proteger.wav"
     },
     {
       "id": "may-fragile",
@@ -5172,7 +5172,7 @@
       "exampleEn": "This marine ecosystem is very fragile.",
       "cefr": "A2",
       "topic": "coastal conservation",
-      "audioPath": "/audio/fr/v1/may-fragile.wav"
+      "audioPath": "/audio/fr/v2/may-fragile.wav"
     }
   ]
 }

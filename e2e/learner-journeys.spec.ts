@@ -486,6 +486,44 @@ test("a new learner completes the first five-card lesson", async ({ page }) => {
   await expect(continueLesson).toBeVisible();
 });
 
+test("the packaged French female voice is delivered and Chromium plays the v2 release", async ({
+  browserName,
+  page,
+}) => {
+  await beginAsNewLearner(page, "Audio");
+  const packagedAudio = await page.evaluate(async () => {
+    const response = await fetch("/audio/fr/v2/idf-metro.wav");
+    const bytes = await response.arrayBuffer();
+    return {
+      byteLength: bytes.byteLength,
+      contentType: response.headers.get("content-type") ?? "",
+      status: response.status,
+    };
+  });
+  expect([200, 206]).toContain(packagedAudio.status);
+  expect(packagedAudio.contentType).toMatch(/audio\/(?:wav|x-wav)/i);
+  expect(packagedAudio.byteLength).toBeGreaterThan(1_000);
+
+  await page.getByRole("button", { name: /Start lesson 1/i }).first().click();
+  const lesson = page.getByRole("dialog");
+  await expect(lesson).toBeVisible();
+
+  const audioButton = lesson.getByRole("button", {
+    name: /Hear pronunciation of le métro/i,
+  });
+  await expect(audioButton).toBeVisible();
+
+  // Firefox and WebKit runners in GitHub Actions do not provide a usable audio
+  // output backend. Cross-browser delivery is asserted above; deterministic
+  // fallback behavior is covered by the audio-service unit tests, while
+  // Chromium provides the browser playback integration gate.
+  if (browserName !== "chromium") return;
+
+  await audioButton.click();
+  await expect(audioButton).toHaveAttribute("data-audio-source", "asset");
+  await expect(audioButton).not.toHaveAttribute("data-audio-status", "error");
+});
+
 test("pre-onboarding information stays reachable and setup moves focus", async ({
   page,
 }) => {
@@ -963,7 +1001,7 @@ test("Chromium cold-starts into the identity-free offline shell", async ({
     await expect
       .poll(() =>
         offlinePage.evaluate(async () => {
-          const cache = await caches.open("paretto-static-v6");
+          const cache = await caches.open("paretto-static-v7");
           return Boolean(await cache.match("/offline.html"));
         }),
       )

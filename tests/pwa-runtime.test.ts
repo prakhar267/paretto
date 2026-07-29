@@ -67,7 +67,7 @@ describe("production PWA runtime", () => {
       resolve(import.meta.dirname, "../public/service-worker.js"),
       "utf8",
     );
-    expect(source).toContain('const STATIC_CACHE = "paretto-static-v6"');
+    expect(source).toContain('const STATIC_CACHE = "paretto-static-v7"');
     const handlers = new Map<string, (event: unknown) => void>();
     const offlineShell = new Response("identity-free offline shell", {
       headers: { "content-type": "text/html" },
@@ -231,7 +231,7 @@ describe("production PWA runtime", () => {
     ]);
   });
 
-  it("replaces the redirected v5 shell cache while preserving pronunciation audio", async () => {
+  it("replaces stale shell and robotic-audio caches while preserving v2 pronunciation audio", async () => {
     const source = await readFile(
       resolve(import.meta.dirname, "../public/service-worker.js"),
       "utf8",
@@ -253,8 +253,9 @@ describe("production PWA runtime", () => {
         open: vi.fn(),
         keys: vi.fn(async () => [
           "paretto-static-v5",
-          "paretto-static-v6",
+          "paretto-static-v7",
           "pas-a-pas-audio-v1",
+          "paretto-audio-v2",
         ]),
         delete: deleteCache,
       },
@@ -273,8 +274,9 @@ describe("production PWA runtime", () => {
     });
     await activateWork;
 
-    expect(deleteCache).toHaveBeenCalledTimes(1);
+    expect(deleteCache).toHaveBeenCalledTimes(2);
     expect(deleteCache).toHaveBeenCalledWith("paretto-static-v5");
+    expect(deleteCache).toHaveBeenCalledWith("pas-a-pas-audio-v1");
     expect(claim).toHaveBeenCalledTimes(1);
   });
 
@@ -322,7 +324,7 @@ describe("production PWA runtime", () => {
     let cacheResponse: Promise<Response> | undefined;
     handlers.get("fetch")?.({
       request: new Request(
-        "https://paretto.test/audio/fr/v1/le-metro.wav",
+        "https://paretto.test/audio/fr/v2/le-metro.wav",
         { headers: { cookie: "private=learner" } },
       ),
       respondWith: (response: Promise<Response>) => {
@@ -352,7 +354,7 @@ describe("production PWA runtime", () => {
     expect(cachedStaticRequest.headers.get("cookie")).toBeNull();
 
     for (const url of [
-      "https://paretto.test/audio/fr/v1/le-metro.wav?learner=private",
+      "https://paretto.test/audio/fr/v2/le-metro.wav?learner=private",
       "https://paretto.test/audio/generated/private.wav",
       "https://paretto.test/manifest.webmanifest?learner=private",
       "https://paretto.test/sign-in",
