@@ -53,6 +53,31 @@ final class ParettoUITests: XCTestCase {
     }
 
     @MainActor
+    func testBundledFrenchAudioStartsFromTheFirstLesson() throws {
+        let app = XCUIApplication()
+        app.launchArguments = ["-ui-testing", "-reset-state"]
+        app.launch()
+
+        let name = app.textFields["First name"]
+        XCTAssertTrue(name.waitForExistence(timeout: 5))
+        name.tap()
+        name.typeText("Camille")
+        app.buttons["Begin in Île-de-France"].tap()
+        XCTAssertTrue(app.navigationBars["Today"].waitForExistence(timeout: 5))
+        app.buttons["Start lesson"].tap()
+
+        let audio = app.buttons["lesson-french-audio"]
+        XCTAssertTrue(audio.waitForExistence(timeout: 5))
+        audio.tap()
+        let bundledRecording = NSPredicate(
+            format: "value == %@",
+            "High-quality French female recording"
+        )
+        expectation(for: bundledRecording, evaluatedWith: audio)
+        waitForExpectations(timeout: 3)
+    }
+
+    @MainActor
     func testDynamicTypeAccessibilitySizeLaunches() throws {
         let app = XCUIApplication()
         app.launchArguments = [

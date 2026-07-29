@@ -32,14 +32,18 @@ describe("packaged French audio release", () => {
       status: "ready",
       synthetic: true,
       distributionCleared: true,
-      generator: "Piper",
-      voice: "fr_FR-mls-medium",
-      training: "trained from scratch",
+      generator: "Kokoro ONNX",
+      voice: "ff_siwis",
+      voiceGender: "female",
+      quality: "high",
+      speakers: 1,
       license: {
-        name: expect.stringContaining("CC BY 4.0"),
-        url: "https://creativecommons.org/licenses/by/4.0/",
+        name: expect.stringContaining("Apache License 2.0"),
+        url: "https://www.apache.org/licenses/LICENSE-2.0",
       },
     });
+    expect(manifest.assetVersion).toBe("v2");
+    expect(manifest.sampleRateHz).toBe(24_000);
     const compiledWords = new Map(WORDS.map((word) => [word.id, word] as const));
     const availableIds = new Set(manifest.availableWordIds);
     expect(availableIds.size).toBe(manifest.availableWordIds.length);

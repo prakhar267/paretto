@@ -57,6 +57,7 @@ export type AudioElementLike = {
 
 export type SpeechVoiceLike = {
   lang: string;
+  name?: string;
   localService?: boolean;
 };
 
@@ -98,6 +99,40 @@ const IDLE_SNAPSHOT: FrenchAudioSnapshot = {
 
 const MAX_CACHED_AUDIO = 12;
 const MAX_PRELOAD_BATCH = 8;
+const FRENCH_FEMALE_VOICE_HINT =
+  /\b(am[eé]lie|audrey|denise|hortense|julie|l[eé]a|marie|margaux|virginie|vivienne|female|femme)\b/i;
+
+export function selectFrenchSpeechVoice(
+  voices: readonly SpeechVoiceLike[],
+  locale: string,
+): SpeechVoiceLike | null {
+  const normalizedLocale = locale.toLowerCase();
+  const language = normalizedLocale.split("-")[0];
+  const candidates = voices.filter((voice) =>
+    voice.lang.toLowerCase().startsWith(language),
+  );
+  if (candidates.length === 0) return null;
+  const femaleCandidates = candidates.filter((voice) =>
+    FRENCH_FEMALE_VOICE_HINT.test(voice.name ?? ""),
+  );
+  const rankedCandidates =
+    femaleCandidates.length > 0 ? femaleCandidates : candidates;
+
+  return rankedCandidates.reduce((best, voice) => {
+    const score = voiceScore(voice, normalizedLocale);
+    const bestScore = voiceScore(best, normalizedLocale);
+    return score > bestScore ? voice : best;
+  });
+}
+
+function voiceScore(voice: SpeechVoiceLike, locale: string): number {
+  const normalizedLanguage = voice.lang.toLowerCase();
+  return (
+    (normalizedLanguage === locale ? 100 : 50) +
+    (FRENCH_FEMALE_VOICE_HINT.test(voice.name ?? "") ? 30 : 0) +
+    (voice.localService === true ? 10 : 0)
+  );
+}
 
 export class FrenchAudioService {
   private readonly environment: FrenchAudioEnvironment;
@@ -479,28 +514,12 @@ export class FrenchAudioService {
     const courseId: CourseId = request.courseId ?? DEFAULT_COURSE_ID;
     const course = COURSE_CATALOG[courseId];
     const speechLocale = course.audio.locale.toLowerCase();
-    const speechLanguage = speechLocale.split("-")[0];
     utterance.lang = course.audio.locale;
     utterance.rate = 0.86;
     utterance.pitch = 1;
     try {
       const voices = speech.getVoices();
-      utterance.voice =
-        voices.find(
-          (voice) =>
-            voice.localService === true &&
-            voice.lang.toLowerCase() === speechLocale,
-        ) ??
-        voices.find(
-          (voice) =>
-            voice.localService === true &&
-            voice.lang.toLowerCase().startsWith(speechLanguage),
-        ) ??
-        voices.find((voice) => voice.lang.toLowerCase() === speechLocale) ??
-        voices.find((voice) =>
-          voice.lang.toLowerCase().startsWith(speechLanguage),
-        ) ??
-        null;
+      utterance.voice = selectFrenchSpeechVoice(voices, speechLocale);
     } catch {
       utterance.voice = null;
     }

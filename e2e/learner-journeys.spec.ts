@@ -486,6 +486,29 @@ test("a new learner completes the first five-card lesson", async ({ page }) => {
   await expect(continueLesson).toBeVisible();
 });
 
+test("the packaged French female voice loads and plays from the v2 release", async ({
+  page,
+}) => {
+  await beginAsNewLearner(page, "Audio");
+  const audioResponse = page.waitForResponse((response) =>
+    response.url().endsWith("/audio/fr/v2/idf-metro.wav"),
+  );
+  await page.getByRole("button", { name: /Start lesson 1/i }).first().click();
+  const lesson = page.getByRole("dialog");
+  await expect(lesson).toBeVisible();
+
+  const response = await audioResponse;
+  expect([200, 206]).toContain(response.status());
+  expect(response.headers()["content-type"]).toMatch(/audio\/(?:wav|x-wav)/i);
+
+  const audioButton = lesson.getByRole("button", {
+    name: /Hear pronunciation of le métro/i,
+  });
+  await audioButton.click();
+  await expect(audioButton).toHaveAttribute("data-audio-source", "asset");
+  await expect(audioButton).not.toHaveAttribute("data-audio-status", "error");
+});
+
 test("pre-onboarding information stays reachable and setup moves focus", async ({
   page,
 }) => {

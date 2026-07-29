@@ -15,11 +15,14 @@ The system-wide developer selector may still point to Command Line Tools, so
 release commands set
 `DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer` explicitly.
 
-Signing, Sign in with Apple, archiving, TestFlight upload, and App Store
-submission require the account owner's Apple Developer configuration and
-interactive approval. App Store publication is intentionally deferred for this
-release. Never send an Apple password, recovery key, or verification code to a
-developer or automation tool.
+An unsigned Release archive for a generic iOS device was successfully produced
+on 2026-07-30 with bundle identifier `com.paretto.app`, marketing version
+`1.4.1`, and build `11`. It contains the privacy manifest, opaque 1024×1024 icon,
+and all 270 audio clips. Signing, Sign in with Apple, TestFlight upload, and App
+Store submission still require the account owner's Apple Developer
+configuration and interactive approval. App Store publication remains deferred
+for this release. Never send an Apple password, recovery key, or verification
+code to a developer or automation tool.
 
 `com.paretto.app` is a clean pre-release bundle-identifier cutover. If any build
 under the retired identifier is ever distributed to real users, stop and design

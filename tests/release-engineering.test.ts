@@ -195,7 +195,7 @@ describe("release engineering contracts", () => {
     expect(workflow).toContain("-configuration Release");
     expect(workflow).toContain("-destination 'generic/platform=iOS Simulator'");
     expect(workflow).toContain('test "$audio_count" = "270"');
-    expect(workflow).toContain('test -s "$app/fr/v1/idf-metro.wav"');
+    expect(workflow).toContain('test -s "$app/fr/v2/idf-metro.wav"');
     expect(workflow).toContain("windows-chromium-compatibility:");
     expect(workflow).toContain("runs-on: windows-2022");
     expect(workflow).toContain(

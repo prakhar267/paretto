@@ -298,7 +298,7 @@ struct ParettoTests {
         #expect(resources.count == 270)
         #expect(Set(resources.map(\.name)).count == 270)
         #expect(resources.allSatisfy { $0.fileExtension == "wav" })
-        #expect(resources.allSatisfy { $0.subdirectory == "fr/v1" })
+        #expect(resources.allSatisfy { $0.subdirectory == "fr/v2" })
         #expect(sample.name == "idf-metro")
 
         #if os(iOS)

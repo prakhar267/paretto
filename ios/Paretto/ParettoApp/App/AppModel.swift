@@ -87,6 +87,7 @@ final class AppModel: ObservableObject {
     private var serverGeneration: Int?
     private var localAccountScope: String?
     private var saveTask: Task<Void, Never>?
+    private var audioObservation: AnyCancellable?
     private var rewardReplicaID: String {
         LearningEngine.rewardReplicaID(
             identityScope: localAccountScope ?? "guest",
@@ -158,6 +159,9 @@ final class AppModel: ObservableObject {
         self.startupError = startupMessages.isEmpty
             ? nil
             : startupMessages.joined(separator: " ")
+        self.audioObservation = audio.objectWillChange.sink { [weak self] in
+            self?.objectWillChange.send()
+        }
     }
 
     private static func migrateLegacyDefaults(in defaults: UserDefaults) {

@@ -19,6 +19,9 @@ type FrenchAudioManifest = {
     distributionCleared?: boolean;
     generator?: string;
     voice?: string;
+    voiceGender?: "female" | "male" | "neutral";
+    quality?: "low" | "medium" | "high";
+    speakers?: number;
   };
   availableWordIds: readonly string[];
   assets: Readonly<

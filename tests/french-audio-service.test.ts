@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 
 import {
   FrenchAudioService,
+  selectFrenchSpeechVoice,
   type AudioElementLike,
   type FrenchAudioEnvironment,
   type SpeechSynthesisLike,
@@ -125,7 +126,7 @@ function createHarness(options: {
 describe("frenchAudioAssetUrl", () => {
   it("creates versioned deterministic same-origin WAV URLs", () => {
     expect(frenchAudioAssetUrl("idf-se-depecher")).toBe(
-      "/audio/fr/v1/idf-se-depecher.wav",
+      "/audio/fr/v2/idf-se-depecher.wav",
     );
     expect(() => frenchAudioAssetUrl("../secret")).toThrow(
       "Invalid French audio word id",
@@ -137,7 +138,9 @@ describe("frenchAudioAssetUrl", () => {
       status: "ready",
       synthetic: true,
       distributionCleared: true,
-      voice: "fr_FR-mls-medium",
+      voice: "ff_siwis",
+      voiceGender: "female",
+      quality: "high",
     });
     const availableIds = new Set(FRENCH_AUDIO_MANIFEST.availableWordIds);
     for (const word of WORDS) expect(availableIds.has(word.id)).toBe(true);
@@ -154,6 +157,28 @@ describe("frenchAudioAssetUrl", () => {
 });
 
 describe("FrenchAudioService", () => {
+  it("prefers a French female fallback voice over a male device default", () => {
+    expect(
+      selectFrenchSpeechVoice(
+        [
+          { lang: "fr-FR", localService: true, name: "Thomas" },
+          { lang: "fr-FR", localService: false, name: "Amélie" },
+          { lang: "fr-CA", localService: true, name: "Marie" },
+        ],
+        "fr-FR",
+      ),
+    ).toMatchObject({ name: "Amélie", lang: "fr-FR" });
+    expect(
+      selectFrenchSpeechVoice(
+        [
+          { lang: "fr-FR", localService: true, name: "Thomas" },
+          { lang: "fr-CA", localService: true, name: "Marie" },
+        ],
+        "fr-FR",
+      ),
+    ).toMatchObject({ name: "Marie", lang: "fr-CA" });
+  });
+
   it("uses an exact fr-FR device voice when no static asset is available", async () => {
     const { service, speech, utterances } = createHarness();
 

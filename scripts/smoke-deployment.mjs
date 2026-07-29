@@ -361,7 +361,7 @@ const iconResponse = await request("/icon-192.png");
 assert.match(iconResponse.headers.get("content-type") ?? "", /image\/png/i);
 assert.ok((await iconResponse.arrayBuffer()).byteLength > 1_000);
 
-const audioResponse = await request("/audio/fr/v1/idf-metro.wav");
+const audioResponse = await request("/audio/fr/v2/idf-metro.wav");
 assert.match(
   audioResponse.headers.get("content-type") ?? "",
   /audio\/(?:wav|x-wav)/i,

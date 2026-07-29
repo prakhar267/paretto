@@ -90,9 +90,31 @@ notes stay out of public assets. It never approves or publishes a CMS item. The
 normal independent CMS review remains required, and approval will continue to
 fail if the manifest transcript differs from the current French text.
 
-The current release contains 270 WAV clips produced with Piper 1.4.2 and the
-`fr_FR-mls-medium` voice. Its model card identifies the French Multilingual
-LibriSpeech dataset, CC BY 4.0 licensing, 22,050 Hz sample rate, and training from
-scratch: <https://huggingface.co/rhasspy/piper-voices/blob/main/fr/fr_FR/mls/medium/MODEL_CARD>.
-The public attribution file and manifest must ship with the audio. Apple's
-macOS `say` command was not used.
+The current v2 release contains 270 WAV clips produced with Kokoro-82M and the
+single-speaker `ff_siwis` French female neural voice at 24,000 Hz. The model is
+Apache 2.0 and its SIWIS French source dataset is CC BY 4.0:
+<https://huggingface.co/hexgrad/Kokoro-82M>. The pinned, reproducible generator
+is `scripts/generate-french-audio-kokoro.py`; model files remain build inputs and
+are never committed or shipped. The public attribution file and manifest must
+ship with the audio. Apple's macOS `say` command was not used.
+
+To reproduce the release in an isolated environment:
+
+```sh
+uv venv --python 3.12 /tmp/paretto-kokoro
+uv pip install --python /tmp/paretto-kokoro/bin/python \
+  kokoro-onnx==0.5.0 soundfile==0.14.0
+curl -fL \
+  https://github.com/thewh1teagle/kokoro-onnx/releases/download/model-files-v1.0/kokoro-v1.0.onnx \
+  -o /tmp/kokoro-v1.0.onnx
+curl -fL \
+  https://github.com/thewh1teagle/kokoro-onnx/releases/download/model-files-v1.0/voices-v1.0.bin \
+  -o /tmp/voices-v1.0.bin
+/tmp/paretto-kokoro/bin/python scripts/generate-french-audio-kokoro.py \
+  --model /tmp/kokoro-v1.0.onnx \
+  --voices /tmp/voices-v1.0.bin
+npm run audio:verify
+```
+
+The generator refuses model or voice-pack files whose SHA-256 does not match
+the audited v1.0 release.
