@@ -1,11 +1,21 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import {
+  DEFAULT_AUTH_RETURN,
+  safeAuthReturn,
+} from "@/app/auth-return";
 import { transitionClaimedProgressCache } from "@/app/progress-cache";
 
-export default function ConnectedAccount() {
+export default function ConnectedAccount({
+  returnTo = DEFAULT_AUTH_RETURN,
+}: {
+  returnTo?: string;
+}) {
   const [error, setError] = useState("");
+  const errorHeadingRef = useRef<HTMLHeadingElement>(null);
+  const destination = safeAuthReturn(returnTo);
 
   useEffect(() => {
     let active = true;
@@ -23,7 +33,7 @@ export default function ConnectedAccount() {
         if (!cacheTransitioned) {
           throw new Error("Local progress handoff failed.");
         }
-        window.location.replace("/");
+        window.location.replace(destination);
       } catch {
         if (active) {
           setError(
@@ -36,17 +46,24 @@ export default function ConnectedAccount() {
     return () => {
       active = false;
     };
-  }, []);
+  }, [destination]);
+
+  useEffect(() => {
+    if (!error) return;
+    errorHeadingRef.current?.focus({ preventScroll: true });
+  }, [error]);
 
   return (
     <main className="recovery-shell">
       <section className="recovery-card" aria-live="polite">
         <p className="eyebrow">Paretto account</p>
-        <h1>{error ? "Connection needs another try." : "Connecting your progress…"}</h1>
+        <h1 ref={errorHeadingRef} tabIndex={error ? -1 : undefined}>
+          {error ? "Connection needs another try." : "Connecting your progress…"}
+        </h1>
         {error ? (
           <>
             <p role="alert">{error}</p>
-            <Link href="/">Return to Paretto</Link>
+            <Link href={destination}>Return to Paretto</Link>
           </>
         ) : (
           <p>Please keep this page open for a moment.</p>

@@ -7,15 +7,29 @@ import { loadTurnstilePublicSiteKey } from "./turnstile";
 
 export const dynamic = "force-dynamic";
 
-export default async function Home() {
-  const [publishedCurriculum, turnstileSiteKey, requestHeaders] = await Promise.all([
-    getPublishedCurriculum(),
-    loadTurnstilePublicSiteKey(),
-    headers(),
-  ]);
+type HomeSearchParams = Promise<
+  Record<string, string | string[] | undefined>
+>;
+
+export default async function Home({
+  searchParams,
+}: {
+  searchParams?: HomeSearchParams;
+} = {}) {
+  const [publishedCurriculum, turnstileSiteKey, requestHeaders, query] =
+    await Promise.all([
+      getPublishedCurriculum(),
+      loadTurnstilePublicSiteKey(),
+      headers(),
+      searchParams ??
+        Promise.resolve<Record<string, string | string[] | undefined>>({}),
+    ]);
   const cacheIdentity = await resolveBrowserProgressCacheIdentity(
     requestFromHeaders(requestHeaders),
   );
+  const requestedScreen = Array.isArray(query.screen)
+    ? query.screen[0]
+    : query.screen;
 
   if (!cacheIdentity.ok) {
     return <ProgressIdentityGate rotateAnonymousProfile={false} />;
@@ -34,6 +48,7 @@ export default async function Home() {
       curriculumRevision={publishedCurriculum.revision}
       curriculumSource={publishedCurriculum.source}
       turnstileSiteKey={turnstileSiteKey}
+      initialScreen={requestedScreen === "profile" ? "profile" : "today"}
     />
   );
 }

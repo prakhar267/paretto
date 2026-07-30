@@ -34,6 +34,20 @@ struct OnboardingView: View {
                         }
                     }
 
+                    if model.authSession == nil {
+                        VStack(alignment: .leading, spacing: 12) {
+                            Text("Already learning with Paretto?")
+                                .font(.headline)
+                            Text(
+                                "Continue with Apple to restore synced progress, or start locally without an account."
+                            )
+                            .font(.footnote)
+                            .foregroundStyle(.secondary)
+                            SecureAppleSignInButton()
+                                .frame(height: 50)
+                        }
+                    }
+
                     Button("Begin in Île-de-France") {
                         model.completeOnboarding(
                             name: name.isEmpty ? "Traveler" : name,

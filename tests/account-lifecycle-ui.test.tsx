@@ -107,6 +107,12 @@ describe("learner account lifecycle errors", () => {
     await screen.findByRole("heading", { name: /your french is going places/i });
     await user.click(screen.getByRole("button", { name: /open profile/i }));
     await user.click(screen.getByRole("button", { name: "Sign out" }));
+    expect(
+      screen.getByRole("button", { name: "Cancel" }),
+    ).toHaveFocus();
+    await user.click(
+      screen.getByRole("button", { name: "Sign out and clear" }),
+    );
 
     expect(
       await screen.findByText("Authentication service unavailable."),
@@ -136,6 +142,9 @@ describe("learner account lifecycle errors", () => {
       throw new DOMException("blocked", "SecurityError");
     });
     await user.click(screen.getByRole("button", { name: "Sign out" }));
+    await user.click(
+      screen.getByRole("button", { name: "Sign out and clear" }),
+    );
 
     expect(
       await screen.findByRole("heading", { name: "You are signed out." }),
@@ -195,7 +204,7 @@ describe("learner account lifecycle errors", () => {
     await screen.findByRole("heading", { name: /your french is going places/i });
     await user.click(screen.getByRole("button", { name: /open profile/i }));
     await user.click(
-      screen.getByRole("button", { name: "Reconnect progress" }),
+      screen.getByRole("button", { name: "Sync progress now" }),
     );
 
     expect(

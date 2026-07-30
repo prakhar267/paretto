@@ -35,10 +35,11 @@ speech synthesis.
      test
    ```
 
-Debug builds use the locally running web service at `http://localhost:3000`
-and allow private on-device guest mode. Staging and production builds require
-their corresponding API URL build setting and never silently fall back to a
-placeholder host.
+Debug builds use the locally running web service at `http://localhost:3000`.
+Private on-device guest learning is available in every configuration; Sign in
+with Apple adds account access and supported cross-device synchronization.
+Staging and production builds require their corresponding API URL build setting
+and never silently fall back to a placeholder host.
 
 `Configuration/Shared.xcconfig` is tracked and attached to Debug, Staging, and
 Release. The tracked Staging and Release defaults point at the corresponding

@@ -9,6 +9,11 @@ import {
 } from "react";
 import { authClient } from "@/app/auth-client";
 import {
+  authDestination,
+  DEFAULT_AUTH_RETURN,
+  safeAuthReturn,
+} from "@/app/auth-return";
+import {
   normalizeParettoId,
   PARETTO_ID_MAX_LENGTH,
   PARETTO_ID_MIN_LENGTH,
@@ -39,6 +44,7 @@ export default function AuthForm({
   recoveryEnabled,
   turnstileSiteKey,
   initialError = "",
+  returnTo = DEFAULT_AUTH_RETURN,
 }: {
   googleEnabled: boolean;
   appleEnabled: boolean;
@@ -46,10 +52,9 @@ export default function AuthForm({
   recoveryEnabled: boolean;
   turnstileSiteKey: string | null;
   initialError?: string;
+  returnTo?: string;
 }) {
-  const [mode, setMode] = useState<Mode>(
-    accountCreationEnabled ? "create" : "sign-in",
-  );
+  const [mode, setMode] = useState<Mode>("sign-in");
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [recoveryCode, setRecoveryCode] = useState("");
@@ -67,6 +72,10 @@ export default function AuthForm({
   const formRef = useRef<HTMLFormElement>(null);
   const usernameRef = useRef<HTMLInputElement>(null);
   const receiptHeadingRef = useRef<HTMLHeadingElement>(null);
+  const errorRef = useRef<HTMLParagraphElement>(null);
+  const modeHeadingRef = useRef<HTMLHeadingElement>(null);
+  const modeChangedRef = useRef(false);
+  const destination = safeAuthReturn(returnTo);
 
   useLayoutEffect(() => {
     const fields = formRef.current?.elements;
@@ -100,6 +109,16 @@ export default function AuthForm({
     window.addEventListener("pagehide", clearSecrets);
     return () => window.removeEventListener("pagehide", clearSecrets);
   }, [receipt]);
+
+  useEffect(() => {
+    if (!error) return;
+    errorRef.current?.focus({ preventScroll: true });
+  }, [error]);
+
+  useEffect(() => {
+    if (!modeChangedRef.current || receipt) return;
+    modeHeadingRef.current?.focus({ preventScroll: true });
+  }, [mode, receipt]);
 
   async function submit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -177,7 +196,7 @@ export default function AuthForm({
         turnstileToken,
       });
       await connectProgress();
-      window.location.assign("/");
+      window.location.assign(destination);
     } catch (reason) {
       setError(
         reason instanceof Error
@@ -199,8 +218,8 @@ export default function AuthForm({
     try {
       const result = await authClient.signIn.social({
         provider,
-        callbackURL: "/auth/connected",
-        errorCallbackURL: "/sign-in",
+        callbackURL: authDestination("/auth/connected", destination),
+        errorCallbackURL: authDestination("/sign-in", destination),
       });
       if (!result?.error) return;
       setError(result.error.message ?? "Social sign-in could not be started.");
@@ -324,7 +343,15 @@ export default function AuthForm({
 
   return (
     <div>
-      <div className={styles.tabs} aria-label="Account action">
+      <div className={styles.tabs} role="group" aria-label="Account action">
+        <button
+          type="button"
+          aria-pressed={mode === "sign-in"}
+          disabled={!hydrated || submitting}
+          onClick={() => changeMode("sign-in")}
+        >
+          Sign in
+        </button>
         {accountCreationEnabled && (
           <button
             type="button"
@@ -335,14 +362,6 @@ export default function AuthForm({
             Create account
           </button>
         )}
-        <button
-          type="button"
-          aria-pressed={mode === "sign-in"}
-          disabled={!hydrated || submitting}
-          onClick={() => changeMode("sign-in")}
-        >
-          Sign in
-        </button>
       </div>
 
       {(googleEnabled || appleEnabled) && mode !== "recover" && (
@@ -375,8 +394,14 @@ export default function AuthForm({
         onSubmit={submit}
         aria-describedby={error ? errorId : undefined}
         aria-labelledby={modeHeadingId}
+        aria-busy={submitting}
       >
-        <h2 id={modeHeadingId} className={styles.formHeading}>
+        <h2
+          id={modeHeadingId}
+          ref={modeHeadingRef}
+          className={styles.formHeading}
+          tabIndex={-1}
+        >
           {mode === "create"
             ? "Choose a Paretto ID"
             : mode === "recover"
@@ -456,7 +481,13 @@ export default function AuthForm({
           onTokenChange={setTurnstileToken}
         />
         {error && (
-          <p id={errorId} className={styles.error} role="alert">
+          <p
+            id={errorId}
+            ref={errorRef}
+            className={styles.error}
+            role="alert"
+            tabIndex={-1}
+          >
             {error}
           </p>
         )}
@@ -497,6 +528,7 @@ export default function AuthForm({
   );
 
   function changeMode(next: Mode) {
+    modeChangedRef.current = true;
     setMode(next);
     setError("");
     setNotice("");

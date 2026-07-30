@@ -154,6 +154,12 @@ async function createParettoAccount(
     page.getByRole("heading", { name: "Keep every word with you." }),
   ).toBeVisible();
   await expect(
+    page.getByRole("heading", { name: "Welcome back" }),
+  ).toBeVisible();
+  await page
+    .getByRole("button", { name: "Create account", exact: true })
+    .click();
+  await expect(
     page.getByRole("heading", { name: "Choose a Paretto ID" }),
   ).toBeVisible();
   await expect(page.getByLabel("Email")).toHaveCount(0);
@@ -218,8 +224,13 @@ async function signInWithParettoId(
   page: Page,
   username: string,
   password: string,
+  returnToProfileName?: string,
 ) {
-  await page.goto("/sign-in");
+  await page.goto(
+    returnToProfileName
+      ? `/sign-in?returnTo=${encodeURIComponent("/?screen=profile")}`
+      : "/sign-in",
+  );
   await expect(
     page.getByRole("heading", { name: "Keep every word with you." }),
   ).toBeVisible();
@@ -236,9 +247,19 @@ async function signInWithParettoId(
   await page
     .getByRole("button", { name: "Sign in and connect progress" })
     .click();
-  await expect(
-    page.getByRole("heading", { name: "Your French is going places." }),
-  ).toBeVisible({ timeout: 30_000 });
+  if (returnToProfileName) {
+    await expect(page).toHaveURL(/\/\?screen=profile$/);
+    await expect(
+      page.getByRole("heading", {
+        name: returnToProfileName,
+        exact: true,
+      }),
+    ).toBeVisible({ timeout: 30_000 });
+  } else {
+    await expect(
+      page.getByRole("heading", { name: "Your French is going places." }),
+    ).toBeVisible({ timeout: 30_000 });
+  }
   await expectCloudSave(page);
 }
 
@@ -773,6 +794,28 @@ test("a fresh public Paretto ID owns its complete recovery and deletion lifecycl
     /^paretto-progress-\d{4}-\d{2}-\d{2}\.json$/,
   );
 
+  const signOut = page.getByRole("button", { name: "Sign out" });
+  await signOut.click();
+  const cancelSignOut = page.getByRole("button", { name: "Cancel" });
+  await expect(cancelSignOut).toBeFocused();
+  await expectNoSeriousAccessibilityViolations(page);
+  await cancelSignOut.click();
+  await expect(signOut).toBeFocused();
+  await signOut.click();
+  await page
+    .getByRole("button", { name: "Sign out and clear" })
+    .click();
+  await expect(
+    page.getByRole("button", { name: "Begin the journey" }),
+  ).toBeVisible({ timeout: 30_000 });
+  await signInWithParettoId(
+    page,
+    username,
+    LOCAL_AUTH_PASSWORD,
+    displayName,
+  );
+  await expect(page.getByText(`Paretto ID: ${username}.`)).toBeVisible();
+
   const origin = new URL(page.url()).origin;
   const secondContext = await browser.newContext({
     baseURL: origin,
@@ -1056,17 +1099,25 @@ test("account connection and authentication surfaces fail safely", async ({
     page.getByRole("heading", { name: "Keep every word with you." }),
   ).toBeVisible();
   await expect(
-    page.getByRole("link", { name: "Continue without an account" }),
+    page.getByRole("link", {
+      name: "Continue learning without an account",
+    }),
   ).toBeVisible();
   await expect(
-    page.getByRole("heading", { name: "Choose a Paretto ID" }),
+    page.getByRole("heading", { name: "Welcome back" }),
   ).toBeVisible();
   await expect(page.locator('input[name="username"]')).toBeVisible();
   await expect(page.getByLabel("Email")).toHaveCount(0);
   await expect(
     page
       .locator('form button[type="submit"]')
-      .filter({ hasText: "Create account" }),
+      .filter({ hasText: "Sign in and connect progress" }),
+  ).toBeVisible();
+  await page
+    .getByRole("button", { name: "Create account", exact: true })
+    .click();
+  await expect(
+    page.getByRole("heading", { name: "Choose a Paretto ID" }),
   ).toBeVisible();
 
   const origin = new URL(page.url()).origin;
@@ -1206,7 +1257,7 @@ test("the learner and account surfaces fit a current phone viewport", async ({
 
   await page.goto("/sign-in");
   await expect(
-    page.getByRole("heading", { name: "Choose a Paretto ID" }),
+    page.getByRole("heading", { name: "Welcome back" }),
   ).toBeVisible();
   await expectNoHorizontalOverflow(page);
   await page

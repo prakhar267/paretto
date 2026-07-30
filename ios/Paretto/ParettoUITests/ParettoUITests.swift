@@ -3,13 +3,7 @@ import UIKit
 
 final class ParettoUITests: XCTestCase {
     private let signInTagline = "Remember useful French, one small journey at a time."
-    private var permitsGuestOnboardingSkip: Bool {
-        #if DEBUG
-        true
-        #else
-        false
-        #endif
-    }
+    private let permitsGuestOnboardingSkip = true
 
     override func setUpWithError() throws {
         continueAfterFailure = false
@@ -88,6 +82,33 @@ final class ParettoUITests: XCTestCase {
         ]
         app.launch()
         XCTAssertTrue(app.staticTexts["Bienvenue"].waitForExistence(timeout: 5))
+    }
+
+    @MainActor
+    func testCaptureAppStoreScreenshots() throws {
+        let app = XCUIApplication()
+        app.launchArguments = ["-ui-testing", "-reset-state"]
+        app.launch()
+
+        let name = app.textFields["First name"]
+        XCTAssertTrue(name.waitForExistence(timeout: 5))
+        preserveStoreScreenshot(app: app, name: "01-onboarding")
+
+        name.tap()
+        name.typeText("Camille")
+        app.buttons["Begin in Île-de-France"].tap()
+        XCTAssertTrue(app.navigationBars["Today"].waitForExistence(timeout: 5))
+        preserveStoreScreenshot(app: app, name: "02-today")
+
+        XCTAssertTrue(openSection("Journey", identifier: "journey", in: app))
+        XCTAssertTrue(app.navigationBars["Journey"].waitForExistence(timeout: 5))
+        preserveStoreScreenshot(app: app, name: "03-journey")
+
+        XCTAssertTrue(openSection("Today", identifier: "today", in: app))
+        XCTAssertTrue(app.navigationBars["Today"].waitForExistence(timeout: 5))
+        app.buttons["Start lesson"].tap()
+        XCTAssertTrue(app.buttons["Reveal the card"].waitForExistence(timeout: 5))
+        preserveStoreScreenshot(app: app, name: "04-lesson")
     }
 
     @MainActor
@@ -191,19 +212,8 @@ final class ParettoUITests: XCTestCase {
 
     @MainActor
     private func openReview(in app: XCUIApplication) -> Bool {
-        let compactReview = app.tabBars.buttons["Review"]
-        if compactReview.waitForExistence(timeout: 2) {
-            compactReview.tap()
-        } else {
-            let regularReview = app.staticTexts["app-section-review"]
-            guard regularReview.waitForExistence(timeout: 5) else {
-                preserveFailureEvidence(
-                    app: app,
-                    name: "Missing regular-width Review navigation item"
-                )
-                return false
-            }
-            regularReview.tap()
+        guard openSection("Review", identifier: "review", in: app) else {
+            return false
         }
 
         guard app.navigationBars["Review"].waitForExistence(timeout: 10) else {
@@ -212,6 +222,29 @@ final class ParettoUITests: XCTestCase {
                 name: "Review navigation did not complete"
             )
             return false
+        }
+        return true
+    }
+
+    @MainActor
+    private func openSection(
+        _ title: String,
+        identifier: String,
+        in app: XCUIApplication
+    ) -> Bool {
+        let compactSection = app.tabBars.buttons[title]
+        if compactSection.waitForExistence(timeout: 2) {
+            compactSection.tap()
+        } else {
+            let regularSection = app.staticTexts["app-section-\(identifier)"]
+            guard regularSection.waitForExistence(timeout: 5) else {
+                preserveFailureEvidence(
+                    app: app,
+                    name: "Missing regular-width \(title) navigation item"
+                )
+                return false
+            }
+            regularSection.tap()
         }
         return true
     }
@@ -250,6 +283,14 @@ final class ParettoUITests: XCTestCase {
         hierarchy.name = "\(name) — accessibility hierarchy"
         hierarchy.lifetime = .keepAlways
         add(hierarchy)
+    }
+
+    @MainActor
+    private func preserveStoreScreenshot(app: XCUIApplication, name: String) {
+        let screenshot = XCTAttachment(screenshot: app.screenshot())
+        screenshot.name = name
+        screenshot.lifetime = .keepAlways
+        add(screenshot)
     }
 
     @MainActor

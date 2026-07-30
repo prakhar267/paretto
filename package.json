@@ -1,6 +1,6 @@
 {
   "name": "paretto",
-  "version": "1.4.1",
+  "version": "1.5.0",
   "private": true,
   "engines": {
     "node": "^22.13.0 || >=24"
@@ -24,6 +24,8 @@
     "secrets:verify": "node scripts/verify-no-secrets.mjs",
     "licenses:verify": "node scripts/verify-production-licenses.mjs",
     "version:verify": "node scripts/verify-release-version.mjs",
+    "appstore:verify": "node scripts/verify-app-store-readiness.mjs",
+    "appstore:screenshots": "bash scripts/capture-app-store-screenshots.sh",
     "db:verify": "node --disable-warning=ExperimentalWarning scripts/verify-sqlite-migrations.mjs",
     "d1:export:verify": "node --disable-warning=ExperimentalWarning scripts/verify-d1-export-restore.mjs",
     "cloudflare:prepare": "node scripts/prepare-cloudflare-config.mjs",
@@ -45,7 +47,7 @@
     "smoke:deployment": "node scripts/smoke-deployment.mjs",
     "monitor:production": "node scripts/monitor-production-health.mjs",
     "release:artifact": "node scripts/verify-release-artifact.mjs",
-    "release:verify": "npm run typecheck && npm run lint && npm run audit:production && npm run audit:all && npm run secrets:verify && npm run licenses:verify && npm run version:verify && npm run db:verify && npm run cloudflare:templates:verify && npm test && npm run release:artifact"
+    "release:verify": "npm run typecheck && npm run lint && npm run audit:production && npm run audit:all && npm run secrets:verify && npm run licenses:verify && npm run version:verify && npm run appstore:verify && npm run db:verify && npm run cloudflare:templates:verify && npm test && npm run release:artifact"
   },
   "dependencies": {
     "better-auth": "1.6.25",

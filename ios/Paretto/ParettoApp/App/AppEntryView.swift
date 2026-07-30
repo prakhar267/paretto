@@ -17,7 +17,14 @@ struct AppEntryView: View {
                 }
             } else if !model.isReady {
                 ProgressView("Preparing your French journey…")
-            } else if !model.isAuthenticated {
+            } else if model.requiresReauthentication ||
+                (
+                    !model.isAuthenticated &&
+                        (
+                            model.authSession != nil ||
+                                !model.environment.allowsGuestMode
+                        )
+                ) {
                 SignInView()
             } else if !model.state.onboarded {
                 OnboardingView()
@@ -62,9 +69,17 @@ struct SignInView: View {
                     .accessibilityHidden(true)
 
                     VStack(spacing: 10) {
-                        Text("Paretto")
+                        Text(
+                            model.requiresReauthentication
+                                ? "Your session ended"
+                                : "Paretto"
+                        )
                             .font(.largeTitle.bold())
-                        Text("Remember useful French, one small journey at a time.")
+                        Text(
+                            model.requiresReauthentication
+                                ? "Continue with Apple to restore synced progress, or begin again with a separate private profile."
+                                : "Remember useful French, one small journey at a time."
+                        )
                             .font(.title3)
                             .foregroundStyle(.secondary)
                             .multilineTextAlignment(.center)
@@ -74,6 +89,17 @@ struct SignInView: View {
 
                     SecureAppleSignInButton()
                         .frame(height: 54)
+
+                    if model.environment.allowsGuestMode {
+                        Button("Continue without an account") {
+                            Task { await model.signOut() }
+                        }
+                        .buttonStyle(.bordered)
+                        .disabled(model.isAuthenticating)
+                        .accessibilityHint(
+                            "Starts a separate private profile on this device"
+                        )
+                    }
 
                     Text(Self.applePrivacyCopy)
                         .font(.footnote)

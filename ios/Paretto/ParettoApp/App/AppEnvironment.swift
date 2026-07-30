@@ -28,7 +28,10 @@ enum AppEnvironment: String, Codable {
         }
     }
 
-    var allowsGuestMode: Bool { self == .debug }
+    // Apple requires apps without essential account-only functionality to be
+    // useful without login. Local learning is therefore available in every
+    // environment; Sign in with Apple adds sync rather than unlocking lessons.
+    var allowsGuestMode: Bool { true }
 
     func serviceURL(path: String) -> URL? {
         guard let baseURL = apiBaseURL else { return nil }
