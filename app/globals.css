@@ -35,6 +35,7 @@
 html {
   background: var(--cream);
   color: var(--ink);
+  scroll-padding-top: 84px;
   scroll-behavior: smooth;
 }
 
@@ -1974,21 +1975,21 @@ button.sync-pill {
 }
 
 .account-summary strong {
-  font-size: 12px;
+  font-size: 13px;
 }
 
 .account-summary span {
-  margin-top: 3px;
+  margin-top: 4px;
   color: var(--muted);
-  font-size: 10px;
-  line-height: 1.45;
+  font-size: 12px;
+  line-height: 1.55;
 }
 
 .account-summary a {
   width: fit-content;
   margin-top: 9px;
   color: #1d6a49;
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 850;
 }
 
@@ -2015,8 +2016,20 @@ button.sync-pill {
   color: #225b43;
   padding: 6px 10px;
   cursor: pointer;
-  font-size: 10px;
+  font-size: 12px;
   font-weight: 800;
+}
+
+.account-actions button,
+.account-recovery-trigger,
+.account-delete-confirm {
+  scroll-margin-top: 84px;
+}
+
+.account-actions button:disabled,
+.account-delete-confirm button:disabled {
+  cursor: wait;
+  opacity: .58;
 }
 
 .account-actions button.danger,
@@ -2036,7 +2049,8 @@ button.sync-pill {
 .account-delete-confirm p {
   margin: 0;
   color: var(--muted);
-  font-size: 10px;
+  font-size: 12px;
+  line-height: 1.55;
 }
 
 .account-delete-confirm label {
@@ -3976,9 +3990,13 @@ button.sync-pill {
 }
 
 @media (max-width: 760px) {
+  html { scroll-padding-top: 128px; }
   .side-rail { display: none; }
   .app-stage { margin-left: 0; }
   .stats-bar { top: 58px; min-height: 54px; padding: 7px 16px; }
+  .account-actions button,
+  .account-recovery-trigger,
+  .account-delete-confirm { scroll-margin-top: 128px; }
   .mobile-header {
     position: sticky;
     z-index: 35;

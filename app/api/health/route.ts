@@ -7,7 +7,7 @@ import { getDatabase } from "@/db";
 
 export const dynamic = "force-dynamic";
 
-const SERVICE_VERSION = "1.4.1";
+const SERVICE_VERSION = "1.5.0";
 const SCHEMA_REVISION = "0013";
 const QUEUE_STALE_AFTER_MS = 60 * 60 * 1000;
 const QUEUE_COUNT_REPORT_LIMIT = 1_000;

@@ -28,6 +28,7 @@ struct ProfileView: View {
     @State private var exporting = false
     @State private var reminderTask: Task<Void, Never>?
     @State private var signOutConfirmation = false
+    @State private var accountActionInProgress = false
 
     var body: some View {
         Form {
@@ -107,11 +108,11 @@ struct ProfileView: View {
 
             if model.environment.allowsGuestMode && model.authSession == nil {
                 Section("Cloud sync") {
-                    Text("This debug build is using private on-device storage. Sign in to test cross-device sync.")
+                    Text("Progress is private to this device. Continue with Apple to add secure cross-device sync.")
                         .font(.footnote)
                         .foregroundStyle(.secondary)
                     SecureAppleSignInButton()
-                    .frame(height: 48)
+                        .frame(height: 48)
                 }
             } else if let session = model.authSession {
                 Section("Cloud sync") {
@@ -132,9 +133,13 @@ struct ProfileView: View {
                     .foregroundStyle(.secondary)
                 }
                 Section {
-                    Button("Sign out", role: .destructive) {
+                    Button(
+                        accountActionInProgress ? "Signing out…" : "Sign out",
+                        role: .destructive
+                    ) {
                         signOutConfirmation = true
                     }
+                    .disabled(accountActionInProgress)
                 }
             }
 
@@ -181,7 +186,11 @@ struct ProfileView: View {
             titleVisibility: .visible
         ) {
             Button("Sign out and clear", role: .destructive) {
-                Task { await model.signOut() }
+                accountActionInProgress = true
+                Task {
+                    await model.signOut()
+                    accountActionInProgress = false
+                }
             }
             Button("Cancel", role: .cancel) {}
         } message: {

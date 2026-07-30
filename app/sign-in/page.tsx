@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 import { learnerAuthReadiness } from "@/app/learner-auth";
 import { resolveLearnerAccountSession } from "@/app/server-auth";
 import { loadTurnstilePublicSiteKey } from "@/app/turnstile";
+import { safeAuthReturn } from "@/app/auth-return";
 import AuthForm from "./AuthForm";
 import styles from "./auth.module.css";
 
@@ -35,8 +36,9 @@ export default async function SignInPage({
   const account = await resolveLearnerAccountSession(
     requestFromHeaders(requestHeaders, "/sign-in"),
   );
+  const returnTo = safeAuthReturn(query.returnTo);
   if (!("error" in account) && account.session) {
-    redirect("/");
+    redirect(returnTo);
   }
   const accountCheckUnavailable = "error" in account;
 
@@ -50,9 +52,9 @@ export default async function SignInPage({
         <p className={styles.eyebrow}>Your learning account</p>
         <h1 id="account-title">Keep every word with you.</h1>
         <p className={styles.intro}>
-          Create a Paretto ID to continue across supported web browsers.
-          Progress already saved here connects after sign-in. No email is
-          required.
+          Sign in to continue across supported web browsers, or create a
+          Paretto ID without an email address. Progress already saved in this
+          browser connects securely after sign-in.
         </p>
         {accountCheckUnavailable ||
         !readiness.configured ||
@@ -69,10 +71,11 @@ export default async function SignInPage({
             recoveryEnabled={readiness.recoveryCodes}
             turnstileSiteKey={turnstileSiteKey}
             initialError={socialCallbackError(query.error)}
+            returnTo={returnTo}
           />
         )}
         <nav className={styles.links} aria-label="Account help">
-          <Link href="/">Continue without an account</Link>
+          <Link href="/">Continue learning without an account</Link>
           <Link href="/privacy">Privacy</Link>
           <Link href="/support">Support</Link>
         </nav>

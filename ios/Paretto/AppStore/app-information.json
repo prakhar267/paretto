@@ -1,0 +1,14 @@
+{
+  "bundleId": "com.paretto.app",
+  "sku": "PARETTO-IOS-001",
+  "primaryLanguage": "en-US",
+  "primaryCategory": "EDUCATION",
+  "secondaryCategory": "REFERENCE",
+  "contentRights": "Paretto owns or is licensed to use all content in the app.",
+  "pricing": "Free",
+  "availability": "All territories permitted by the account owner's launch decision",
+  "copyright": "2026 Paretto",
+  "usesEncryption": false,
+  "usesAdvertisingIdentifier": false,
+  "containsInAppPurchases": false
+}

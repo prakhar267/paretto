@@ -9,15 +9,15 @@ native API contracts. `ParettoCore` can be built and tested with the Swift comma
 line before the full Xcode application toolchain is available.
 
 The release workstation has full Xcode 26.6 (build 17F113) on macOS 26.5.2,
-including the iOS 26.5 Simulator runtime. iPhone 17 Pro and iPad Pro 13-inch
+including the iOS 26.5 Simulator runtime. iPhone 17 Pro Max and iPad Pro 13-inch
 (M5) simulator destinations are available for local build and test evidence.
 The system-wide developer selector may still point to Command Line Tools, so
 release commands set
 `DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer` explicitly.
 
 An unsigned Release archive for a generic iOS device was successfully produced
-on 2026-07-30 with bundle identifier `com.paretto.app`, marketing version
-`1.4.1`, and build `11`. It contains the privacy manifest, opaque 1024×1024 icon,
+on 2026-07-31 with bundle identifier `com.paretto.app`, marketing version
+`1.5.0`, and build `12`. It contains the privacy manifest, opaque 1024×1024 icon,
 and all 270 audio clips. Signing, Sign in with Apple, TestFlight upload, and App
 Store submission still require the account owner's Apple Developer
 configuration and interactive approval. App Store publication remains deferred
@@ -128,11 +128,12 @@ binary and provider behavior in App Store Connect.
 ## App Review notes template
 
 > Paretto is a French-learning app with 54 short lessons and 270 packaged
-> pronunciation clips. Release builds require an initial Sign in with Apple. After
-> that sign-in, lessons and progress work offline on device and synchronize when
-> connectivity returns. The iOS app emits no product analytics or tracking events.
-> Account and synchronized-data deletion are available at Profile → Delete account
-> and learning data. No purchase or subscription is present in this version.
+> pronunciation clips. No account is required: reviewers can complete onboarding
+> and use the local learning journey immediately. Sign in with Apple is optional
+> and adds account access and supported cross-device synchronization. Lessons and
+> local progress work offline. The iOS app emits no product analytics or tracking
+> events. Account and synchronized-data deletion are available at Profile → Delete
+> account and learning data. No purchase or subscription is present in this version.
 
 Replace the review contact, staging URL, and any required review steps in App Store
 Connect; do not put credentials in source control or this document.

@@ -70,6 +70,8 @@ final class AppModel: ObservableObject {
     @Published private(set) var isReady = false
     @Published private(set) var startupError: String?
     @Published private(set) var authSession: AuthSession?
+    @Published private(set) var isAuthenticating = false
+    @Published private(set) var requiresReauthentication = false
     @Published private(set) var syncStatus: SyncStatus = .local
     @Published var lessonWords: [FrenchWord] = []
     @Published var lessonMode = "learn"
@@ -205,6 +207,7 @@ final class AppModel: ObservableObject {
             }
             state = LearningState()
             authSession = nil
+            requiresReauthentication = false
         }
         await validateStoredAppleCredential()
         if userDefaults.bool(forKey: Self.progressSuppressionKey) {
@@ -457,6 +460,9 @@ final class AppModel: ObservableObject {
         rawNonce: String,
         displayName: String?
     ) async {
+        guard !isAuthenticating else { return }
+        isAuthenticating = true
+        defer { isAuthenticating = false }
         guard let appleUserID = validatedAppleUserID(appleUserID) else {
             alertMessage = "Apple did not provide a valid account identifier."
             return
@@ -479,20 +485,31 @@ final class AppModel: ObservableObject {
             guard let accountScope = validatedAccountScope(session.accountScope)
             else { throw APIError.invalidResponse }
             await cancelPendingSave()
-            if localAccountScope != accountScope {
+            let canClaimGuestProgress =
+                authSession == nil && localAccountScope == nil
+            if localAccountScope != accountScope && !canClaimGuestProgress {
                 await quarantineLocalProgress(
                     message: "Progress from the previous account was quarantined before sign-in."
                 )
                 serverRevision = 0
                 serverGeneration = nil
             }
+            localAccountScope = accountScope
+            if canClaimGuestProgress {
+                do {
+                    try await saveLocalProgress(state)
+                } catch {
+                    localAccountScope = nil
+                    throw error
+                }
+            }
             try sessionStore.save(session)
             userDefaults.removeObject(forKey: Self.authSuppressionKey)
             authSession = session
+            requiresReauthentication = false
             // Bind the verified server scope before the first progress fetch.
             // If that fetch is offline, subsequent local work must still be
             // saved under this account instead of being quarantined on relaunch.
-            localAccountScope = accountScope
             await synchronize(accessToken: session.accessToken)
         } catch {
             alertMessage = error.localizedDescription
@@ -528,6 +545,7 @@ final class AppModel: ObservableObject {
 
         userDefaults.removeObject(forKey: Self.authSuppressionKey)
         authSession = nil
+        requiresReauthentication = false
         serverRevision = 0
         serverGeneration = nil
         localAccountScope = nil
@@ -556,6 +574,7 @@ final class AppModel: ObservableObject {
         state = LearningState()
         lessonWords = []
         authSession = nil
+        requiresReauthentication = false
         serverRevision = 0
         serverGeneration = nil
         localAccountScope = nil
@@ -732,6 +751,7 @@ final class AppModel: ObservableObject {
                 userDefaults.set(true, forKey: Self.authSuppressionKey)
             }
             authSession = nil
+            requiresReauthentication = true
             serverRevision = 0
             serverGeneration = nil
             localAccountScope = nil
@@ -842,6 +862,7 @@ final class AppModel: ObservableObject {
             userDefaults.set(true, forKey: Self.authSuppressionKey)
         }
         authSession = nil
+        requiresReauthentication = true
         serverRevision = 0
         serverGeneration = nil
         localAccountScope = nil

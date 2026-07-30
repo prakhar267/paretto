@@ -12,6 +12,13 @@ private let authorizedAppleCredentialState = AppleCredentialStateChecking {
 
 @Suite("Native app integration")
 struct ParettoTests {
+    @Test("Guest learning remains available in every app environment")
+    func guestLearningAvailableInEveryEnvironment() {
+        #expect(AppEnvironment.debug.allowsGuestMode)
+        #expect(AppEnvironment.staging.allowsGuestMode)
+        #expect(AppEnvironment.production.allowsGuestMode)
+    }
+
     @Test("Profile progress summary uses natural singular and compound-day grammar")
     func profileProgressSummaryGrammar() {
         #expect(
@@ -405,6 +412,7 @@ struct ParettoTests {
         #expect(sessionProbe.session == nil)
         #expect(await progress.currentProgress() == nil)
         #expect(await api.revocations() == 1)
+        #expect(model.requiresReauthentication)
         #expect(model.alertMessage?.contains("Apple access changed") == true)
     }
 
@@ -648,6 +656,7 @@ struct ParettoTests {
             #expect(endedModel.authSession == nil)
             #expect(endedModel.state.xp == 0)
             #expect(await progress.currentProgress() == nil)
+            #expect(endedModel.requiresReauthentication)
 
             let bob = LearningState(
                 onboarded: true,

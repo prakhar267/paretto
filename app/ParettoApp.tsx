@@ -87,6 +87,10 @@ import {
   type LegacyCachePolicy,
 } from "./progress-cache";
 import { authClient } from "./auth-client";
+import {
+  authDestination,
+  PROFILE_AUTH_RETURN,
+} from "./auth-return";
 import { trackProductEvent } from "./product-analytics";
 import { FrenchAudioButton } from "./audio/FrenchAudioButton";
 import TurnstileWidget from "./TurnstileWidget";
@@ -428,6 +432,7 @@ export default function ParettoApp({
   curriculumRevision = "compiled-v1",
   curriculumSource = "compiled",
   turnstileSiteKey = null,
+  initialScreen = "today",
 }: {
   storageKey?: string;
   legacyCachePolicy?: LegacyCachePolicy;
@@ -437,6 +442,7 @@ export default function ParettoApp({
   curriculumRevision?: string;
   curriculumSource?: "cms" | "compiled" | "compiled-fallback";
   turnstileSiteKey?: string | null;
+  initialScreen?: Screen;
 } = {}) {
   const {
     state,
@@ -472,7 +478,7 @@ export default function ParettoApp({
     [words],
   );
   const publishedLessons = runtimeCurriculum.lessons;
-  const [screen, setScreen] = useState<Screen>("today");
+  const [screen, setScreen] = useState<Screen>(initialScreen);
   const [lesson, setLesson] = useState<LessonState | null>(null);
   const [selectedWord, setSelectedWord] = useState<Word | null>(null);
   const [selectedRegion, setSelectedRegion] = useState<Region | null>(null);
@@ -570,6 +576,18 @@ export default function ParettoApp({
     (word) => state.wordProgress[word.id],
   ).length;
   const level = levelFromXp(state.xp);
+  const profileAccountStatus = account.isPending
+    ? "Checking account"
+    : account.data
+      ? "Progress synced"
+      : "Saved on this browser";
+  const profileAccessibleName = account.data
+    ? `${state.displayName} Level ${level} traveler, signed in and synced`
+    : `${state.displayName} Level ${level} traveler, learning on this browser`;
+  const profileSignInDestination = authDestination(
+    "/sign-in",
+    PROFILE_AUTH_RETURN,
+  );
 
   useEffect(() => {
     if (!ready || !state.onboarded || !state.settings.analytics || appOpenTracked.current) {
@@ -743,7 +761,7 @@ export default function ParettoApp({
 
         <div className="rail-spacer" />
         {!account.isPending && !account.data && (
-          <Link className="rail-sign-in" href="/sign-in">
+          <Link className="rail-sign-in" href={profileSignInDestination}>
             Sign in
           </Link>
         )}
@@ -751,13 +769,16 @@ export default function ParettoApp({
           className={`profile-button ${screen === "profile" ? "is-active" : ""}`}
           onClick={() => navigateTo("profile")}
           type="button"
+          aria-label={profileAccessibleName}
         >
           <span className="avatar avatar-small" aria-hidden="true">
             {initials(state.displayName)}
           </span>
           <span>
             <strong>{state.displayName}</strong>
-            <small>Level {level} traveler</small>
+            <small>
+              Level {level} · {profileAccountStatus}
+            </small>
           </span>
           <ChevronRight size={18} aria-hidden="true" />
         </button>
@@ -768,12 +789,16 @@ export default function ParettoApp({
           <Brand compact />
           <div className="mobile-account-actions">
             {!account.isPending && !account.data && (
-              <Link href="/sign-in">Sign in</Link>
+              <Link href={profileSignInDestination}>Sign in</Link>
             )}
             <button
               className="icon-button"
               type="button"
-              aria-label="Open profile"
+              aria-label={
+                account.data
+                  ? "Open profile, signed in and synced"
+                  : "Open profile, learning on this browser"
+              }
               onClick={() => navigateTo("profile")}
             >
               <CircleUserRound aria-hidden="true" />
@@ -2353,7 +2378,10 @@ function ProfileScreen({
   const [confirmReset, setConfirmReset] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [deleteError, setDeleteError] = useState("");
-  const [accountDeleting, setAccountDeleting] = useState(false);
+  const [accountAction, setAccountAction] = useState<
+    "syncing" | "signing-out" | "deleting" | null
+  >(null);
+  const [confirmSignOut, setConfirmSignOut] = useState(false);
   const [confirmAccountDelete, setConfirmAccountDelete] = useState(false);
   const [accountPassword, setAccountPassword] = useState("");
   const [accountError, setAccountError] = useState("");
@@ -2362,9 +2390,13 @@ function ProfileScreen({
   const deleteCancelRef = useRef<HTMLButtonElement>(null);
   const accountDeleteTriggerRef = useRef<HTMLButtonElement>(null);
   const accountDeleteCancelRef = useRef<HTMLButtonElement>(null);
+  const signOutTriggerRef = useRef<HTMLButtonElement>(null);
+  const signOutCancelRef = useRef<HTMLButtonElement>(null);
+  const accountErrorRef = useRef<HTMLSpanElement>(null);
   const importInputRef = useRef<HTMLInputElement>(null);
   const restoreDeleteFocusRef = useRef(false);
   const restoreAccountDeleteFocusRef = useRef(false);
+  const restoreSignOutFocusRef = useRef(false);
   const level = levelFromXp(state.xp);
   const activeWordIds = words.map((word) => word.id);
   const learned = learnedCount(state, activeWordIds);
@@ -2392,6 +2424,22 @@ function ProfileScreen({
       accountDeleteTriggerRef.current?.focus({ preventScroll: true });
     }
   }, [confirmAccountDelete]);
+
+  useEffect(() => {
+    if (confirmSignOut) {
+      signOutCancelRef.current?.focus({ preventScroll: true });
+      return;
+    }
+    if (restoreSignOutFocusRef.current) {
+      restoreSignOutFocusRef.current = false;
+      signOutTriggerRef.current?.focus({ preventScroll: true });
+    }
+  }, [confirmSignOut]);
+
+  useEffect(() => {
+    if (!accountError) return;
+    accountErrorRef.current?.focus({ preventScroll: true });
+  }, [accountError]);
 
   function openDeleteConfirmation() {
     restoreDeleteFocusRef.current = true;
@@ -2455,6 +2503,7 @@ function ProfileScreen({
 
   async function signOut() {
     setAccountError("");
+    setAccountAction("signing-out");
     onAccountTransitionChange(true);
     let result: Awaited<ReturnType<typeof authClient.signOut>>;
     try {
@@ -2462,11 +2511,13 @@ function ProfileScreen({
     } catch {
       onAccountTransitionChange(false);
       setAccountError("Sign-out could not be completed.");
+      setAccountAction(null);
       return;
     }
     if (result.error) {
       onAccountTransitionChange(false);
       setAccountError(result.error.message ?? "Sign-out could not be completed.");
+      setAccountAction(null);
       return;
     }
     onAccountPrivacyTransition("sign-out");
@@ -2474,6 +2525,7 @@ function ProfileScreen({
 
   async function reconnectAccountProgress() {
     setAccountError("");
+    setAccountAction("syncing");
     try {
       const response = await fetch("/api/account/claim", {
         method: "POST",
@@ -2482,6 +2534,7 @@ function ProfileScreen({
       });
       if (!response.ok) {
         setAccountError("Progress could not be connected. Please retry.");
+        setAccountAction(null);
         return;
       }
       const cacheTransitioned = await transitionClaimedProgressCache(
@@ -2499,10 +2552,11 @@ function ProfileScreen({
         "Progress could not be connected. Check your connection and retry.",
       );
     }
+    setAccountAction(null);
   }
 
   async function deleteAccount() {
-    setAccountDeleting(true);
+    setAccountAction("deleting");
     setAccountError("");
     onAccountTransitionChange(true);
     try {
@@ -2522,13 +2576,13 @@ function ProfileScreen({
             code: payload?.code,
           }),
         );
-        setAccountDeleting(false);
+        setAccountAction(null);
         return;
       }
     } catch {
       onAccountTransitionChange(false);
       setAccountError("The account could not be deleted.");
-      setAccountDeleting(false);
+      setAccountAction(null);
       return;
     }
     onAccountPrivacyTransition("account-deletion");
@@ -2617,29 +2671,56 @@ function ProfileScreen({
                     : "Create a free Paretto ID or sign in, and this browser’s progress will connect automatically."}
               </span>
               {accountError && (
-                <span className="account-error" role="alert">
+                <span
+                  ref={accountErrorRef}
+                  className="account-error"
+                  role="alert"
+                  tabIndex={-1}
+                >
                   {accountError}
                 </span>
               )}
               {!accountPending && !accountSession && (
-                <Link href="/sign-in">Account sign in</Link>
+                <Link
+                  href={authDestination("/sign-in", PROFILE_AUTH_RETURN)}
+                >
+                  Sign in or create an account
+                </Link>
               )}
-              {accountSession && !confirmAccountDelete && (
+              {accountSession &&
+                !confirmAccountDelete &&
+                !confirmSignOut && (
                 <>
-                  <div className="account-actions">
+                  <div
+                    className="account-actions"
+                    aria-busy={accountAction !== null}
+                  >
                     <button
                       type="button"
+                      disabled={accountAction !== null}
                       onClick={() => void reconnectAccountProgress()}
                     >
-                      Reconnect progress
+                      {accountAction === "syncing"
+                        ? "Syncing…"
+                        : "Sync progress now"}
                     </button>
-                    <button type="button" onClick={() => void signOut()}>
+                    <button
+                      ref={signOutTriggerRef}
+                      type="button"
+                      disabled={accountAction !== null}
+                      onClick={() => {
+                        setAccountError("");
+                        restoreSignOutFocusRef.current = true;
+                        setConfirmSignOut(true);
+                      }}
+                    >
                       Sign out
                     </button>
                     <button
                       ref={accountDeleteTriggerRef}
                       className="danger"
                       type="button"
+                      disabled={accountAction !== null}
                       onClick={() => {
                         setAccountError("");
                         restoreAccountDeleteFocusRef.current = true;
@@ -2657,13 +2738,53 @@ function ProfileScreen({
                   )}
                 </>
               )}
+              {accountSession && confirmSignOut && (
+                <div
+                  className="account-delete-confirm"
+                  role="group"
+                  aria-labelledby="account-sign-out-title"
+                  onKeyDown={(event) => {
+                    if (event.key !== "Escape" || accountAction) return;
+                    setConfirmSignOut(false);
+                  }}
+                >
+                  <strong id="account-sign-out-title">
+                    Sign out and clear this browser?
+                  </strong>
+                  <p>
+                    Wait until progress says Saved if you made recent changes.
+                    Paretto will then hide this account and create a fresh,
+                    private browser profile.
+                  </p>
+                  <div>
+                    <button
+                      ref={signOutCancelRef}
+                      type="button"
+                      disabled={accountAction !== null}
+                      onClick={() => setConfirmSignOut(false)}
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      className="danger"
+                      type="button"
+                      disabled={accountAction !== null}
+                      onClick={() => void signOut()}
+                    >
+                      {accountAction === "signing-out"
+                        ? "Signing out…"
+                        : "Sign out and clear"}
+                    </button>
+                  </div>
+                </div>
+              )}
               {accountSession && confirmAccountDelete && (
                 <div
                   className="account-delete-confirm"
                   role="group"
                   aria-labelledby="account-delete-title"
                   onKeyDown={(event) => {
-                    if (event.key !== "Escape" || accountDeleting) return;
+                    if (event.key !== "Escape" || accountAction) return;
                     setConfirmAccountDelete(false);
                     setAccountPassword("");
                   }}
@@ -2690,7 +2811,7 @@ function ProfileScreen({
                     <button
                       ref={accountDeleteCancelRef}
                       type="button"
-                      disabled={accountDeleting}
+                      disabled={accountAction !== null}
                       onClick={() => {
                         setConfirmAccountDelete(false);
                         setAccountPassword("");
@@ -2702,7 +2823,7 @@ function ProfileScreen({
                       className="danger"
                       type="button"
                       disabled={
-                        accountDeleting ||
+                        accountAction !== null ||
                         Boolean(
                           accountSession.user.username &&
                             !accountPassword,
@@ -2710,7 +2831,9 @@ function ProfileScreen({
                       }
                       onClick={() => void deleteAccount()}
                     >
-                      {accountDeleting ? "Deleting…" : "Delete account permanently"}
+                      {accountAction === "deleting"
+                        ? "Deleting…"
+                        : "Delete account permanently"}
                     </button>
                   </div>
                 </div>
