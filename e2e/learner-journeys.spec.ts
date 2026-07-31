@@ -1260,6 +1260,14 @@ test("the learner and account surfaces fit a current phone viewport", async ({
     page.getByRole("heading", { name: "Welcome back" }),
   ).toBeVisible();
   await expectNoHorizontalOverflow(page);
+  const accountHelpLinks = page
+    .getByRole("navigation", { name: "Account help" })
+    .getByRole("link");
+  await expect(accountHelpLinks).toHaveCount(3);
+  for (const link of await accountHelpLinks.all()) {
+    const box = await link.boundingBox();
+    expect(box?.height).toBeGreaterThanOrEqual(24);
+  }
   await page
     .getByRole("button", { name: "Sign in", exact: true })
     .click();

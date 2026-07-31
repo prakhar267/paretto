@@ -17,7 +17,7 @@ release commands set
 
 An unsigned Release archive for a generic iOS device was successfully produced
 on 2026-07-31 with bundle identifier `com.paretto.app`, marketing version
-`1.5.0`, and build `12`. It contains the privacy manifest, opaque 1024×1024 icon,
+`1.5.1`, and build `13`. It contains the privacy manifest, opaque 1024×1024 icon,
 and all 270 audio clips. Signing, Sign in with Apple, TestFlight upload, and App
 Store submission still require the account owner's Apple Developer
 configuration and interactive approval. App Store publication remains deferred
