@@ -246,6 +246,9 @@
 }
 
 .links a {
+  display: inline-flex;
+  min-height: 24px;
+  align-items: center;
   color: #425579;
 }
 

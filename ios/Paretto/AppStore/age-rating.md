@@ -1,6 +1,6 @@
 # Age rating answers
 
-Use these answers for the current 1.5.0 binary:
+Use these answers for the current 1.5.1 binary:
 
 - Unrestricted Web Access: No
 - User-Generated Content: No
