@@ -146,6 +146,9 @@ describe("mobile, PWA, security, and launch contracts", () => {
     }
     expect(worker).toContain("frame-ancestors 'none'");
     expect(worker).toContain("object-src 'none'");
+    expect(worker).toContain('url.protocol !== "http:"');
+    expect(worker).toContain('url.protocol = "https:"');
+    expect(worker).toContain("status: 308");
     expect(worker).toContain(
       "frame-src https://challenges.cloudflare.com",
     );

@@ -20,13 +20,25 @@ struct ReviewView: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 20) {
+                VStack(alignment: .leading, spacing: 8) {
+                    ParettoEyebrow(text: "Memory studio")
+                    Text("Bring the right words back at the right time.")
+                        .font(.system(.largeTitle, design: .serif, weight: .bold))
+                        .foregroundStyle(Color.parettoNavy)
+                        .fixedSize(horizontal: false, vertical: true)
+                    Text("Short, focused practice keeps your French available when you need it.")
+                        .foregroundStyle(Color.parettoMuted)
+                }
+
                 BrandCard {
                     VStack(alignment: .leading, spacing: 12) {
                         Image(systemName: "arrow.triangle.2.circlepath.circle.fill")
                             .font(.largeTitle)
-                            .foregroundStyle(Color.parettoCoral)
-                        Text(reviewTitle).font(.title2.bold())
-                        Text(reviewCopy).foregroundStyle(.secondary)
+                            .foregroundStyle(Color.parettoBlue)
+                        Text(reviewTitle)
+                            .font(.system(.title2, design: .serif, weight: .bold))
+                            .foregroundStyle(Color.parettoNavy)
+                        Text(reviewCopy).foregroundStyle(Color.parettoMuted)
                         Button(due.isEmpty ? practiceLabel : reviewLabel) {
                             _ = model.startReview()
                         }
@@ -38,15 +50,11 @@ struct ReviewView: View {
                 (dynamicTypeSize.isAccessibilitySize
                     ? AnyLayout(VStackLayout(alignment: .leading, spacing: 14))
                     : AnyLayout(HStackLayout(alignment: .center, spacing: 14))) {
-                    BrandCard {
-                        MetricPill(symbol: "text.book.closed.fill", value: "\(learned)", label: learned == 1 ? "learned word" : "learned words")
-                    }
-                    BrandCard {
-                        MetricPill(symbol: "checkmark.seal.fill", value: "\(mastered)", label: mastered == 1 ? "solid word" : "solid words")
-                    }
+                    MetricPill(symbol: "text.book.closed.fill", value: "\(learned)", label: learned == 1 ? "learned word" : "learned words")
+                    MetricPill(symbol: "checkmark.seal.fill", value: "\(mastered)", label: mastered == 1 ? "solid word" : "solid words", tone: .parettoGreen)
                 }
 
-                Text("Memory studio").font(.title2.bold())
+                ParettoSectionHeading(eyebrow: "Play with what you know", title: "Practice modes")
                 LazyVGrid(
                     columns: [GridItem(.adaptive(minimum: 250), spacing: 14)],
                     spacing: 14
@@ -60,8 +68,7 @@ struct ReviewView: View {
                         action: challengeDoneToday ? "Play for practice" : "Begin challenge",
                         actionIdentifier: "review-begin-challenge",
                         disabled: learned < 3,
-                        tone: .parettoNavy,
-                        actionTint: .parettoNavy
+                        tone: .parettoNavy
                     ) {
                         challengePresented = true
                     }
@@ -76,25 +83,25 @@ struct ReviewView: View {
                         action: diceDoneToday ? "View status" : "Open the dice",
                         actionIdentifier: "review-open-dice",
                         disabled: learned == 0,
-                        tone: .parettoGold,
-                        actionTint: .parettoNavy
+                        tone: .parettoGold
                     ) {
                         dicePresented = true
                     }
                 }
 
-                Text("Seven-stage memory").font(.title2.bold())
+                ParettoSectionHeading(eyebrow: "Your recall ladder", title: "Seven-stage memory")
                 ForEach(Array(["New", "Discovering", "Practising", "Familiar", "Solid", "Mastered", "Acquired"].enumerated()), id: \.offset) { stage, label in
                     HStack {
                         Text("\(stage + 1)")
                             .font(.caption.bold())
                             .frame(width: 28, height: 28)
-                            .background(Color.parettoBlue.opacity(0.15), in: Circle())
+                            .foregroundStyle(Color.parettoBlue)
+                            .background(Color.parettoBlueSoft, in: Circle())
                         Text(label)
                         Spacer()
                         Text("\(model.state.wordProgress.values.filter { $0.stage == stage }.count)")
                             .monospacedDigit()
-                            .foregroundStyle(.secondary)
+                            .foregroundStyle(Color.parettoMuted)
                     }
                     .padding(.vertical, 5)
                 }
@@ -120,10 +127,15 @@ struct ReviewView: View {
                 }
                 .buttonStyle(.plain)
             }
-            .padding(20)
+            .frame(maxWidth: 960)
+            .frame(maxWidth: .infinity)
+            .padding(.horizontal, 20)
+            .padding(.vertical, 22)
         }
         .accessibilityIdentifier("review-scroll")
         .navigationTitle("Review")
+        .parettoInlineNavigationTitle()
+        .parettoPageBackground()
         .parettoFullScreenCover(isPresented: $challengePresented) {
             ChallengeView(
                 questions: model.challengeWords(),
@@ -173,7 +185,6 @@ private struct PracticeModeCard: View {
     let actionIdentifier: String
     let disabled: Bool
     let tone: Color
-    let actionTint: Color
     let perform: () -> Void
 
     var body: some View {
@@ -185,15 +196,17 @@ private struct PracticeModeCard: View {
                     .accessibilityHidden(true)
                 Text(eyebrow.uppercased())
                     .font(.caption2.bold())
-                    .foregroundStyle(.secondary)
-                Text(title).font(.title3.bold())
-                Text(copy).font(.caption).foregroundStyle(.secondary)
+                    .foregroundStyle(Color.parettoBlue)
+                Text(title)
+                    .font(.system(.title3, design: .serif, weight: .bold))
+                    .foregroundStyle(Color.parettoNavy)
+                Text(copy).font(.subheadline).foregroundStyle(Color.parettoMuted)
                 Text(detail).font(.caption.bold())
                 Spacer(minLength: 4)
                 Button(action, action: perform)
                     .accessibilityIdentifier(actionIdentifier)
-                    .buttonStyle(.borderedProminent)
-                    .tint(actionTint)
+                    .buttonStyle(PrimaryActionStyle())
+                    .disabled(disabled)
             }
             .frame(maxWidth: .infinity, minHeight: 250, alignment: .topLeading)
         }

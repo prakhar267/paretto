@@ -52,10 +52,15 @@ const cachedHealthResponse = createHealthResponseCache();
 
 const worker = {
   async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
+    const requestId = crypto.randomUUID();
+    const insecureRedirect = redirectInsecureRequest(request);
+    if (insecureRedirect) {
+      return withSecurityHeaders(insecureRedirect, request, requestId);
+    }
+
     const prepared = prepareWebRequest(request);
     const webRequest = prepared.request;
     const url = new URL(webRequest.url);
-    const requestId = crypto.randomUUID();
     const startedAt = Date.now();
 
     const rejectedMutation =
@@ -128,6 +133,20 @@ const worker = {
     );
   },
 };
+
+function redirectInsecureRequest(request: Request): Response | null {
+  const url = new URL(request.url);
+  if (url.protocol !== "http:") return null;
+
+  url.protocol = "https:";
+  return new Response(null, {
+    status: 308,
+    headers: {
+      "cache-control": "private, no-store",
+      location: url.toString(),
+    },
+  });
+}
 
 function asCanonicalHealthGet(request: Request): Request {
   if (request.method === "GET") return request;

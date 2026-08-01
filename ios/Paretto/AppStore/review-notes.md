@@ -4,7 +4,7 @@ Paretto is a French-learning app with 54 short lessons and 270 pronunciation
 recordings packaged in the application.
 
 An account is not required. On first launch, enter any first name and choose
-“Begin in Île-de-France.” The first lesson is available from Today. Review,
+“Start with Paris basics.” The first lesson is available from Today. Review,
 Wordbook, Château Challenge, and Travel Dice unlock from vocabulary the reviewer
 has learned.
 

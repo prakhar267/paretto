@@ -39,6 +39,7 @@ struct LessonFlowView: View {
                     }
                 }
             }
+            .parettoPageBackground()
         }
         .interactiveDismissDisabled(!complete)
         .onDisappear { model.audio.stop() }
@@ -46,63 +47,84 @@ struct LessonFlowView: View {
 
     private func lessonCard(_ word: FrenchWord) -> some View {
         ScrollView {
-            VStack(spacing: 24) {
-                ProgressView(value: Double(index + 1), total: Double(model.lessonWords.count))
-                    .accessibilityLabel("Card \(index + 1) of \(model.lessonWords.count)")
-
-                Text(word.emoji)
-                    .font(.system(size: 66))
-                    .accessibilityHidden(true)
-                Text(word.french)
-                    .font(.system(.largeTitle, design: .rounded, weight: .bold))
-                    .multilineTextAlignment(.center)
-                    .parettoAccessibilityLanguage("fr-FR")
-                if model.state.settings.phonetics {
-                    Text(word.ipa)
-                        .font(.title3.monospaced())
-                        .foregroundStyle(.secondary)
-                        .accessibilityLabel("Pronunciation \(word.ipa)")
+            VStack(alignment: .leading, spacing: 22) {
+                VStack(alignment: .leading, spacing: 8) {
+                    HStack {
+                        ParettoEyebrow(text: model.lessonMode == "review" ? "Memory round" : "Field lesson")
+                        Spacer()
+                        Text("\(index + 1) / \(model.lessonWords.count)")
+                            .font(.caption.monospacedDigit().weight(.bold))
+                            .foregroundStyle(Color.parettoMuted)
+                    }
+                    ProgressView(value: Double(index + 1), total: Double(model.lessonWords.count))
+                        .tint(.parettoBlue)
+                        .accessibilityLabel("Card \(index + 1) of \(model.lessonWords.count)")
                 }
 
-                Button {
-                    model.audio.play(
-                        word,
-                        course: model.curriculum.course,
-                        enabled: model.state.settings.sound
-                    )
-                } label: {
-                    Label(
-                        model.audio.playingWordID == word.id ? "Playing French" : "Hear the French",
-                        systemImage: model.audio.playingWordID == word.id ? "speaker.wave.3.fill" : "speaker.wave.2.fill"
-                    )
+                BrandCard {
+                    VStack(spacing: 18) {
+                        Text(word.emoji)
+                            .font(.system(size: 62))
+                            .accessibilityHidden(true)
+                        Text(word.french)
+                            .font(.system(.largeTitle, design: .serif, weight: .bold))
+                            .foregroundStyle(Color.parettoNavy)
+                            .multilineTextAlignment(.center)
+                            .parettoAccessibilityLanguage("fr-FR")
+                        if model.state.settings.phonetics {
+                            Text(word.ipa)
+                                .font(.title3.monospaced())
+                                .foregroundStyle(Color.parettoMuted)
+                                .accessibilityLabel("Pronunciation \(word.ipa)")
+                        }
+
+                        Button {
+                            model.audio.play(
+                                word,
+                                course: model.curriculum.course,
+                                enabled: model.state.settings.sound
+                            )
+                        } label: {
+                            Label(
+                                model.audio.playingWordID == word.id ? "Playing French" : "Hear it in French",
+                                systemImage: model.audio.playingWordID == word.id ? "speaker.wave.3.fill" : "speaker.wave.2.fill"
+                            )
+                        }
+                        .buttonStyle(SecondaryActionStyle())
+                        .disabled(!model.state.settings.sound)
+                        .accessibilityIdentifier("lesson-french-audio")
+                        .accessibilityValue(model.audio.lastPlaybackSourceDescription)
+                    }
+                    .frame(maxWidth: .infinity)
                 }
-                .buttonStyle(.bordered)
-                .disabled(!model.state.settings.sound)
-                .accessibilityIdentifier("lesson-french-audio")
-                .accessibilityValue(model.audio.lastPlaybackSourceDescription)
 
                 if revealed {
                     BrandCard {
                         VStack(spacing: 14) {
-                            Text(word.english).font(.title2.bold())
+                            ParettoEyebrow(text: "Meaning")
+                            Text(word.english)
+                                .font(.system(.title2, design: .serif, weight: .bold))
+                                .foregroundStyle(Color.parettoNavy)
                                 .accessibilityFocused($answerFocused)
                             if let gender = word.gender {
                                 Text(gender.capitalized)
                                     .font(.caption.bold())
                                     .padding(.horizontal, 10)
                                     .padding(.vertical, 5)
-                                    .background(Color.parettoGold.opacity(0.18), in: Capsule())
+                                    .foregroundStyle(Color.parettoNavy)
+                                    .background(Color.parettoGoldSoft, in: Capsule())
                             }
-                            Divider()
+                            Divider().overlay(Color.parettoLineSoft)
                             Text(word.exampleFr)
                                 .font(.headline)
+                                .foregroundStyle(Color.parettoNavy)
                                 .parettoAccessibilityLanguage("fr-FR")
-                            Text(word.exampleEn).foregroundStyle(.secondary)
+                            Text(word.exampleEn).foregroundStyle(Color.parettoMuted)
                         }
                         .frame(maxWidth: .infinity)
                     }
 
-                    Text("How did that feel?").font(.headline)
+                    ParettoSectionHeading(eyebrow: nil, title: "How did that feel?")
                     (dynamicTypeSize.isAccessibilitySize
                         ? AnyLayout(VStackLayout(alignment: .leading, spacing: 10))
                         : AnyLayout(HStackLayout(alignment: .center, spacing: 10))) {
@@ -119,7 +141,8 @@ struct LessonFlowView: View {
                 } else {
                     Text(model.lessonMode == "review" ? "Recall the meaning before revealing it." : "Notice the sound and article. What might it mean?")
                         .multilineTextAlignment(.center)
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(Color.parettoMuted)
+                        .frame(maxWidth: .infinity)
                     Button("Reveal the card") {
                         revealed = true
                         answerFocused = true
@@ -135,8 +158,12 @@ struct LessonFlowView: View {
                     }
                 }
             }
-            .padding(22)
+            .frame(maxWidth: 680)
+            .frame(maxWidth: .infinity)
+            .padding(.horizontal, 20)
+            .padding(.vertical, 22)
         }
+        .parettoPageBackground()
     }
 
     private var completion: some View {
@@ -146,13 +173,15 @@ struct LessonFlowView: View {
                     .font(.system(size: 72))
                     .foregroundStyle(Color.parettoBlue)
                     .accessibilityHidden(true)
+                ParettoEyebrow(text: "Lesson complete")
                 Text("Très bien, \(model.state.displayName).")
-                    .font(.largeTitle.bold())
+                    .font(.system(.largeTitle, design: .serif, weight: .bold))
+                    .foregroundStyle(Color.parettoNavy)
                     .multilineTextAlignment(.center)
                     .accessibilityFocused($completionFocused)
                 Text("You recalled \(correct) of \(model.lessonWords.count) \(model.lessonWords.count == 1 ? "word" : "words").")
                     .font(.title3)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(Color.parettoMuted)
                     .multilineTextAlignment(.center)
                 (dynamicTypeSize.isAccessibilitySize
                     ? AnyLayout(VStackLayout(alignment: .leading, spacing: 12))
@@ -174,6 +203,7 @@ struct LessonFlowView: View {
             .frame(maxWidth: .infinity)
             .padding(28)
         }
+        .parettoPageBackground()
         .onAppear { completionFocused = true }
     }
 
@@ -211,9 +241,9 @@ private struct RatingButton: View {
             }
             .frame(maxWidth: .infinity, minHeight: 58)
             .foregroundStyle(foregroundColor)
+            .background(color, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
         }
-        .buttonStyle(.borderedProminent)
-        .tint(color)
+        .buttonStyle(.plain)
         .accessibilityLabel("\(title), \(subtitle)")
     }
 }

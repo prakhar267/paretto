@@ -17,6 +17,8 @@ struct CollectiblesDetailView: View {
             .padding(18)
         }
         .navigationTitle("Carnet collection")
+        .parettoInlineNavigationTitle()
+        .parettoPageBackground()
     }
 
     private func collectibleCard(_ collectible: Collectible) -> some View {

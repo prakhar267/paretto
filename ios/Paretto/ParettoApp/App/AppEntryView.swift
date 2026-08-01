@@ -58,67 +58,70 @@ struct SignInView: View {
     var body: some View {
         GeometryReader { proxy in
             ScrollView {
-                VStack(spacing: 28) {
-                    ZStack {
-                        RoundedRectangle(cornerRadius: 34).fill(Color.parettoNavy)
-                        Text("P")
-                            .font(.system(size: 96, weight: .black, design: .rounded))
-                            .foregroundStyle(Color.parettoCream)
-                    }
-                    .frame(width: 160, height: 160)
-                    .accessibilityHidden(true)
+                VStack(alignment: .leading, spacing: 26) {
+                    ParettoBrandMark()
 
-                    VStack(spacing: 10) {
-                        Text(
-                            model.requiresReauthentication
-                                ? "Your session ended"
-                                : "Paretto"
-                        )
-                            .font(.largeTitle.bold())
-                        Text(
-                            model.requiresReauthentication
-                                ? "Continue with Apple to restore synced progress, or begin again with a separate private profile."
-                                : "Remember useful French, one small journey at a time."
-                        )
-                            .font(.title3)
-                            .foregroundStyle(.secondary)
-                            .multilineTextAlignment(.center)
-                            .fixedSize(horizontal: false, vertical: true)
-                            .accessibilityIdentifier("sign-in-tagline")
-                    }
+                    BrandCard {
+                        VStack(alignment: .leading, spacing: 20) {
+                            VStack(alignment: .leading, spacing: 10) {
+                                ParettoEyebrow(text: model.requiresReauthentication ? "Welcome back" : "Your learning account")
+                                Text(
+                                    model.requiresReauthentication
+                                        ? "Your session ended"
+                                        : "Keep every word with you."
+                                )
+                                .font(.system(.largeTitle, design: .serif, weight: .bold))
+                                .foregroundStyle(Color.parettoNavy)
+                                .fixedSize(horizontal: false, vertical: true)
+                                Text(
+                                    model.requiresReauthentication
+                                        ? "Continue with Apple to restore synced progress, or begin again with a separate private profile."
+                                        : "Remember useful French, one small journey at a time."
+                                )
+                                .font(.title3)
+                                .foregroundStyle(Color.parettoMuted)
+                                .fixedSize(horizontal: false, vertical: true)
+                                .accessibilityIdentifier("sign-in-tagline")
+                            }
 
-                    SecureAppleSignInButton()
-                        .frame(height: 54)
+                            SecureAppleSignInButton()
+                                .frame(height: 54)
+                                .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
 
-                    if model.environment.allowsGuestMode {
-                        Button("Continue without an account") {
-                            Task { await model.signOut() }
+                            if model.environment.allowsGuestMode {
+                                Button("Continue without an account") {
+                                    Task { await model.signOut() }
+                                }
+                                .buttonStyle(SecondaryActionStyle())
+                                .disabled(model.isAuthenticating)
+                                .accessibilityHint(
+                                    "Starts a separate private profile on this device"
+                                )
+                            }
+
+                            Divider().overlay(Color.parettoLineSoft)
+
+                            Text(Self.applePrivacyCopy)
+                                .font(.footnote)
+                                .foregroundStyle(Color.parettoMuted)
+
+                            if let privacy = model.environment.serviceURL(path: "/privacy"),
+                               let terms = model.environment.serviceURL(path: "/terms") {
+                                HStack(spacing: 20) {
+                                    Link("Privacy", destination: privacy)
+                                    Link("Terms", destination: terms)
+                                }
+                                .font(.footnote.bold())
+                            }
                         }
-                        .buttonStyle(.bordered)
-                        .disabled(model.isAuthenticating)
-                        .accessibilityHint(
-                            "Starts a separate private profile on this device"
-                        )
-                    }
-
-                    Text(Self.applePrivacyCopy)
-                        .font(.footnote)
-                        .foregroundStyle(.secondary)
-                        .multilineTextAlignment(.center)
-
-                    if let privacy = model.environment.serviceURL(path: "/privacy"),
-                       let terms = model.environment.serviceURL(path: "/terms") {
-                        HStack(spacing: 20) {
-                            Link("Privacy", destination: privacy)
-                            Link("Terms", destination: terms)
-                        }
-                        .font(.footnote)
                     }
                 }
-                .frame(maxWidth: 520)
+                .frame(maxWidth: 620)
                 .frame(maxWidth: .infinity, minHeight: proxy.size.height)
-                .padding(28)
+                .padding(.horizontal, 20)
+                .padding(.vertical, 28)
             }
         }
+        .parettoPageBackground()
     }
 }

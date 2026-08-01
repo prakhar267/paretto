@@ -38,12 +38,46 @@ final class ParettoUITests: XCTestCase {
         XCTAssertTrue(name.waitForExistence(timeout: 5))
         name.tap()
         name.typeText("Camille")
-        app.buttons["Begin in Île-de-France"].tap()
+        app.buttons["Start with Paris basics"].tap()
         XCTAssertTrue(app.navigationBars["Today"].waitForExistence(timeout: 5))
         XCTAssertTrue(app.staticTexts["1 region open"].waitForExistence(timeout: 5))
         XCTAssertFalse(app.staticTexts["1 regions open"].exists)
         app.buttons["Start lesson"].tap()
         XCTAssertTrue(app.buttons["Reveal the card"].waitForExistence(timeout: 5))
+    }
+
+    @MainActor
+    func testPrimaryNavigationAndProfileAreReachable() throws {
+        let app = XCUIApplication()
+        app.launchArguments = ["-ui-testing", "-reset-state"]
+        app.launch()
+
+        let name = app.textFields["First name"]
+        XCTAssertTrue(name.waitForExistence(timeout: 5))
+        name.tap()
+        name.typeText("Camille")
+        app.buttons["Start with Paris basics"].tap()
+        XCTAssertTrue(app.navigationBars["Today"].waitForExistence(timeout: 5))
+
+        for (title, identifier) in [
+            ("Journey", "journey"),
+            ("Review", "review"),
+            ("Wordbook", "wordbook"),
+            ("Today", "today"),
+        ] {
+            XCTAssertTrue(openSection(title, identifier: identifier, in: app))
+            XCTAssertTrue(app.navigationBars[title].waitForExistence(timeout: 5))
+        }
+
+        let profileButton = app.buttons["Open profile"]
+        if profileButton.waitForExistence(timeout: 2) {
+            profileButton.tap()
+        } else {
+            let profileItem = app.staticTexts["app-section-profile"]
+            XCTAssertTrue(profileItem.waitForExistence(timeout: 5))
+            profileItem.tap()
+        }
+        XCTAssertTrue(app.navigationBars["Profile"].waitForExistence(timeout: 5))
     }
 
     @MainActor
@@ -56,7 +90,7 @@ final class ParettoUITests: XCTestCase {
         XCTAssertTrue(name.waitForExistence(timeout: 5))
         name.tap()
         name.typeText("Camille")
-        app.buttons["Begin in Île-de-France"].tap()
+        app.buttons["Start with Paris basics"].tap()
         XCTAssertTrue(app.navigationBars["Today"].waitForExistence(timeout: 5))
         app.buttons["Start lesson"].tap()
 
@@ -81,7 +115,7 @@ final class ParettoUITests: XCTestCase {
             UIContentSizeCategory.accessibilityExtraExtraExtraLarge.rawValue,
         ]
         app.launch()
-        XCTAssertTrue(app.staticTexts["Bienvenue"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.staticTexts["Your first stop"].waitForExistence(timeout: 5))
     }
 
     @MainActor
@@ -96,7 +130,7 @@ final class ParettoUITests: XCTestCase {
 
         name.tap()
         name.typeText("Camille")
-        app.buttons["Begin in Île-de-France"].tap()
+        app.buttons["Start with Paris basics"].tap()
         XCTAssertTrue(app.navigationBars["Today"].waitForExistence(timeout: 5))
         preserveStoreScreenshot(app: app, name: "02-today")
 
@@ -135,7 +169,7 @@ final class ParettoUITests: XCTestCase {
         XCTAssertTrue(name.waitForExistence(timeout: 5))
         name.tap()
         name.typeText("Camille")
-        app.buttons["Begin in Île-de-France"].tap()
+        app.buttons["Start with Paris basics"].tap()
         XCTAssertTrue(app.navigationBars["Today"].waitForExistence(timeout: 5))
         app.buttons["Start lesson"].tap()
 
@@ -313,7 +347,7 @@ final class ParettoUITests: XCTestCase {
             let tagline = app.staticTexts["sign-in-tagline"]
             guard tagline.waitForExistence(timeout: 5) else {
                 let onboardingName = app.textFields["First name"]
-                let onboardingTitle = app.staticTexts["Bienvenue"]
+                let onboardingTitle = app.staticTexts["Your first stop"]
                 if permitsGuestOnboardingSkip,
                    onboardingName.waitForExistence(timeout: 2),
                    onboardingTitle.exists {

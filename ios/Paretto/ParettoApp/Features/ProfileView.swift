@@ -40,9 +40,12 @@ struct ProfileView: View {
                         .font(.title.bold())
                         .frame(width: 58, height: 58)
                         .foregroundStyle(.white)
-                        .background(Color.parettoNavy, in: Circle())
+                        .background(Color.parettoBlue, in: Circle())
                     VStack(alignment: .leading) {
-                        Text(model.state.displayName).font(.title2.bold())
+                        ParettoEyebrow(text: "Your Paretto profile")
+                        Text(model.state.displayName)
+                            .font(.system(.title2, design: .serif, weight: .bold))
+                            .foregroundStyle(Color.parettoNavy)
                         Text(
                             profileProgressSummary(
                                 xp: model.state.xp,
@@ -50,7 +53,7 @@ struct ProfileView: View {
                                 streak: model.state.streak
                             )
                         )
-                            .foregroundStyle(.secondary)
+                            .foregroundStyle(Color.parettoMuted)
                     }
                 }
                 .accessibilityElement(children: .combine)
@@ -113,6 +116,7 @@ struct ProfileView: View {
                         .foregroundStyle(.secondary)
                     SecureAppleSignInButton()
                         .frame(height: 48)
+                        .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
                 }
             } else if let session = model.authSession {
                 Section("Cloud sync") {
@@ -166,6 +170,10 @@ struct ProfileView: View {
             }
         }
         .navigationTitle("Profile")
+        .parettoInlineNavigationTitle()
+        .scrollContentBackground(.hidden)
+        .background(Color.parettoCream.ignoresSafeArea())
+        .tint(Color.parettoBlue)
         .confirmationDialog(
             model.authSession == nil ? "Delete learning data?" : "Delete your account permanently?",
             isPresented: $deleteConfirmation,
