@@ -33,7 +33,7 @@ async function render(pathname = "/") {
   const { default: worker } = await import(workerUrl.href);
 
   return worker.fetch(
-    new Request(`http://localhost${pathname}`, {
+    new Request(`https://localhost${pathname}`, {
       headers: {
         accept: "text/html",
         host: "localhost",

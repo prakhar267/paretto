@@ -10,60 +10,82 @@ struct OnboardingView: View {
     var body: some View {
         NavigationStack {
             ScrollView {
-                VStack(alignment: .leading, spacing: 26) {
-                    VStack(alignment: .leading, spacing: 8) {
-                        Text("Bienvenue")
-                            .font(.system(.largeTitle, design: .rounded, weight: .bold))
-                        Text("A thoughtful five-minute French habit, built around recall rather than streak anxiety.")
-                            .font(.title3)
-                            .foregroundStyle(.secondary)
+                VStack(alignment: .leading, spacing: 24) {
+                    ParettoBrandMark()
+
+                    VStack(alignment: .leading, spacing: 10) {
+                        ParettoEyebrow(text: "Make it yours")
+                        Text("Your first stop")
+                            .font(.system(.largeTitle, design: .serif, weight: .bold))
+                            .foregroundStyle(Color.parettoNavy)
+                        Text("A calm five-minute French ritual, built around useful words and memorable places.")
+                            .font(.body)
+                            .foregroundStyle(Color.parettoMuted)
+                            .fixedSize(horizontal: false, vertical: true)
                     }
 
                     BrandCard {
-                        VStack(alignment: .leading, spacing: 18) {
-                            Text("What should we call you?").font(.headline)
+                        VStack(alignment: .leading, spacing: 16) {
+                            Text("What should we call you?")
+                                .font(.headline)
+                                .foregroundStyle(Color.parettoNavy)
                             TextField("First name", text: $name)
                                 .textContentType(.givenName)
                                 .parettoWordAutocapitalization()
                                 .focused($nameFocused)
-                                .padding(14)
-                                .background(Color.parettoTertiaryFill, in: RoundedRectangle(cornerRadius: 12))
+                                .padding(16)
+                                .background(Color.parettoPaperWarm, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+                                .overlay {
+                                    RoundedRectangle(cornerRadius: 14, style: .continuous)
+                                        .stroke(nameFocused ? Color.parettoBlue : Color.parettoLine, lineWidth: nameFocused ? 2 : 1)
+                                }
 
-                            Text("Daily learning goal").font(.headline)
+                            Text("Daily rhythm")
+                                .font(.headline)
+                                .foregroundStyle(Color.parettoNavy)
                             dailyGoalPicker
                         }
                     }
 
                     if model.authSession == nil {
                         VStack(alignment: .leading, spacing: 12) {
-                            Text("Already learning with Paretto?")
-                                .font(.headline)
+                            ParettoEyebrow(text: "Already learning with Paretto?")
                             Text(
                                 "Continue with Apple to restore synced progress, or start locally without an account."
                             )
-                            .font(.footnote)
-                            .foregroundStyle(.secondary)
+                            .font(.subheadline)
+                            .foregroundStyle(Color.parettoMuted)
                             SecureAppleSignInButton()
                                 .frame(height: 50)
+                                .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
                         }
                     }
 
-                    Button("Begin in Île-de-France") {
+                    Button {
                         model.completeOnboarding(
                             name: name.isEmpty ? "Traveler" : name,
                             dailyGoal: dailyGoal
                         )
+                    } label: {
+                        Label("Start with Paris basics", systemImage: "location.fill")
                     }
                     .buttonStyle(PrimaryActionStyle())
                     .disabled(name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+
+                    Text("Private progress stays on this device until you choose to connect an account.")
+                        .font(.caption)
+                        .foregroundStyle(Color.parettoMuted)
+                        .frame(maxWidth: .infinity, alignment: .center)
+                        .multilineTextAlignment(.center)
                 }
                 .frame(maxWidth: .infinity)
-                .frame(maxWidth: 760)
+                .frame(maxWidth: 720)
                 .frame(maxWidth: .infinity)
-                .padding(22)
+                .padding(.horizontal, 20)
+                .padding(.vertical, 24)
             }
-            .navigationTitle("Your journey")
-            .parettoInlineNavigationTitle()
+            .parettoPageBackground()
+            .parettoHiddenNavigationBar()
             .onAppear {
                 if name.isEmpty, let appleName = model.authSession?.displayName {
                     name = appleName
@@ -84,9 +106,10 @@ struct OnboardingView: View {
 
     private var goalPicker: some View {
         Picker("Daily learning goal", selection: $dailyGoal) {
-            Text("5 minutes").tag(5)
-            Text("10 minutes").tag(10)
-            Text("15 minutes").tag(15)
+            Text("5 words").tag(5)
+            Text("10 words").tag(10)
+            Text("15 words").tag(15)
         }
+        .tint(Color.parettoBlue)
     }
 }

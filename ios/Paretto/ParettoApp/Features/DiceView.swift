@@ -74,6 +74,7 @@ struct DiceView: View {
             .navigationTitle("Travel dice")
             .parettoInlineNavigationTitle()
             .toolbar { Button("Done") { dismiss() } }
+            .parettoPageBackground()
         }
         .onAppear {
             guard result == nil,
@@ -96,8 +97,12 @@ struct DiceView: View {
                 Text(value == 1 ? "coin" : "coins").font(.caption)
             }
             .frame(maxWidth: .infinity, minHeight: 64)
-            .foregroundStyle(stake == value ? Color.white : Color.primary)
-            .background(stake == value ? Color.parettoNavy : Color.parettoSurface, in: RoundedRectangle(cornerRadius: 14))
+            .foregroundStyle(stake == value ? Color.white : Color.parettoNavy)
+            .background(stake == value ? Color.parettoBlue : Color.parettoSurface, in: RoundedRectangle(cornerRadius: 14))
+            .overlay {
+                RoundedRectangle(cornerRadius: 14)
+                    .stroke(stake == value ? Color.parettoBlue : Color.parettoLine, lineWidth: 1)
+            }
         }
         .buttonStyle(.plain)
         .disabled(model.state.coins < value)

@@ -66,4 +66,26 @@ describe("Worker health routing", () => {
       service: "paretto-web",
     });
   });
+
+  it("redirects insecure requests to the same HTTPS URL before application code runs", async () => {
+    const context = {
+      waitUntil: vi.fn(),
+      passThroughOnException: vi.fn(),
+    };
+
+    const response = await worker.fetch(
+      new Request("http://paretto.example/sign-in?returnTo=%2Fprofile", {
+        method: "POST",
+      }),
+      {} as never,
+      context,
+    );
+
+    expect(response.status).toBe(308);
+    expect(response.headers.get("location")).toBe(
+      "https://paretto.example/sign-in?returnTo=%2Fprofile",
+    );
+    expect(response.headers.get("cache-control")).toBe("private, no-store");
+    expect(handler.fetch).not.toHaveBeenCalled();
+  });
 });

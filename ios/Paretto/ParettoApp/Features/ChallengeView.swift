@@ -45,6 +45,7 @@ struct ChallengeView: View {
                     }
                 }
             }
+            .parettoPageBackground()
         }
         .interactiveDismissDisabled(!complete)
         .onDisappear { model.audio.stop() }
@@ -117,6 +118,7 @@ struct ChallengeView: View {
             .frame(maxWidth: .infinity)
             .padding(22)
         }
+        .parettoPageBackground()
     }
 
     private func optionButton(_ option: FrenchWord, correctWord: FrenchWord) -> some View {
@@ -193,6 +195,7 @@ struct ChallengeView: View {
             .frame(maxWidth: .infinity)
             .padding(28)
         }
+        .parettoPageBackground()
         .onAppear { completionFocused = true }
     }
 
