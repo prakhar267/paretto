@@ -1,6 +1,6 @@
 # App Privacy answers
 
-These answers describe the iOS 1.5.1 binary. The separate website has its own
+These answers describe the iOS 1.5.2 binary. The separate website has its own
 opt-in analytics behavior.
 
 ## Tracking
