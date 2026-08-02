@@ -377,6 +377,17 @@ async function writeSecretFile(
     ADMIN_SESSION_SECRET:
       "admin-session-material-abcdefghijklmnopqrstuvwxyz-012345",
     TURNSTILE_SECRET: turnstileSecret,
+    APPLE_CLIENT_ID: "com.paretto.app",
+    APPLE_TEAM_ID: "7Y43BC6GH9",
+    APPLE_KEY_ID: "3HX2SX2NJT",
+    APPLE_PRIVATE_KEY_BASE64: Buffer.from(
+      `-----BEGIN PRIVATE KEY-----\n${"A".repeat(96)}\n-----END PRIVATE KEY-----\n`,
+      "utf8",
+    ).toString("base64"),
+    APPLE_TOKEN_ENCRYPTION_SECRET:
+      "apple-token-encryption-abcdefghijklmnopqrstuvwxyz-012345",
+    NATIVE_SESSION_SECRET:
+      "native-session-material-abcdefghijklmnopqrstuvwxyz-012345",
   };
   const path = join(directory, ".env.staging");
   await rm(path, { force: true });

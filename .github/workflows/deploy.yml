@@ -216,6 +216,12 @@ jobs:
           ADMIN_PASSWORD_VERIFIERS: ${{ secrets.ADMIN_PASSWORD_VERIFIERS }}
           ADMIN_SESSION_SECRET: ${{ secrets.ADMIN_SESSION_SECRET }}
           TURNSTILE_SECRET: ${{ secrets.TURNSTILE_SECRET }}
+          APPLE_CLIENT_ID: ${{ secrets.APPLE_CLIENT_ID }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          APPLE_KEY_ID: ${{ secrets.APPLE_KEY_ID }}
+          APPLE_PRIVATE_KEY_BASE64: ${{ secrets.APPLE_PRIVATE_KEY_BASE64 }}
+          APPLE_TOKEN_ENCRYPTION_SECRET: ${{ secrets.APPLE_TOKEN_ENCRYPTION_SECRET }}
+          NATIVE_SESSION_SECRET: ${{ secrets.NATIVE_SESSION_SECRET }}
           RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
           D1_BACKUP_ENCRYPTION_PASSPHRASE: ${{ secrets.D1_BACKUP_ENCRYPTION_PASSPHRASE }}
         run: |
@@ -235,6 +241,12 @@ jobs:
             PARETTO_PASSWORD_PEPPERS
             ADMIN_SESSION_SECRET
             TURNSTILE_SECRET
+            APPLE_CLIENT_ID
+            APPLE_TEAM_ID
+            APPLE_KEY_ID
+            APPLE_PRIVATE_KEY_BASE64
+            APPLE_TOKEN_ENCRYPTION_SECRET
+            NATIVE_SESSION_SECRET
           )
           for name in "${required[@]}"; do
             if [[ -z "${!name:-}" ]]; then
@@ -399,6 +411,12 @@ jobs:
           ADMIN_PASSWORD_VERIFIERS: ${{ secrets.ADMIN_PASSWORD_VERIFIERS }}
           ADMIN_SESSION_SECRET: ${{ secrets.ADMIN_SESSION_SECRET }}
           TURNSTILE_SECRET: ${{ secrets.TURNSTILE_SECRET }}
+          APPLE_CLIENT_ID: ${{ secrets.APPLE_CLIENT_ID }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          APPLE_KEY_ID: ${{ secrets.APPLE_KEY_ID }}
+          APPLE_PRIVATE_KEY_BASE64: ${{ secrets.APPLE_PRIVATE_KEY_BASE64 }}
+          APPLE_TOKEN_ENCRYPTION_SECRET: ${{ secrets.APPLE_TOKEN_ENCRYPTION_SECRET }}
+          NATIVE_SESSION_SECRET: ${{ secrets.NATIVE_SESSION_SECRET }}
           RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
         run: |
           set -euo pipefail
@@ -417,6 +435,12 @@ jobs:
             fi
             printf 'ADMIN_SESSION_SECRET=%s\n' "$ADMIN_SESSION_SECRET"
             printf 'TURNSTILE_SECRET=%s\n' "$TURNSTILE_SECRET"
+            printf 'APPLE_CLIENT_ID=%s\n' "$APPLE_CLIENT_ID"
+            printf 'APPLE_TEAM_ID=%s\n' "$APPLE_TEAM_ID"
+            printf 'APPLE_KEY_ID=%s\n' "$APPLE_KEY_ID"
+            printf 'APPLE_PRIVATE_KEY_BASE64=%s\n' "$APPLE_PRIVATE_KEY_BASE64"
+            printf 'APPLE_TOKEN_ENCRYPTION_SECRET=%s\n' "$APPLE_TOKEN_ENCRYPTION_SECRET"
+            printf 'NATIVE_SESSION_SECRET=%s\n' "$NATIVE_SESSION_SECRET"
             if [[ "$SUPPORT_EMAIL_DELIVERY_ENABLED" == "true" ]]; then
               printf 'RESEND_API_KEY=%s\n' "$RESEND_API_KEY"
             fi

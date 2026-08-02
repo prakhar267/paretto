@@ -121,7 +121,7 @@ addresses in release evidence.
 - [ ] If the native API is enabled, `APPLE_CLIENT_ID` exactly matches the
       production Apple identifier used by the signed native application.
 - [ ] If the native API is enabled, `APPLE_TEAM_ID`, `APPLE_KEY_ID`, and the
-      managed-secret `APPLE_PRIVATE_KEY` are the active Sign in with Apple server
+      managed-secret `APPLE_PRIVATE_KEY_BASE64` are the active Sign in with Apple server
       credentials. Record identifiers only; never copy the private key into
       release evidence.
 - [ ] If the native API is enabled, `APPLE_TOKEN_ENCRYPTION_SECRET` is present,

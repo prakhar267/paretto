@@ -54,8 +54,9 @@ Replace both example origins in that local file only when testing a different
 deployment. Missing local configuration does not break project generation or
 compilation. At runtime, Staging and Release reject empty, unresolved,
 credential-bearing, or non-HTTPS URLs. A valid URL alone does not enable native
-sign-in: the server keeps `NATIVE_API_ENABLED=false` until genuine Apple
-credentials and the independent native secrets are configured.
+sign-in: each environment must set `NATIVE_API_ENABLED=true`, provide the
+complete Apple credential and independent native-secret set, apply migration
+0014, and report `nativeReady: true` before signed distribution.
 
 Sign in with Apple requires the app identifier and capability to be enabled in
 the owner's Apple Developer account before signed-device or TestFlight use.

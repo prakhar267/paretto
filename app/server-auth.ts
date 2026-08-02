@@ -1,4 +1,7 @@
-import { validAppleOAuthConfiguration } from "@/app/api/native/_lib/apple-oauth";
+import {
+  applePrivateKeyFromBindings,
+  validAppleOAuthConfiguration,
+} from "@/app/api/native/_lib/apple-oauth";
 import {
   adminAuthConfiguration,
   verifyAdminSession,
@@ -84,6 +87,7 @@ export async function getRuntimeConfigurationReadiness(): Promise<RuntimeConfigu
   const learnerAccountAbuseProtection = Boolean(
     turnstile?.siteKey && turnstile.secret,
   );
+  const applePrivateKey = applePrivateKeyFromBindings(bindings);
   return {
     launchMode:
       bindings.LAUNCH_MODE === "controlled-beta" ||
@@ -132,7 +136,7 @@ export async function getRuntimeConfigurationReadiness(): Promise<RuntimeConfigu
       clientId: bindings.APPLE_CLIENT_ID,
       teamId: bindings.APPLE_TEAM_ID,
       keyId: bindings.APPLE_KEY_ID,
-      privateKey: bindings.APPLE_PRIVATE_KEY,
+      privateKey: applePrivateKey,
     }),
     appleTokenEncryptionSecret:
       typeof bindings.APPLE_TOKEN_ENCRYPTION_SECRET === "string" &&
@@ -497,6 +501,7 @@ async function serverBindings(): Promise<{
   APPLE_TEAM_ID?: unknown;
   APPLE_KEY_ID?: unknown;
   APPLE_PRIVATE_KEY?: unknown;
+  APPLE_PRIVATE_KEY_BASE64?: unknown;
   APPLE_TOKEN_ENCRYPTION_SECRET?: unknown;
   NATIVE_SESSION_SECRET?: unknown;
   BETTER_AUTH_SECRET?: unknown;
@@ -527,6 +532,7 @@ async function serverBindings(): Promise<{
     APPLE_TEAM_ID?: unknown;
     APPLE_KEY_ID?: unknown;
     APPLE_PRIVATE_KEY?: unknown;
+    APPLE_PRIVATE_KEY_BASE64?: unknown;
     APPLE_TOKEN_ENCRYPTION_SECRET?: unknown;
     NATIVE_SESSION_SECRET?: unknown;
     BETTER_AUTH_SECRET?: unknown;

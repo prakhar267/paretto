@@ -218,9 +218,19 @@ const HEALTH_SCHEMA_COLUMNS: Record<string, string[]> = {
     "id",
     "apple_subject_hash",
     "email",
+    "email_forwarding_enabled",
     "display_name",
     "created_at",
     "updated_at",
+  ],
+  apple_account_notifications: [
+    "id",
+    "event_type",
+    "apple_subject_hash",
+    "event_time",
+    "status",
+    "received_at",
+    "processed_at",
   ],
   native_learner_links: ["native_account_id", "learner_user_id", "linked_at"],
   native_sessions: [
@@ -873,7 +883,7 @@ describe("progress API", () => {
       launchMode: "public",
       workersPlan: "paid",
       productionReady: true,
-      schemaRevision: "0013",
+      schemaRevision: "0014",
       database: "ready",
       checks: {
         workersPlan: "paid",

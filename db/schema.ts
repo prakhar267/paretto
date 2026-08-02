@@ -565,6 +565,9 @@ export const nativeAccounts = sqliteTable(
     id: text("id").primaryKey(),
     appleSubjectHash: text("apple_subject_hash").notNull(),
     email: text("email"),
+    emailForwardingEnabled: integer("email_forwarding_enabled", {
+      mode: "boolean",
+    }),
     displayName: text("display_name"),
     createdAt: integer("created_at").notNull(),
     updatedAt: integer("updated_at").notNull(),
@@ -633,6 +636,48 @@ export const nativeAppleCredentials = sqliteTable("native_apple_credentials", {
   refreshTokenCiphertext: text("refresh_token_ciphertext").notNull(),
   updatedAt: integer("updated_at").notNull(),
 });
+
+export const appleAccountNotifications = sqliteTable(
+  "apple_account_notifications",
+  {
+    id: text("id").primaryKey(),
+    eventType: text("event_type", {
+      enum: [
+        "email-enabled",
+        "email-disabled",
+        "consent-revoked",
+        "account-deleted",
+      ],
+    }).notNull(),
+    appleSubjectHash: text("apple_subject_hash").notNull(),
+    eventTime: integer("event_time").notNull(),
+    status: text("status", {
+      enum: ["pending", "processed", "failed"],
+    })
+      .notNull()
+      .default("pending"),
+    receivedAt: integer("received_at").notNull(),
+    processedAt: integer("processed_at"),
+  },
+  (table) => [
+    index("apple_account_notifications_status_idx").on(
+      table.status,
+      table.receivedAt,
+    ),
+    index("apple_account_notifications_subject_idx").on(
+      table.appleSubjectHash,
+      table.eventTime,
+    ),
+    check(
+      "apple_account_notifications_event_type_check",
+      sql`${table.eventType} in ('email-enabled', 'email-disabled', 'consent-revoked', 'account-deleted')`,
+    ),
+    check(
+      "apple_account_notifications_status_check",
+      sql`${table.status} in ('pending', 'processed', 'failed')`,
+    ),
+  ],
+);
 
 export const nativeIdentityTokenUses = sqliteTable(
   "native_identity_token_uses",

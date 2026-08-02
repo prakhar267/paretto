@@ -17,6 +17,14 @@ const COMMON_REQUIRED_SECRETS = [
   "ADMIN_SESSION_SECRET",
   "TURNSTILE_SECRET",
 ];
+const NATIVE_REQUIRED_SECRETS = [
+  "APPLE_CLIENT_ID",
+  "APPLE_TEAM_ID",
+  "APPLE_KEY_ID",
+  "APPLE_PRIVATE_KEY_BASE64",
+  "APPLE_TOKEN_ENCRYPTION_SECRET",
+  "NATIVE_SESSION_SECRET",
+];
 const TURNSTILE_TEST_SITE_KEYS = new Set([
   "1x00000000000000000000AA",
   "2x00000000000000000000AB",
@@ -81,6 +89,7 @@ const requiredSecrets = [
   ...COMMON_REQUIRED_SECRETS.slice(0, 5),
   adminPasswordSecretName,
   ...COMMON_REQUIRED_SECRETS.slice(5),
+  ...NATIVE_REQUIRED_SECRETS,
 ];
 invariant(
   typeof options["turnstile-site-key"] === "string" &&

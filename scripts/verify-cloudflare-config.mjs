@@ -20,6 +20,14 @@ const COMMON_REQUIRED_SECRETS = [
   "ADMIN_SESSION_SECRET",
   "TURNSTILE_SECRET",
 ];
+const NATIVE_REQUIRED_SECRETS = [
+  "APPLE_CLIENT_ID",
+  "APPLE_TEAM_ID",
+  "APPLE_KEY_ID",
+  "APPLE_PRIVATE_KEY_BASE64",
+  "APPLE_TOKEN_ENCRYPTION_SECRET",
+  "NATIVE_SESSION_SECRET",
+];
 const TURNSTILE_TEST_SITE_KEYS = new Set([
   "1x00000000000000000000AA",
   "2x00000000000000000000AB",
@@ -220,7 +228,7 @@ function validateConfiguration(configuration, environment, requireProvisioned) {
     configuration.vars?.AUTH_EMAIL_FROM === "" &&
     configuration.vars?.SUPPORT_NOTIFICATION_EMAIL === "";
   invariant(
-    configuration.vars?.NATIVE_API_ENABLED === "false" &&
+    configuration.vars?.NATIVE_API_ENABLED === "true" &&
       adminEmails !== null &&
       (launchMode === "public" || launchMode === "controlled-beta") &&
       (workersPlan === "free" || workersPlan === "paid") &&
@@ -235,7 +243,7 @@ function validateConfiguration(configuration, environment, requireProvisioned) {
         configuration.vars.TURNSTILE_SITE_KEY,
       ) &&
       Object.keys(configuration.vars).length === 8,
-    "The web launch must explicitly select controlled-beta or public mode, configure core learner/admin identity and Turnstile, disable the native API, and either disable optional email delivery with two exact empty values or configure both its valid sender and support mailbox.",
+    "The launch must explicitly select controlled-beta or public mode, configure core learner/admin identity and Turnstile, enable the native API, and either disable optional email delivery with two exact empty values or configure both its valid sender and support mailbox.",
   );
   const adminPasswordSecretName =
     adminEmails.length === 1
@@ -245,6 +253,7 @@ function validateConfiguration(configuration, environment, requireProvisioned) {
     ...COMMON_REQUIRED_SECRETS.slice(0, 5),
     adminPasswordSecretName,
     ...COMMON_REQUIRED_SECRETS.slice(5),
+    ...NATIVE_REQUIRED_SECRETS,
   ];
   invariant(
     Array.isArray(configuration.secrets?.required) &&
@@ -253,12 +262,6 @@ function validateConfiguration(configuration, environment, requireProvisioned) {
         (secret, index) => secret === requiredSecrets[index],
       ),
     `Required secrets must be exactly ${requiredSecrets.join(", ")}.`,
-  );
-  invariant(
-    !configuration.secrets.required.some((secret) =>
-      /APPLE|NATIVE/i.test(secret),
-    ),
-    "Apple/native secrets must stay optional while NATIVE_API_ENABLED is false.",
   );
   invariant(
     Array.isArray(configuration.assets?.run_worker_first) &&

@@ -1,7 +1,10 @@
 import { describe, expect, it } from "vitest";
 
 import { POST as APPLE_AUTH_POST } from "../app/api/native/auth/apple/route";
-import { verifyAppleIdentityToken } from "../app/api/native/_lib/native-auth";
+import {
+  verifyAppleIdentityToken,
+  verifyAppleServerNotification,
+} from "../app/api/native/_lib/native-auth";
 import {
   createAppleClientSecret,
   decryptAppleRefreshToken,
@@ -308,6 +311,101 @@ describe("native API security contracts", () => {
       email: "relay@example.com",
     });
     expect(rotationFetches).toBe(1);
+  });
+
+  it("verifies and normalizes signed Apple account-change notifications", async () => {
+    const now = Date.UTC(2026, 6, 22, 10, 0, 0);
+    const keys = (await crypto.subtle.generateKey(
+      {
+        name: "RSASSA-PKCS1-v1_5",
+        modulusLength: 2048,
+        publicExponent: new Uint8Array([1, 0, 1]),
+        hash: "SHA-256",
+      },
+      true,
+      ["sign", "verify"],
+    )) as CryptoKeyPair;
+    const publicJwk = await crypto.subtle.exportKey("jwk", keys.publicKey);
+    const fetcher = (async () =>
+      Response.json({
+        keys: [
+          {
+            ...publicJwk,
+            kid: "notification-key",
+            alg: "RS256",
+            use: "sig",
+          },
+        ],
+      })) as typeof fetch;
+    const baseClaims = {
+      iss: "https://appleid.apple.com",
+      aud: "com.paretto.app",
+      iat: Math.floor(now / 1000) - 5,
+      jti: "notification-0001",
+      events: {
+        type: "account-delete",
+        sub: "apple-user-opaque-subject",
+        event_time: Math.floor(now / 1000) - 10,
+      },
+    };
+    const token = await signJwt(
+      baseClaims,
+      keys.privateKey,
+      "notification-key",
+    );
+
+    await expect(
+      verifyAppleServerNotification(token, {
+        clientId: "com.paretto.app",
+        now,
+        fetcher,
+      }),
+    ).resolves.toEqual({
+      id: "notification-0001",
+      issuedAt: Math.floor(now / 1000) - 5,
+      event: {
+        type: "account-deleted",
+        subject: "apple-user-opaque-subject",
+        eventTime: Math.floor(now / 1000) - 10,
+        email: null,
+        isPrivateEmail: null,
+      },
+    });
+
+    const wrongAudience = await signJwt(
+      { ...baseClaims, aud: "wrong.client" },
+      keys.privateKey,
+      "notification-key",
+    );
+    await expect(
+      verifyAppleServerNotification(wrongAudience, {
+        clientId: "com.paretto.app",
+        now,
+        fetcher,
+      }),
+    ).resolves.toBeNull();
+
+    const unsafeRelayEvent = await signJwt(
+      {
+        ...baseClaims,
+        jti: "notification-0002",
+        events: {
+          ...baseClaims.events,
+          type: "email-enabled",
+          email: "relay@example.com",
+          is_private_email: false,
+        },
+      },
+      keys.privateKey,
+      "notification-key",
+    );
+    await expect(
+      verifyAppleServerNotification(unsafeRelayEvent, {
+        clientId: "com.paretto.app",
+        now,
+        fetcher,
+      }),
+    ).resolves.toBeNull();
   });
 
   it("creates Apple client credentials, exchanges codes, revokes, and encrypts refresh tokens", async () => {

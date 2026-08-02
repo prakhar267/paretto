@@ -32,6 +32,7 @@ interface Env {
   APPLE_TEAM_ID?: string;
   APPLE_KEY_ID?: string;
   APPLE_PRIVATE_KEY?: string;
+  APPLE_PRIVATE_KEY_BASE64?: string;
   APPLE_TOKEN_ENCRYPTION_SECRET?: string;
   NATIVE_SESSION_SECRET?: string;
   GOOGLE_CLIENT_ID?: string;

@@ -33,6 +33,18 @@ const keychain = {
     ],
     adminSession: ["Paretto Staging Admin Session Secret", account],
     turnstile: ["Paretto Staging Turnstile Secret", "prakhar"],
+    appleClientId: ["Paretto Staging Apple Client ID", account],
+    appleTeamId: ["Paretto Staging Apple Team ID", account],
+    appleKeyId: ["Paretto Staging Apple Key ID", account],
+    applePrivateKeyBase64: [
+      "Paretto Staging Apple Private Key Base64",
+      account,
+    ],
+    appleTokenEncryption: [
+      "Paretto Staging Apple Token Encryption Secret",
+      account,
+    ],
+    nativeSession: ["Paretto Staging Native Session Secret", account],
   },
   production: {
     adminAccess: ["Paretto Production Admin Access Key", account],
@@ -56,6 +68,18 @@ const keychain = {
     ],
     adminSession: ["Paretto Production Admin Session Secret", account],
     turnstile: ["Paretto Production Turnstile Secret", account],
+    appleClientId: ["Paretto Production Apple Client ID", account],
+    appleTeamId: ["Paretto Production Apple Team ID", account],
+    appleKeyId: ["Paretto Production Apple Key ID", account],
+    applePrivateKeyBase64: [
+      "Paretto Production Apple Private Key Base64",
+      account,
+    ],
+    appleTokenEncryption: [
+      "Paretto Production Apple Token Encryption Secret",
+      account,
+    ],
+    nativeSession: ["Paretto Production Native Session Secret", account],
   },
 };
 
@@ -86,6 +110,12 @@ const [
   passwordPeppers,
   adminSession,
   turnstile,
+  appleClientId,
+  appleTeamId,
+  appleKeyId,
+  applePrivateKeyBase64,
+  appleTokenEncryption,
+  nativeSession,
 ] =
   await Promise.all([
     readKeychainSecret(...labels.userKey, 32),
@@ -95,6 +125,12 @@ const [
     readKeychainSecret(...labels.passwordPeppers, 32, 256),
     readKeychainSecret(...labels.adminSession, 32),
     readKeychainSecret(...labels.turnstile),
+    readKeychainSecret(...labels.appleClientId, 3, 255),
+    readKeychainSecret(...labels.appleTeamId, 10, 10),
+    readKeychainSecret(...labels.appleKeyId, 10, 10),
+    readKeychainSecret(...labels.applePrivateKeyBase64, 100, 16_000),
+    readKeychainSecret(...labels.appleTokenEncryption, 32),
+    readKeychainSecret(...labels.nativeSession, 32),
   ]);
 invariant(
   new Set([
@@ -103,8 +139,30 @@ invariant(
     authRateLimit,
     authSecret,
     adminSession,
-  ]).size === 5,
-  "User, support-rate-limit, learner-auth-rate-limit, learner-auth, and admin-session secrets must be independent.",
+    appleTokenEncryption,
+    nativeSession,
+  ]).size === 7,
+  "User, rate-limit, learner-auth, admin-session, Apple-token, and native-session secrets must be independent.",
+);
+invariant(
+  /^[A-Za-z0-9.-]{3,255}$/.test(appleClientId) &&
+    /^[A-Z0-9]{10}$/.test(appleTeamId) &&
+    /^[A-Z0-9]{10}$/.test(appleKeyId),
+  "Apple client, team, or key identifiers have an invalid format.",
+);
+let applePrivateKey;
+try {
+  applePrivateKey = Buffer.from(applePrivateKeyBase64, "base64").toString(
+    "utf8",
+  );
+} catch {
+  applePrivateKey = "";
+}
+invariant(
+  /^-----BEGIN PRIVATE KEY-----\n[A-Za-z0-9+/=\n]+\n-----END PRIVATE KEY-----\n?$/.test(
+    applePrivateKey,
+  ),
+  "The Apple private-key Keychain item is not a base64-encoded PKCS#8 key.",
 );
 const [adminPasswordSecretName, adminPasswordSecret] =
   adminEmails.length === 1
@@ -127,6 +185,12 @@ const contents = [
   `${adminPasswordSecretName}=${adminPasswordSecret}`,
   `ADMIN_SESSION_SECRET=${adminSession}`,
   `TURNSTILE_SECRET=${turnstile}`,
+  `APPLE_CLIENT_ID=${appleClientId}`,
+  `APPLE_TEAM_ID=${appleTeamId}`,
+  `APPLE_KEY_ID=${appleKeyId}`,
+  `APPLE_PRIVATE_KEY_BASE64=${applePrivateKeyBase64}`,
+  `APPLE_TOKEN_ENCRYPTION_SECRET=${appleTokenEncryption}`,
+  `NATIVE_SESSION_SECRET=${nativeSession}`,
   "",
 ].join("\n");
 const target = resolve(root, `.env.${environment}`);

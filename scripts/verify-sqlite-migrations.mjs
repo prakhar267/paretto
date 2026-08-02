@@ -14,7 +14,7 @@ const healthPath = resolve(root, "app/api/health/route.ts");
 const COURSE_SCOPE_MIGRATION_TAG = "0011_sour_post";
 const RESET_AND_AUTH_LIMIT_MIGRATION_TAG =
   "0012_private_auth_reset_generation";
-const LATEST_SCHEMA_MIGRATION_TAG = "0013_paretto_id_recovery";
+const LATEST_SCHEMA_MIGRATION_TAG = "0014_productive_dormammu";
 const DEFAULT_COURSE_ID = "french-from-english";
 const temporaryDirectory = await mkdtemp(
   join(tmpdir(), "paretto-migration-replay-"),

@@ -348,9 +348,9 @@ availability break. New environments must use `ADMIN_EMAILS`.
   `SUPPORT_RATE_LIMIT_SECRET`. It never stores the raw IP in limiter data.
 - Browser mutations require the exact deployed `Origin`; legacy
   `oai-authenticated-*` headers are removed before application dispatch.
-- `NATIVE_API_ENABLED` is `false` for this web release. Health reports native
-  checks as disabled and does not require Apple credentials for
-  `productionReady: true`.
+- `NATIVE_API_ENABLED` is `true` for the iOS release. Health requires the
+  complete Apple credential set, independent token-encryption and native-session
+  secrets, and migration 0014 before reporting native readiness.
 - `LAUNCH_MODE=controlled-beta` can return HTTP 200 only for a healthy core,
   retention schedule, and queues. It always reports `productionReady: false`
   with explicit capability warnings. `WORKERS_PLAN=free` is restricted to this
@@ -398,7 +398,10 @@ Time Travel. Verify these limits again at launch:
   only through the ignored secret files and Cloudflare managed secrets.
   Configure the exact `BETTER_AUTH_URL`, normalized `ADMIN_EMAILS`, the
   matching `TURNSTILE_SITE_KEY`, explicit `LAUNCH_MODE`, explicit
-  `WORKERS_PLAN`, and `NATIVE_API_ENABLED=false` as runtime values. Treat
+  `WORKERS_PLAN`, and `NATIVE_API_ENABLED=true` as runtime values. Store
+  `APPLE_CLIENT_ID`, `APPLE_TEAM_ID`, `APPLE_KEY_ID`,
+  `APPLE_PRIVATE_KEY_BASE64`, `APPLE_TOKEN_ENCRYPTION_SECRET`, and
+  `NATIVE_SESSION_SECRET` only as managed secrets. Treat
   `WORKERS_PLAN` as a fail-closed declaration, not subscription proof; public
   operation requires separately recorded Workers Paid evidence. Add `AUTH_EMAIL_FROM`,
   `SUPPORT_NOTIFICATION_EMAIL`, and `RESEND_API_KEY` only as one complete

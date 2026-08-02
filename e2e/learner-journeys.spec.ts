@@ -462,14 +462,14 @@ test("the local TLS boundary preserves a secure origin and survives a plaintext 
   await expect(health.json()).resolves.toMatchObject({
     status: expect.stringMatching(/^(ok|degraded)$/),
     service: "paretto-web",
-    schemaRevision: "0013",
+    schemaRevision: "0014",
   });
   const cachedHealth = await page.request.get("/api/health");
   expect(cachedHealth.status()).toBe(health.status());
   await expect(cachedHealth.json()).resolves.toMatchObject({
     status: expect.stringMatching(/^(ok|degraded)$/),
     service: "paretto-web",
-    schemaRevision: "0013",
+    schemaRevision: "0014",
   });
 });
 

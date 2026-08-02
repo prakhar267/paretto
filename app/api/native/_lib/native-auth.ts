@@ -1,5 +1,6 @@
 import { apiError, isRecord, logApiError } from "@/app/api/_lib/api-utils";
 import {
+  applePrivateKeyFromBindings,
   encryptAppleRefreshToken,
   exchangeAppleAuthorizationCode,
   revokeAppleRefreshToken,
@@ -26,6 +27,22 @@ type NativeSignInConfiguration = NativeAccountDeletionConfiguration & {
 type AppleClaims = {
   subject: string;
   email: string | null;
+};
+
+export type AppleServerNotification = {
+  id: string;
+  issuedAt: number;
+  event: {
+    type:
+      | "email-enabled"
+      | "email-disabled"
+      | "consent-revoked"
+      | "account-deleted";
+    subject: string;
+    eventTime: number;
+    email: string | null;
+    isPrivateEmail: boolean | null;
+  };
 };
 
 type NativeSessionRow = {
@@ -575,6 +592,123 @@ export async function verifyAppleIdentityToken(
   return { subject: payload.sub, email };
 }
 
+export async function verifyAppleServerNotification(
+  signedPayload: string,
+  options: {
+    clientId: string;
+    now?: number;
+    fetcher?: typeof fetch;
+  },
+): Promise<AppleServerNotification | null> {
+  if (signedPayload.length < 64 || signedPayload.length > 16_384) return null;
+  const parts = signedPayload.split(".");
+  if (parts.length !== 3 || parts.some((part) => !part)) return null;
+
+  const header = decodeJwtObject(parts[0]);
+  const payload = decodeJwtObject(parts[1]);
+  if (
+    !header ||
+    header.alg !== "RS256" ||
+    typeof header.kid !== "string" ||
+    header.kid.length < 1 ||
+    header.kid.length > 128 ||
+    !payload
+  ) {
+    return null;
+  }
+  const key = await appleVerificationKey(
+    header.kid,
+    options.fetcher ?? fetch,
+    options.now ?? Date.now(),
+  );
+  if (!key) return null;
+  const verified = await crypto.subtle.verify(
+    { name: "RSASSA-PKCS1-v1_5" },
+    key,
+    arrayBufferCopy(decodeBase64Url(parts[2])),
+    new TextEncoder().encode(`${parts[0]}.${parts[1]}`),
+  );
+  if (!verified) return null;
+
+  const nowSeconds = Math.floor((options.now ?? Date.now()) / 1000);
+  const audience = payload.aud;
+  const audienceMatches =
+    audience === options.clientId ||
+    (Array.isArray(audience) && audience.includes(options.clientId));
+  if (
+    payload.iss !== APPLE_ISSUER ||
+    !audienceMatches ||
+    typeof payload.iat !== "number" ||
+    !Number.isInteger(payload.iat) ||
+    payload.iat < 1 ||
+    payload.iat > nowSeconds + CLOCK_SKEW_SECONDS ||
+    typeof payload.jti !== "string" ||
+    payload.jti.length < 1 ||
+    payload.jti.length > 255 ||
+    !/^[\x21-\x7e]+$/.test(payload.jti) ||
+    !isRecord(payload.events)
+  ) {
+    return null;
+  }
+  const events = payload.events;
+  const rawType = events.type;
+  const type = rawType === "account-delete" ? "account-deleted" : rawType;
+  if (
+    type !== "email-enabled" &&
+    type !== "email-disabled" &&
+    type !== "consent-revoked" &&
+    type !== "account-deleted"
+  ) {
+    return null;
+  }
+  if (
+    typeof events.sub !== "string" ||
+    events.sub.length < 1 ||
+    events.sub.length > 255 ||
+    typeof events.event_time !== "number" ||
+    !Number.isInteger(events.event_time) ||
+    events.event_time < 1 ||
+    events.event_time > nowSeconds + CLOCK_SKEW_SECONDS
+  ) {
+    return null;
+  }
+
+  const email = events.email === undefined ? null : normalizeEmail(events.email);
+  const privateEmail =
+    events.is_private_email === true || events.is_private_email === "true"
+      ? true
+      : events.is_private_email === false || events.is_private_email === "false"
+        ? false
+        : null;
+  if (
+    (type === "email-enabled" || type === "email-disabled") &&
+    (!email || privateEmail !== true)
+  ) {
+    return null;
+  }
+  return {
+    id: payload.jti,
+    issuedAt: payload.iat,
+    event: {
+      type,
+      subject: events.sub,
+      eventTime: events.event_time,
+      email,
+      isPrivateEmail: privateEmail,
+    },
+  };
+}
+
+export async function nativeAppleSubjectHash(
+  subject: string,
+): Promise<string | null> {
+  if (subject.length < 1 || subject.length > 255) return null;
+  const configuration = await nativeSessionConfiguration();
+  return configuration
+    ? hmacHex(configuration.sessionSecret, `apple-subject:${subject}`)
+    : null;
+}
+
 async function appleVerificationKey(
   kid: string,
   fetcher: typeof fetch,
@@ -647,13 +781,14 @@ export async function nativeAccountDeletionConfiguration(): Promise<
     APPLE_TEAM_ID?: unknown;
     APPLE_KEY_ID?: unknown;
     APPLE_PRIVATE_KEY?: unknown;
+    APPLE_PRIVATE_KEY_BASE64?: unknown;
     APPLE_TOKEN_ENCRYPTION_SECRET?: unknown;
   };
   const apple = {
     clientId: bindings.APPLE_CLIENT_ID,
     teamId: bindings.APPLE_TEAM_ID,
     keyId: bindings.APPLE_KEY_ID,
-    privateKey: bindings.APPLE_PRIVATE_KEY,
+    privateKey: applePrivateKeyFromBindings(bindings),
   };
   return validAppleOAuthConfiguration(apple) &&
     typeof bindings.APPLE_TOKEN_ENCRYPTION_SECRET === "string" &&
