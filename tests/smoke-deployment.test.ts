@@ -27,6 +27,7 @@ describe("read-only deployment smoke", () => {
       workersPlan: "paid",
       productionReady: true,
       webReady: true,
+      nativeReady: true,
       database: "ready",
       warnings: [] as string[],
       checks: {
@@ -54,11 +55,11 @@ describe("read-only deployment smoke", () => {
         adminAuthentication: "ready",
         turnstileSiteKey: "ready",
         turnstileSecret: "ready",
-        nativeApi: "disabled",
-        appleClientId: "native-disabled",
-        appleServerCredentials: "native-disabled",
-        appleTokenEncryptionSecret: "native-disabled",
-        nativeSessionSecret: "native-disabled",
+        nativeApi: "enabled",
+        appleClientId: "ready",
+        appleServerCredentials: "ready",
+        appleTokenEncryptionSecret: "ready",
+        nativeSessionSecret: "ready",
       },
     };
     const server = createServer((request, response) => {
