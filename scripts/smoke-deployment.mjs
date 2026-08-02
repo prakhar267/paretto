@@ -278,18 +278,38 @@ function assertHealthReady(candidateHealth) {
     ),
     "Apple account readiness has an unknown state.",
   );
-  assert.equal(candidateHealth.checks.nativeApi, "disabled");
-  for (const check of [
+  assert.ok(
+    candidateHealth.checks.nativeApi === "disabled" ||
+      candidateHealth.checks.nativeApi === "enabled",
+    "Native API readiness has an unknown state.",
+  );
+  const nativeChecks = [
     "appleClientId",
     "appleServerCredentials",
     "appleTokenEncryptionSecret",
     "nativeSessionSecret",
-  ]) {
+  ];
+  if (candidateHealth.checks.nativeApi === "enabled") {
     assert.equal(
-      candidateHealth.checks[check],
-      "native-disabled",
-      `${check} is not safely disabled.`,
+      candidateHealth.nativeReady,
+      true,
+      "An enabled native API must be fully ready.",
     );
+    for (const check of nativeChecks) {
+      assert.equal(
+        candidateHealth.checks[check],
+        "ready",
+        `${check} is not ready for the enabled native API.`,
+      );
+    }
+  } else {
+    for (const check of nativeChecks) {
+      assert.equal(
+        candidateHealth.checks[check],
+        "native-disabled",
+        `${check} is not safely disabled.`,
+      );
+    }
   }
 }
 
