@@ -217,7 +217,7 @@ describe("mobile, PWA, security, and launch contracts", () => {
       expect(template).toContain('"ADMIN_EMAILS": "__ADMIN_EMAILS__"');
       expect(template).toContain('"LAUNCH_MODE": "__LAUNCH_MODE__"');
       expect(template).toContain('"WORKERS_PLAN": "__WORKERS_PLAN__"');
-      expect(template).toContain('"NATIVE_API_ENABLED": "false"');
+      expect(template).toContain('"NATIVE_API_ENABLED": "true"');
       expect(template).toContain(
         '"TURNSTILE_SITE_KEY": "__TURNSTILE_SITE_KEY__"',
       );
@@ -230,6 +230,12 @@ describe("mobile, PWA, security, and launch contracts", () => {
         "__ADMIN_PASSWORD_SECRET_NAME__",
         "ADMIN_SESSION_SECRET",
         "TURNSTILE_SECRET",
+        "APPLE_CLIENT_ID",
+        "APPLE_TEAM_ID",
+        "APPLE_KEY_ID",
+        "APPLE_PRIVATE_KEY_BASE64",
+        "APPLE_TOKEN_ENCRYPTION_SECRET",
+        "NATIVE_SESSION_SECRET",
       ]);
       expect(template).toContain('"directory": "dist/client"');
       expect(template).toContain('"binding": "ASSETS"');

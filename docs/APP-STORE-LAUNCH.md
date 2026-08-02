@@ -16,8 +16,8 @@ release commands set
 `DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer` explicitly.
 
 An unsigned Release build for a generic iOS device is verified in the release
-gate with bundle identifier `com.paretto.app`, marketing version `1.5.3`, and
-build `15`. It contains the privacy manifest, opaque 1024×1024 icon, and all 270
+gate with bundle identifier `com.paretto.app`, marketing version `1.5.4`, and
+build `16`. It contains the privacy manifest, opaque 1024×1024 icon, and all 270
 audio clips. Signing, Sign in with Apple, TestFlight upload, and App Store
 submission still require the account owner's Apple Developer configuration and
 interactive approval. Never send an Apple password, recovery key, or
@@ -49,8 +49,9 @@ legacy probes alone cannot cross normal iOS sandbox boundaries.
 2. Enable Sign in with Apple for that App ID and the Xcode target.
 3. Create a Sign in with Apple `.p8` key and record its Key ID and the account
    Team ID. Set server `APPLE_CLIENT_ID`, `APPLE_TEAM_ID`, and `APPLE_KEY_ID` to
-   those exact registered values; store the full `.p8` as `APPLE_PRIVATE_KEY` in
-   the hosting secret manager. Never put it in Git or a local xcconfig.
+   those exact registered values; store the base64 encoding of the full `.p8`
+   as `APPLE_PRIVATE_KEY_BASE64` in the hosting secret manager. Never put the
+   key in Git or a local xcconfig.
 4. If Apple login is offered on the web, group its Apple Service ID with this
    primary App ID and configure `APPLE_WEB_CLIENT_ID` and
    `APPLE_WEB_CLIENT_SECRET`. That Apple grouping is required for Apple's
@@ -72,13 +73,15 @@ legacy probes alone cannot cross normal iOS sandbox boundaries.
 7. Verify the tracked Staging and Release Worker origins, or override them in
    an uncommitted `Configuration/Local.xcconfig`.
 8. Apply every journaled migration through
-   `0013_paretto_id_recovery` before enabling
+   `0014_productive_dormammu` before enabling
    the native API. `0010_small_switch` adds the one-to-one verified
    native/learner identity bridge; `0011_sour_post` adds durable account
    deletion, support delivery/quota operations, and course-scoped CMS identity.
    `0012_private_auth_reset_generation` adds private authentication throttling
    and durable cross-device progress-reset generations.
    `0013_paretto_id_recovery` adds Paretto IDs and one-time recovery-code state.
+   `0014_productive_dormammu` adds idempotent, signed Apple account-change
+   notification handling and relay-email forwarding state.
 9. Select the development team, allow Xcode to create development provisioning,
    and repeat the unsigned test suites on the available iPhone and iPad
    simulators before creating a signed build.

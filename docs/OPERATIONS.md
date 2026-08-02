@@ -38,7 +38,7 @@ deployment and monitoring history exist.
 | `ADMIN_SESSION_SECRET` | Signs eight-hour administrator session cookies and hashes login IPs | Independent 256-bit random managed secret |
 | `TURNSTILE_SITE_KEY` | Renders exact-action account and support abuse challenges | Public site key for the environment's exact hostnames |
 | `TURNSTILE_SECRET` | Verifies account and support challenges server-side | Matching managed secret; never store in Git or browser code |
-| `NATIVE_API_ENABLED` | Controls native Apple-account API readiness | Set to the string `false` for this web release |
+| `NATIVE_API_ENABLED` | Controls native Apple-account API readiness | Set to `true` only with the complete validated Apple/native secret set and migration 0014 applied |
 | `DB` | D1 database binding | Provision through hosting and apply every checked-in migration |
 | Daily Cron Trigger | Automatic privacy retention | Deploy `17 3 * * *` from the checked-in Worker configuration and verify the scheduled-run log |
 
@@ -85,10 +85,13 @@ whose tokens were encrypted under the old value to relink, but it no longer
 invalidates Paretto ID password verifiers. Perform that rotation only with a
 backup, session-revocation communication, and provider relink plan.
 
-Apple and native-session values are intentionally absent while
-`NATIVE_API_ENABLED=false`. When native cloud sync is scheduled, use the separate
-App Store runbook and add those credentials only after a reviewed native
-authentication launch.
+The staging and production iOS release use `NATIVE_API_ENABLED=true` with
+`APPLE_CLIENT_ID`, `APPLE_TEAM_ID`, `APPLE_KEY_ID`, the base64-encoded managed
+secret `APPLE_PRIVATE_KEY_BASE64`, and independent
+`APPLE_TOKEN_ENCRYPTION_SECRET` and `NATIVE_SESSION_SECRET` values. Apply
+migration 0014 and verify `/api/health` reports `nativeReady: true` before a
+signed app is distributed. Rotate or revoke an Apple key only after the
+replacement is deployed and verified.
 
 ## Release procedure
 

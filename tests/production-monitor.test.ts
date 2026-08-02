@@ -19,7 +19,7 @@ function readyHealth(
     service: "paretto-web",
     status: "ok",
     version: "1.3.0",
-    schemaRevision: "0013",
+    schemaRevision: "0014",
     webReady: true,
     launchMode,
     workersPlan,
@@ -80,7 +80,7 @@ describe("independent production monitor", () => {
       expect(JSON.parse(result.stdout)).toMatchObject({
         origin,
         version: "1.3.0",
-        schemaRevision: "0013",
+        schemaRevision: "0014",
         status: "ready",
         workersPlan: "paid",
       });

@@ -12,6 +12,14 @@ const COMMON_REQUIRED_SECRETS = [
   "ADMIN_SESSION_SECRET",
   "TURNSTILE_SECRET",
 ];
+const NATIVE_REQUIRED_SECRETS = [
+  "APPLE_CLIENT_ID",
+  "APPLE_TEAM_ID",
+  "APPLE_KEY_ID",
+  "APPLE_PRIVATE_KEY_BASE64",
+  "APPLE_TOKEN_ENCRYPTION_SECRET",
+  "NATIVE_SESSION_SECRET",
+];
 const TURNSTILE_TEST_SECRETS = new Set([
   "1x0000000000000000000000000000000AA",
   "2x0000000000000000000000000000000AA",
@@ -59,6 +67,7 @@ const requiredSecrets = [
   ...COMMON_REQUIRED_SECRETS.slice(0, 5),
   adminPasswordSecretName,
   ...COMMON_REQUIRED_SECRETS.slice(5),
+  ...NATIVE_REQUIRED_SECRETS,
 ];
 invariant(
   Array.isArray(configuration.secrets?.required) &&
@@ -122,6 +131,14 @@ const passwordPeppers = values.get("PARETTO_PASSWORD_PEPPERS");
 const adminPasswordVerifier = values.get(adminPasswordSecretName);
 const adminSessionSecret = values.get("ADMIN_SESSION_SECRET");
 const turnstileSecret = values.get("TURNSTILE_SECRET");
+const appleClientId = values.get("APPLE_CLIENT_ID");
+const appleTeamId = values.get("APPLE_TEAM_ID");
+const appleKeyId = values.get("APPLE_KEY_ID");
+const applePrivateKeyBase64 = values.get("APPLE_PRIVATE_KEY_BASE64");
+const appleTokenEncryptionSecret = values.get(
+  "APPLE_TOKEN_ENCRYPTION_SECRET",
+);
+const nativeSessionSecret = values.get("NATIVE_SESSION_SECRET");
 const resendApiKey = values.get("RESEND_API_KEY");
 
 invariant(
@@ -162,6 +179,25 @@ invariant(
     !TURNSTILE_TEST_SECRETS.has(turnstileSecret),
   "TURNSTILE_SECRET must be the Cloudflare Turnstile secret key.",
 );
+invariant(
+  appleClientId === "com.paretto.app",
+  "APPLE_CLIENT_ID must match the registered native bundle identifier.",
+);
+invariant(
+  /^[A-Z0-9]{10}$/.test(appleTeamId ?? "") &&
+    /^[A-Z0-9]{10}$/.test(appleKeyId ?? ""),
+  "APPLE_TEAM_ID and APPLE_KEY_ID must be ten-character Apple identifiers.",
+);
+invariant(
+  validApplePrivateKeyBase64(applePrivateKeyBase64),
+  "APPLE_PRIVATE_KEY_BASE64 must encode one PKCS#8 Apple private key.",
+);
+invariant(
+  isBoundedSecret(appleTokenEncryptionSecret, 32) &&
+    isBoundedSecret(nativeSessionSecret, 32) &&
+    appleTokenEncryptionSecret !== nativeSessionSecret,
+  "Apple token encryption and native session secrets must be independent random values.",
+);
 if (emailDeliveryConfigured) {
   invariant(
     /^re_[A-Za-z0-9_-]{16,252}$/.test(resendApiKey),
@@ -176,8 +212,10 @@ invariant(
     betterAuthSecret,
     ...Object.values(parsedPasswordPeppers.keys),
     adminSessionSecret,
-  ]).size === 5 + Object.keys(parsedPasswordPeppers.keys).length,
-  "USER_KEY_SECRET, SUPPORT_RATE_LIMIT_SECRET, BETTER_AUTH_RATE_LIMIT_SECRET, BETTER_AUTH_SECRET, every PARETTO_PASSWORD_PEPPERS key, and ADMIN_SESSION_SECRET must be independent values.",
+    appleTokenEncryptionSecret,
+    nativeSessionSecret,
+  ]).size === 7 + Object.keys(parsedPasswordPeppers.keys).length,
+  "User, support, authentication, Apple token-encryption, native-session, password-pepper, and admin-session secrets must all be independent.",
 );
 for (const [name, value] of values) {
   invariant(
@@ -226,6 +264,33 @@ function isBoundedSecret(value, minimumLength, maximumLength = 256) {
     value.length <= maximumLength &&
     !/\s/.test(value)
   );
+}
+
+function validApplePrivateKeyBase64(value) {
+  if (
+    typeof value !== "string" ||
+    value.length < 100 ||
+    value.length > 16_000 ||
+    !/^[A-Za-z0-9+/]+={0,2}$/.test(value)
+  ) {
+    return false;
+  }
+  try {
+    const bytes = Buffer.from(value, "base64");
+    if (bytes.toString("base64") !== value) return false;
+    const pem = bytes.toString("utf8");
+    const match = pem.trim().match(
+      /^-----BEGIN PRIVATE KEY-----\s+([A-Za-z0-9+/=\s]+?)\s+-----END PRIVATE KEY-----$/,
+    );
+    return Boolean(
+      match &&
+        pem.length >= 100 &&
+        pem.length <= 10_000 &&
+        match[1].replace(/\s+/g, "").length >= 80,
+    );
+  } catch {
+    return false;
+  }
 }
 
 function parsePasswordPepperKeyring(value) {

@@ -13,6 +13,35 @@ export type AppleOAuthConfiguration = {
   privateKey: string;
 };
 
+export function applePrivateKeyFromBindings(value: {
+  APPLE_PRIVATE_KEY?: unknown;
+  APPLE_PRIVATE_KEY_BASE64?: unknown;
+}): string | undefined {
+  if (typeof value.APPLE_PRIVATE_KEY === "string") {
+    return value.APPLE_PRIVATE_KEY;
+  }
+  if (
+    typeof value.APPLE_PRIVATE_KEY_BASE64 !== "string" ||
+    value.APPLE_PRIVATE_KEY_BASE64.length < 100 ||
+    value.APPLE_PRIVATE_KEY_BASE64.length > 16_000 ||
+    !/^[A-Za-z0-9+/]+={0,2}$/.test(value.APPLE_PRIVATE_KEY_BASE64)
+  ) {
+    return undefined;
+  }
+  try {
+    const decoded = Uint8Array.from(
+      atob(value.APPLE_PRIVATE_KEY_BASE64),
+      (character) => character.charCodeAt(0),
+    );
+    const privateKey = new TextDecoder("utf-8", { fatal: true }).decode(decoded);
+    return privateKey.length >= 100 && privateKey.length <= 10_000
+      ? privateKey
+      : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
 export type AppleServiceResult<T> =
   | { ok: true; value: T }
   | { ok: false; reason: "invalid_grant" | "unavailable" };

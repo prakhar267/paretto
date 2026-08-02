@@ -7,8 +7,8 @@ import { getDatabase } from "@/db";
 
 export const dynamic = "force-dynamic";
 
-const SERVICE_VERSION = "1.5.3";
-const SCHEMA_REVISION = "0013";
+const SERVICE_VERSION = "1.5.4";
+const SCHEMA_REVISION = "0014";
 const QUEUE_STALE_AFTER_MS = 60 * 60 * 1000;
 const QUEUE_COUNT_REPORT_LIMIT = 1_000;
 
@@ -190,6 +190,7 @@ const REQUIRED_SCHEMA = {
     "id",
     "apple_subject_hash",
     "email",
+    "email_forwarding_enabled",
     "display_name",
     "created_at",
     "updated_at",
@@ -214,6 +215,15 @@ const REQUIRED_SCHEMA = {
     "account_id",
     "refresh_token_ciphertext",
     "updated_at",
+  ],
+  apple_account_notifications: [
+    "id",
+    "event_type",
+    "apple_subject_hash",
+    "event_time",
+    "status",
+    "received_at",
+    "processed_at",
   ],
   native_identity_token_uses: [
     "token_hash",
@@ -296,6 +306,8 @@ const REQUIRED_INDEXES = [
   "native_sessions_account_idx",
   "native_sessions_expiry_idx",
   "native_identity_token_uses_expiry_idx",
+  "apple_account_notifications_status_idx",
+  "apple_account_notifications_subject_idx",
   "learner_deletion_jobs_status_updated_idx",
   "retention_legal_holds_status_class_idx",
 ] as const;

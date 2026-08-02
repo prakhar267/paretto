@@ -22,7 +22,7 @@ describe("read-only deployment smoke", () => {
       status: "ok",
       service: "paretto-web",
       version: CURRENT_VERSION,
-      schemaRevision: "0013",
+      schemaRevision: "0014",
       launchMode: "public",
       workersPlan: "paid",
       productionReady: true,

@@ -10,7 +10,7 @@ new production deployment exists before those steps are actually completed.
 
 | Requirement | Status | Evidence |
 | --- | --- | --- |
-| One consistent release identity | **Implemented + automated evidence** | Web, health endpoint, XcodeGen, generated Xcode project, and App Store metadata agree on version 1.5.3, native build 15, bundle identifier `com.paretto.app`, and planned tag `v1.5.3`. `npm run version:verify` fails on drift. |
+| One consistent release identity | **Implemented + automated evidence** | Web, health endpoint, XcodeGen, generated Xcode project, and App Store metadata agree on version 1.5.4, native build 16, bundle identifier `com.paretto.app`, and planned tag `v1.5.4`. `npm run version:verify` fails on drift. |
 | App Store metadata package | **Implemented + automated evidence** | `ios/Paretto/AppStore` contains localized name, subtitle, description, promotional text, keywords, release notes, production URLs, review notes, privacy answers, age-rating answers, and an accessibility worksheet. `npm run appstore:verify` enforces Apple field limits and rejects placeholders. |
 | Store icon and screenshots | **Implemented + runtime evidence** | The opaque 1024×1024 icon is validated from the asset catalog. Four real runtime screenshots each for iPhone 6.9-inch and iPad 13-inch are generated at Apple-supported dimensions by `npm run appstore:screenshots`; mockups are not substituted. |
 
