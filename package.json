@@ -50,10 +50,10 @@
     "release:verify": "npm run typecheck && npm run lint && npm run audit:production && npm run audit:all && npm run secrets:verify && npm run licenses:verify && npm run version:verify && npm run appstore:verify && npm run db:verify && npm run cloudflare:templates:verify && npm test && npm run release:artifact"
   },
   "dependencies": {
-    "better-auth": "1.6.25",
+    "better-auth": "1.6.26",
     "drizzle-orm": "0.45.2",
-    "lucide-react": "^1.25.0",
-    "next": "16.2.11",
+    "lucide-react": "^1.29.0",
+    "next": "16.3.0",
     "react": "19.2.8",
     "react-dom": "19.2.8"
   },
