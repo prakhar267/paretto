@@ -50,12 +50,12 @@
     "release:verify": "npm run typecheck && npm run lint && npm run audit:production && npm run audit:all && npm run secrets:verify && npm run licenses:verify && npm run version:verify && npm run appstore:verify && npm run db:verify && npm run cloudflare:templates:verify && npm test && npm run release:artifact"
   },
   "dependencies": {
-    "better-auth": "1.6.25",
+    "better-auth": "1.7.4",
     "drizzle-orm": "0.45.2",
-    "lucide-react": "^1.25.0",
-    "next": "16.2.11",
-    "react": "19.2.8",
-    "react-dom": "19.2.8"
+    "lucide-react": "^1.44.0",
+    "next": "16.3.4",
+    "react": "19.3.0",
+    "react-dom": "19.3.0"
   },
   "devDependencies": {
     "@cloudflare/vite-plugin": "1.47.0",
@@ -66,8 +66,8 @@
     "@testing-library/react": "^16.3.2",
     "@testing-library/user-event": "^14.6.1",
     "@types/node": "22.19.19",
-    "@types/react": "19.2.14",
-    "@types/react-dom": "19.2.3",
+    "@types/react": "19.3.0",
+    "@types/react-dom": "19.3.0",
     "@vitejs/plugin-react": "6.0.2",
     "@vitejs/plugin-rsc": "0.5.26",
     "axe-core": "^4.11.4",
