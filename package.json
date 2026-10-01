@@ -58,7 +58,7 @@
     "react-dom": "19.2.8"
   },
   "devDependencies": {
-    "@cloudflare/vite-plugin": "1.47.0",
+    "@cloudflare/vite-plugin": "1.62.4",
     "@cloudflare/workers-types": "5.20260724.1",
     "@playwright/test": "1.61.1",
     "@tailwindcss/postcss": "4.2.1",
@@ -75,7 +75,7 @@
     "eslint": "9.39.4",
     "eslint-config-next": "16.2.6",
     "jsdom": "^27.0.1",
-    "miniflare": "4.20260722.0",
+    "miniflare": "5.20261001.0-alpha",
     "react-server-dom-webpack": "19.2.8",
     "tailwindcss": "4.2.1",
     "typescript": "5.9.3",
